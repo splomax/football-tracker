@@ -354,10 +354,11 @@ function drawArrows(now) {
     if (down) arrow(r.left + r.width / 2, r.top - 2 - jab, Math.PI / 2, .9);
     else arrow(away ? r.left - 4 - jab : r.right + 4 + jab, r.top + r.height / 2, away ? 0 : Math.PI);
   }
-  // Smaller ones in the game list at each on-screen leader's score: from its right, or from above on a phone.
+  // Smaller ones in the game list at each on-screen leader's score: from its right, or on a phone from its upper left,
+  // pointing down and to the right.
   for (const line of leaderRows()) {
     const r = line.querySelector(".pts").getBoundingClientRect(), jab = Math.abs(Math.sin(now / 150)) * 6;
-    if (down) arrow(r.left + r.width / 2, r.top - 1 - jab, Math.PI / 2, .45);
+    if (down) arrow(r.left - 1 - jab * .7, r.top + 2 - jab * .7, Math.PI / 4, .45);
     else arrow(r.right + 3 + jab, r.top + r.height / 2, Math.PI, .55);
   }
 }
