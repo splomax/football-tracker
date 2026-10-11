@@ -1,4 +1,4 @@
-/* MDS mode (js/mds.js): the canvas for arrows, missiles and explosions, the lead banner and the sound button. */
+/* The loud MDS (?mds, js/mds.js): the canvas for arrows, missiles and explosions, the lead banner and the sound button. */
 #mds-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 1000; pointer-events: none; }
 
 /* The leading team's name, in blue, as requested. */

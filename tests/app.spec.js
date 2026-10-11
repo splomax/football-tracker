@@ -549,7 +549,7 @@ test.describe("MDS", () => {
     await expect(page.locator("#mds-canvas")).toHaveCount(0);
   });
 
-  test("?mds, any case, turns on the loud version for the visit; with games live, no fake ones", async ({ page }) => {
+  test("?mds, any case, turns on the loud version for the visit; with a picked game live, no fake ones", async ({ page }) => {
     const errors = errorsOn(page);
     await open(page, { query: "?MDS", storage: { selected: ["cfb:1", "cfb:4"] } });
     await expect(page.locator("body")).toHaveClass(/mds/);
@@ -565,7 +565,12 @@ test.describe("MDS", () => {
     expect(errors).toEqual([]);
   });
 
-  test("?mds with nothing live brings three fake live games whose scores change, never saved as picks", async ({ page }) => {
+  test("?mds with no picked game live brings three fake live games whose scores change, never saved as picks", async ({ page }) => {
+    await open(page, { query: "?mds", storage: { selected: ["cfb:7"] } });  // games are live, but none of them picked
+    await expect(fake(page)).toHaveCount(3);
+  });
+
+  test("the fake games' scores change, and they're never saved as picks", async ({ page }) => {
     await page.clock.install({ time: new Date("2026-10-03T20:00:00Z") });
     const errors = errorsOn(page);
     const quiet = cfbGames().filter((e) => e.status.type.state !== "in");
