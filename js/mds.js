@@ -310,7 +310,18 @@ function shout() {
   setTimeout(shout, SHOUT_MS[0] + Math.random() * (SHOUT_MS[1] - SHOUT_MS[0]));
 }
 
+// Banners take turns: each starts as the one before is nearly gone (BANNER_MS in css/mds.css), so two overlap only for a
+// moment and every one can be read. One that would wait more than a few seconds is dropped.
+const BANNER_MS = 2200, BANNER_OVERLAP_MS = 300;
+let bannerFree = 0;
 function banner(text, top) {
+  const now = performance.now(), wait = Math.max(0, bannerFree - now);
+  if (wait > 4000) return;
+  bannerFree = now + wait + BANNER_MS - BANNER_OVERLAP_MS;
+  setTimeout(() => showBanner(text, top), wait);
+}
+
+function showBanner(text, top) {
   const el = document.createElement("div");
   el.className = "mds-banner";
   if (top) el.style.top = top;

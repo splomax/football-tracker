@@ -13,7 +13,7 @@
   position: fixed; left: 50%; top: 40%; z-index: 1001; pointer-events: none; width: max-content; max-width: 88vw; text-align: center;
   font: 900 clamp(28px, 7vw, 84px) Impact, "Arial Black", sans-serif; color: #ffdd00; letter-spacing: .02em;
   -webkit-text-stroke: 3px #000; text-shadow: 6px 6px 0 #ff1a1a;
-  animation: mds-banner 2.2s cubic-bezier(.2, 1.6, .4, 1) forwards;
+  animation: mds-banner 2.2s cubic-bezier(.2, 1.6, .4, 1) forwards;  /* BANNER_MS in js/mds.js */
 }
 @keyframes mds-banner {
   0% { transform: translate(-50%, -50%) scale(0) rotate(-20deg); opacity: 1; }
