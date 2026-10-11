@@ -1,13 +1,21 @@
 // MDS, the loud version, switched on by a ?mds link (js/settings.js): FOOTBALL IS HAPPENING scrolls up and down the
 // screen's edges; the leading team gets a huge red arrow and its name in blue; a lead change sets off explosions and a
 // banner; a tie gets a sad trombone; missiles hit the leaders' rows in the game list that are on screen; and an air horn
-// goes off at a random moment once a minute. It always brings three fake live games whose scores swing every few
+// goes off at a random moment once a minute; and every so often a banner shouts something like HOLY SHIT. It always brings three fake live games whose scores swing every few
 // seconds, alongside the visitor's own picks. Loaded only by that link. Sounds are synthesized, no audio files; browsers only allow sound after a
 // click, so a button asks for one.
 
 const DEMO_TICK_MS = 4000;
 const MISSILE_EVERY_MS = 1800;
 const MISSILE_FLIGHT_MS = 1100;
+// Shouted across the screen now and then, like a lead change's banner but about nothing.
+const SHOUTS = [
+  "HOLY SHIT", "NOW THAT'S WHAT I CALL FOOTBALL", "FOOTBALL!!!", "ARE YOU NOT ENTERTAINED", "THIS IS THE BIG ONE",
+  "SOMEBODY CALL AN AMBULANCE", "I CAN'T FEEL MY LEGS", "THE SCORE IS HAPPENING", "BALL DON'T LIE", "UNBELIEVABLE SCENES",
+  "MOM GET THE CAMERA", "SPORTS!", "WHAT A TIME TO BE ALIVE", "CALL THE COPS", "THAT'S A TOUCHDOWN (PROBABLY)",
+  "ALL GAS NO BRAKES", "THEY'RE PLAYING FOOTBALL", "LOOK AT THE NUMBERS",
+];
+const SHOUT_MS = [6000, 14000];  // the gap before the next one, at random between these
 const HORN_EVERY_MS = 60_000;  // once in every minute, at a random moment in it
 
 let app;  // { state, renderBoard, renderList, setExtraGames }
@@ -50,6 +58,7 @@ export function start(hooks) {
     missileTimer = setInterval(launchMissile, MISSILE_EVERY_MS);
   }, 3500);
   scheduleHorn(performance.now());
+  setTimeout(shout, 8000);  // the first after the opening sequence
   frameId = requestAnimationFrame(frame);
   checkLeads();
   startDemo();
@@ -92,9 +101,12 @@ const teamBox = (key, side) =>
   document.querySelector(`#board .card[data-key="${key}"] .team.${side}`)?.getBoundingClientRect();
 
 // The game list's lines for leading teams that are on screen right now (the row's first line is the away team): inside
-// the list's scrolling panel and the window, and not with the panel hidden or slid away.
+// the list's scrolling panel (the side panel on a computer, the slide-in drawer on a phone) and the window, and not with
+// the panel hidden or slid away.
 function leaderRows() {
-  const list = document.getElementById("list"), panel = list.closest("aside") ?? list;
+  const list = document.getElementById("list");
+  let panel = list;
+  while (panel.parentElement && !/auto|scroll/.test(getComputedStyle(panel).overflowY)) panel = panel.parentElement;
   const area = panel.getBoundingClientRect();
   if (!list.checkVisibility() || area.right <= 0 || area.left >= innerWidth) return [];
   const top = Math.max(area.top, 0), bottom = Math.min(area.bottom, innerHeight);
@@ -285,9 +297,17 @@ function sizeCanvas() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
-function banner(text) {
+// A random shout, then the next one a random while later.
+function shout() {
+  // Somewhere off the middle, so it doesn't land on a lead change's banner.
+  if (!document.hidden) banner(SHOUTS[Math.floor(Math.random() * SHOUTS.length)], `${[22, 62][Math.floor(Math.random() * 2)] + Math.random() * 10}%`);
+  setTimeout(shout, SHOUT_MS[0] + Math.random() * (SHOUT_MS[1] - SHOUT_MS[0]));
+}
+
+function banner(text, top) {
   const el = document.createElement("div");
   el.className = "mds-banner";
+  if (top) el.style.top = top;
   el.textContent = `💥 ${text} 💥`;
   document.body.append(el);
   el.addEventListener("animationend", () => el.remove());
@@ -306,7 +326,7 @@ function shake() {
 function soundButton() {
   soundBtn = document.createElement("button");
   soundBtn.className = "mds-sound";
-  soundBtn.textContent = "🔊 TAP FOR MAXIMUM HYPE";
+  soundBtn.textContent = "🔊 TAP HERE IF YOU'RE NOT A PUSSY";
   document.body.append(soundBtn);
   addEventListener("pointerdown", unlockElsewhere, true);
   // On the button itself, wait for the click: moving it on pointerdown would leave the pointer's release elsewhere.

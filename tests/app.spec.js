@@ -558,7 +558,7 @@ test.describe("MDS", () => {
     await expect(page.locator("body")).toHaveClass(/mds/);
     await expect(page.locator("#mds-canvas")).toBeAttached();
     await expect(page.locator(".mds-marquee")).toHaveCount(2);
-    await expect(page.locator(".mds-sound")).toHaveText(/MAXIMUM HYPE/);
+    await expect(page.locator(".mds-sound")).toHaveText(/TAP HERE IF YOU'RE NOT A PUSSY/);
     await expect(fake(page)).toHaveCount(3);
     await expect(card(page, "cfb:1")).toBeVisible();
     await expect(card(page, "cfb:1").locator(".team.away .abbr")).toHaveCSS("color", /rgb\((31, 107, 255|\d+, \d+, 255)\)/);

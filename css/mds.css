@@ -9,7 +9,7 @@
 .mds .pts.lead { color: #ff1a1a; }
 
 .mds-banner {
-  position: fixed; left: 50%; top: 40%; z-index: 1001; pointer-events: none; white-space: nowrap;
+  position: fixed; left: 50%; top: 40%; z-index: 1001; pointer-events: none; width: max-content; max-width: 88vw; text-align: center;
   font: 900 clamp(28px, 7vw, 84px) Impact, "Arial Black", sans-serif; color: #ffdd00; letter-spacing: .02em;
   -webkit-text-stroke: 3px #000; text-shadow: 6px 6px 0 #ff1a1a;
   animation: mds-banner 2.2s cubic-bezier(.2, 1.6, .4, 1) forwards;
@@ -25,6 +25,7 @@
   position: fixed; left: 50%; bottom: 24px; z-index: 1002; transform: translateX(-50%); padding: 14px 22px; border: 3px solid #000;
   border-radius: 10px; background: #ffdd00; color: #000; font: 900 20px Impact, "Arial Black", sans-serif; cursor: pointer;
   box-shadow: 5px 5px 0 #ff1a1a; animation: mds-throb .6s ease-in-out infinite alternate;
+  max-width: calc(100vw - 100px); text-align: center;  /* clear of the side scrollers on a phone */
 }
 @keyframes mds-throb { to { transform: translateX(-50%) scale(1.08) rotate(-2deg); } }
 .mds-sound.on { left: 16px; bottom: 16px; transform: none; padding: 6px 10px; font-size: 13px; box-shadow: 3px 3px 0 #ff1a1a; animation: none; }
