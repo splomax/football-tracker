@@ -21,6 +21,8 @@ let app;  // { state, renderBoard, renderList, setExtraGames, firstPoll } from j
 let startedAt;
 const pace = ([warmingUp, fullSpeed]) => (performance.now() - startedAt < WARM_UP_MS ? warmingUp : fullSpeed);
 let canvas, ctx, observer;
+// The screen's size, from the page rather than innerWidth/innerHeight, which Chrome's phone simulator can get wrong.
+const screenW = () => document.documentElement.clientWidth, screenH = () => document.documentElement.clientHeight;
 // False once stop() has run: every timer still pending checks it and does nothing.
 let running = false;
 const particles = [];  // fire, smoke and sparks from explosions and missile trails
@@ -39,7 +41,6 @@ export function start(hooks) {
   canvas.id = "mds-canvas";
   document.body.append(canvas);
   ctx = canvas.getContext("2d");
-  addEventListener("resize", sizeCanvas);
   sizeCanvas();
   // FOOTBALL IS HAPPENING, scrolling up the left edge and down the right (css/mds.css). Twice over, so the loop is seamless.
   const words = "🏈 FOOTBALL IS HAPPENING ".repeat(8);
@@ -67,7 +68,6 @@ export function start(hooks) {
 export function stop() {
   running = false;
   observer.disconnect();
-  removeEventListener("resize", sizeCanvas);
   document.body.classList.remove("mds");
   for (const el of document.querySelectorAll("#mds-canvas, .mds-marquee, .mds-banner, link[href$='/css/mds.css']")) el.remove();
   const keys = new Set(demo.map((g) => g.key));
@@ -120,8 +120,8 @@ function leaderRows() {
   let panel = list;
   while (panel.parentElement && !/auto|scroll/.test(getComputedStyle(panel).overflowY)) panel = panel.parentElement;
   const area = panel.getBoundingClientRect();
-  if (!list.checkVisibility() || area.right <= 0 || area.left >= innerWidth) return [];
-  const top = Math.max(area.top, 0), bottom = Math.min(area.bottom, innerHeight);
+  if (!list.checkVisibility() || area.right <= 0 || area.left >= screenW()) return [];
+  const top = Math.max(area.top, 0), bottom = Math.min(area.bottom, screenH());
   return [...list.querySelectorAll(".bug-team:has(.pts.lead)")].filter((el) => {
     const r = el.getBoundingClientRect();
     return r.height && r.top >= top && r.bottom <= bottom;
@@ -141,7 +141,7 @@ function pickTarget() {
   }
   const leads = [...document.querySelectorAll("#board .card .pts.lead")].filter((p) => {
     const r = p.getBoundingClientRect();
-    return r.bottom > 0 && r.top < innerHeight;
+    return r.bottom > 0 && r.top < screenH();
   });
   if (!leads.length) return null;
   const pts = pick(leads);
@@ -217,7 +217,7 @@ function scheduleMissile(first = false) {
   const gap = first ? 8000 : MISSILE_GAP_MS[0] + Math.random() * (MISSILE_GAP_MS[1] - MISSILE_GAP_MS[0]);
   setTimeout(() => {
     if (!running) return;
-    launchMissile({ x: innerWidth - EDGE - 10, y: innerHeight + 10 }, pickTarget());
+    launchMissile({ x: screenW() - EDGE - 10, y: screenH() + 10 }, pickTarget());
     scheduleMissile();
   }, gap);
 }
@@ -317,8 +317,8 @@ function fireworks() {
 // From the bottom edge, bursting somewhere in the top half of the window.
 function launchRocket() {
   if (!running) return;
-  const x = innerWidth * (.15 + Math.random() * .7), rise = innerHeight * (.5 + Math.random() * .3), life = 1.1;
-  particles.push({ x, y: innerHeight + 10, vx: (Math.random() - .5) * 80, vy: -(rise / life + 160 * life / 2), life, age: 0, kind: "rocket" });
+  const x = screenW() * (.15 + Math.random() * .7), rise = screenH() * (.5 + Math.random() * .3), life = 1.1;
+  particles.push({ x, y: screenH() + 10, vx: (Math.random() - .5) * 80, vy: -(rise / life + 160 * life / 2), life, age: 0, kind: "rocket" });
 }
 
 function burst(x, y) {
@@ -394,6 +394,7 @@ function frame(now) {
   // A frame's timestamp can be a touch earlier than the last time we looked; never step time backwards.
   const dt = Math.max(0, Math.min(.05, (now - last) / 1000));
   last = now;
+  sizeCanvas();
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawArrows(now);
   moveMissiles(now);
@@ -401,10 +402,13 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
+// The canvas's pixels match its box on screen, checked every frame: in Chrome's phone simulator innerHeight can start
+// out several times the screen's height with no resize to follow, which squashed everything drawn towards the top.
 function sizeCanvas() {
-  const dpr = devicePixelRatio || 1;
-  canvas.width = innerWidth * dpr;
-  canvas.height = innerHeight * dpr;
+  const dpr = devicePixelRatio || 1, w = Math.round(canvas.clientWidth * dpr), h = Math.round(canvas.clientHeight * dpr);
+  if (canvas.width === w && canvas.height === h) return;
+  canvas.width = w;
+  canvas.height = h;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
