@@ -1,7 +1,8 @@
 // Screenshots the loud version of MDS (?mds) a few times from the moment it loads, with no games live so its fake games
 // come in, to check the arrows, explosions, missiles, banners, fireworks and side scrollers by eye.
 //
-// Usage: start the local server (npm start), then run: node scripts/preview-mds.js [out-dir] [dark|light]
+// Usage: start the local server (npm start), then run: node scripts/preview-mds.js [out-dir] [dark|light] [phone]
+// With phone, it uses a 390x844 touch screen, where the game list drawer starts open.
 // Writes mds-1.png ... to out-dir (default ./previews/mds, git-ignored).
 
 const fs = require("fs");
@@ -11,12 +12,15 @@ const { chromium } = require("@playwright/test");
 const SITE = "http://localhost:4173";
 const OUT = path.resolve(process.argv[2] ?? "previews/mds");
 const THEME = process.argv[3] ?? "dark";
+const PHONE = process.argv[4] === "phone";
 
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
   const browser = await chromium.launch({ channel: "chrome" });
   try {
-    const page = await browser.newPage({ viewport: { width: 1300, height: 800 }, colorScheme: THEME });
+    const page = await browser.newPage(PHONE
+      ? { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, colorScheme: THEME }
+      : { viewport: { width: 1300, height: 800 }, colorScheme: THEME });
     page.on("pageerror", (e) => console.error("page error:", e.message));
     page.on("console", (m) => m.type() === "error" && console.error("console:", m.text()));
     await page.addInitScript(() => localStorage.setItem("selected", "[]"));
