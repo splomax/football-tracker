@@ -1,7 +1,7 @@
 // Entry point: wires the modules together and polls ESPN.
 
-import { LINKED_GAMES, LOADING, MDS, MOBILE_QUERY, POLL_MS } from "./config.js";
-import { state, allGames } from "./state.js";
+import { LINKED_GAMES, LOADING, MOBILE_QUERY, POLL_MS } from "./config.js";
+import { state, allGames, extraGames } from "./state.js";
 import { fetchGames } from "./espn.js";
 import { checkRecaps } from "./recap.js";
 import { renderList, listIsStale, initPicker } from "./picker.js";
@@ -13,7 +13,6 @@ import { countVisit } from "./counter.js";
 import { loadAdmin } from "./admin.js";
 import { initLogo } from "./logo.js";
 
-const joke = MDS ? await import("./mds.js") : null;  // ?MDS only
 let lastUpdated = null;  // when data last arrived successfully; a failed poll leaves the old time showing
 let linkPending = LINKED_GAMES.length > 0;  // a shared game link's card still needs its highlight once it first shows
 
@@ -25,7 +24,7 @@ async function poll() {
       // ESPN now and then answers with an empty week for a moment. Games don't vanish mid-week, so treat that as a
       // failed poll and keep what's showing rather than blanking the list and the board.
       if (!games.length && state.games[league].length) throw new Error("ESPN sent no games; keeping the last ones");
-      state.games[league] = joke ? [...games, ...joke.demoGames(league)] : games;
+      state.games[league] = [...games, ...extraGames(league)];
       lastUpdated = Date.now();
     } catch (err) {
       console.error(league, err);
@@ -62,8 +61,6 @@ initDrawer({ animateLayout: animateBoardLayout });
 initSettings();
 initLogo();
 initTheme({ onChange: () => { renderList(); renderBoard(); } });  // logos differ per theme
-
-joke?.start({ state, renderBoard, renderList }, MDS === "demo");
 
 // Poll now and every POLL_MS after. Background tabs get their timers slowed down by the browser, so coming
 // back to the tab fetches right away and restarts the timer from there.

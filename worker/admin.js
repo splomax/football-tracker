@@ -7,13 +7,15 @@
 //   with logos, ranks and records, network).
 // - "Save board as image" in the gear menu: the whole board as it looks right now.
 // - The visit counter's weekly, monthly and total counts atop the gear menu, fetched each time it opens.
+// - "MDS mode" and "MDS demo games" switches in the gear menu (js/mds.js), remembered in this browser.
 // - In the game list, a row of bulk buttons atop each section: Live, Upcoming and Final get "Select all" (every game
 //   the section shows) and "Remove all" (that state's picked games, which sit under Selected); Selected gets
 //   "Remove all" (every picked game in the current tab and filters).
 // Every image is in the current theme, gives kickoff times in Eastern time whatever the admin's own time zone, and
 // carries a small, muted Game Tracker logo in the bottom-right corner.
 
-let app;  // { renderBoard, renderList, listView, allGames, state, saveSelected, currentTheme, setTimeZone, visits } from js/admin.js
+let app;  // { renderBoard, renderList, listView, allGames, state, saveSelected, currentTheme, setTimeZone, visits, store, mds }
+          // from js/admin.js
 
 const IMAGE_ZONE = "America/New_York";  // the time zone of every kickoff time in an image
 
@@ -22,6 +24,7 @@ export function install(appApi) {
   app = appApi;
   addBoardShot();
   addVisits();
+  addMds();
   return {
     groupExtras,
     onListClick(e) {
@@ -120,6 +123,36 @@ function addVisits() {
   refresh();
   const gear = document.getElementById("settings");
   gear.addEventListener("click", () => { if (gear.getAttribute("aria-expanded") === "true") refresh(); });
+}
+
+// Gear menu switches for MDS mode and its demo games. Demo games need the mode, so each switch keeps the other in step.
+function addMds() {
+  const menu = document.getElementById("settings-menu");
+  if (!menu || document.getElementById("mds-mode")) return;
+  const toggle = (id, label) => {
+    const button = document.createElement("button");
+    button.id = id;
+    button.setAttribute("aria-pressed", "false");
+    button.innerHTML = `<span class="check">✓</span>${label}`;
+    menu.append(button);
+    return button;
+  };
+  const mode = toggle("mds-mode", "MDS mode"), demo = toggle("mds-demo", "MDS demo games");
+  let mds;
+  const set = async (modeOn, demoOn) => {
+    mode.setAttribute("aria-pressed", modeOn);
+    demo.setAttribute("aria-pressed", demoOn);
+    app.store.set("mds", modeOn);
+    app.store.set("mdsDemo", demoOn);
+    if (!modeOn && !mds) return;
+    mds ??= await app.mds();
+    if (modeOn) mds.start();
+    mds.setDemo(demoOn);
+    if (!modeOn) mds.stop();
+  };
+  mode.addEventListener("click", () => set(mode.getAttribute("aria-pressed") !== "true", false));
+  demo.addEventListener("click", () => { const on = demo.getAttribute("aria-pressed") !== "true"; set(on || app.store.get("mds", false), on); });
+  if (app.store.get("mds", false)) set(true, app.store.get("mdsDemo", false));
 }
 
 const W = 640, PAD = 24, ROW = 44, DAY_HEAD = 34, FOOT = 34, SCALE = 2;

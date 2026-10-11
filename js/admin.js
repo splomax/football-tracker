@@ -8,7 +8,7 @@
 
 import { ADMIN_PARAM, ADMIN_URL } from "./config.js";
 import { store } from "./store.js";
-import { allGames, state, saveSelected } from "./state.js";
+import { allGames, state, saveSelected, setExtraGames } from "./state.js";
 import { renderBoard, setAdmin } from "./board.js";
 import { listView, renderList, setPickerAdmin } from "./picker.js";
 import { currentTheme } from "./theme.js";
@@ -90,7 +90,11 @@ async function install(code) {
   const blob = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
   try {
     const { install } = await import(blob);
-    const hooks = install({ renderBoard, renderList, listView, allGames, state, saveSelected, currentTheme, setTimeZone, visits });
+    const mds = async () => {  // MDS mode (js/mds.js), loaded the first time the admin switches it on
+      const m = await import("./mds.js");
+      return { start: () => m.start({ state, renderBoard, renderList, setExtraGames }), stop: m.stop, setDemo: m.setDemo };
+    };
+    const hooks = install({ renderBoard, renderList, listView, allGames, state, saveSelected, currentTheme, setTimeZone, visits, store, mds });
     setAdmin(hooks);
     setPickerAdmin(hooks);
     return true;

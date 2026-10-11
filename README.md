@@ -11,8 +11,7 @@ Live: https://gametrackerlive.com/
 |---|---|
 | Run locally | `npm start`, then open http://localhost:4173. The app uses ES modules, which browsers won't load from `file://`, so open it through the server. That serves the files only; for the admin login too, run `npx wrangler dev --persist-to /tmp/wrangler-state` with the password in `.dev.vars` (`ADMIN_PASSWORD=...`, git-ignored). |
 | Game links | For the admin, each live card's share button opens the phone's share sheet, or copies the link with a mouse. The link is `?game=cfb:401234567` (the game's `league:eventId`; repeat it or comma-separate keys for several). Opening it adds the game to the viewer's own picks and flashes its card, then drops the parameter from the address bar. |
-| Admin | Open the site with `?admin` and enter the admin password. The Worker trades it for a login token that lasts 30 days; only the token is kept in the browser, never the password, and while it works `?admin` skips the password. The admin features only show with `?admin` in the address bar, and it stays there while they're on. Without it a logged-in browser looks like anyone else's, but its visits still aren't counted. `?admin=off` logs out, and changing the password (`npx wrangler secret put ADMIN_PASSWORD`) logs out every browser. The admin isn't counted by the visit counter and gets share buttons on live cards and **Save as image** beside each section heading. Live and Final save that section's cards as they look; Upcoming saves a list made for forums (grouped by day, kickoff times in Eastern time, logos, ranks, records and networks). In the game list, each section gets **Select all** and **Remove all**, and Selected gets **Remove all** for every pick in the current tab and filters. The gear menu also gets **Save board as image**, the whole board as it looks right now, and the visit counter's week, month and total counts at the top (read from hits.sh through the Worker at `/api/visits`, fresh each time the menu opens). Card buttons are left out, every image carries a small Game Tracker logo in the corner, and a phone opens the share sheet while a computer downloads the PNG. That code isn't in the public site: the site's Worker (`worker/`) hands it out only to a logged-in admin. |
-| Joke mode | Add `?MDS` (any case). The leading team's name turns blue with a huge red arrow bouncing over it; a lead change sets off explosions, an air horn and a banner, a tie gets a sad trombone, and missiles keep hitting the leaders' rows in the game list while it's open. Sound starts after the yellow button (or any click), since browsers won't play sound before one. `?MDS=demo` adds three fake live games whose scores swing every 4 seconds; they're never saved as picks. Only `?MDS` downloads its code (`js/mds.js`, `css/mds.css`). |
+| Admin | Open the site with `?admin` and enter the admin password. The Worker trades it for a login token that lasts 30 days; only the token is kept in the browser, never the password, and while it works `?admin` skips the password. The admin features only show with `?admin` in the address bar, and it stays there while they're on. Without it a logged-in browser looks like anyone else's, but its visits still aren't counted. `?admin=off` logs out, and changing the password (`npx wrangler secret put ADMIN_PASSWORD`) logs out every browser. The admin isn't counted by the visit counter and gets share buttons on live cards and **Save as image** beside each section heading. Live and Final save that section's cards as they look; Upcoming saves a list made for forums (grouped by day, kickoff times in Eastern time, logos, ranks, records and networks). In the game list, each section gets **Select all** and **Remove all**, and Selected gets **Remove all** for every pick in the current tab and filters. The gear menu also gets **Save board as image**, the whole board as it looks right now, and the visit counter's week, month and total counts at the top (read from hits.sh through the Worker at `/api/visits`, fresh each time the menu opens). Two more gear-menu switches, remembered in that browser: **MDS mode** turns the leading team's name blue under a huge bouncing red arrow, sets off explosions, an air horn and a banner when a lead changes, plays a sad trombone for a tie, and keeps firing missiles at the leaders' rows in the game list while it's open (sound starts after the yellow button or any click). **MDS demo games** shows it off with three fake live games whose scores swing every 4 seconds (never saved as picks); it switches MDS mode on too. Card buttons are left out, every image carries a small Game Tracker logo in the corner, and a phone opens the share sheet while a computer downloads the PNG. That code isn't in the public site: the site's Worker (`worker/`) hands it out only to a logged-in admin. |
 | Loading spinner | Add `?loading` to the URL. The page never fetches games, so both loading spinners stay up. It also skips the visit counter. |
 | Test | `npm install` once, then `npm test`. Playwright runs headless in your installed Google Chrome. `npm run test:worker` tests the Worker. |
 | Deploy | Push to `main`. CI (`.github/workflows/ci.yml`) runs the tests and, if they pass, deploys with `wrangler deploy`: one Cloudflare Worker (`wrangler.toml`) serves the repo's files (minus `.assetsignore`) on gametrackerlive.com, plus the admin API under `/api/`. There is no build step. CI needs the repo secret `CLOUDFLARE_API_TOKEN` (an "Edit Cloudflare Workers" token covering the domain); `npx wrangler deploy` also works by hand. |
@@ -34,10 +33,10 @@ css/
   board.css           board sections, game cards, field, last play, remove button
   corner.css          contact footer, settings gear, coach photo
   mobile.css          phone layout (≤700px): slide-in picker drawer, tighter cards
-  mds.css             joke mode's overlay, banner and sound button (loaded by js/mds.js)
+  mds.css             MDS mode's overlay, banner and sound button (loaded by js/mds.js)
 js/
   main.js             entry point: wires modules together and polls ESPN every 10s
-  config.js           API URLs, timings, ?admin (login), ADMIN_URL, ?loading, ?MDS, ?league and ?game parameters
+  config.js           API URLs, timings, ?admin (login), ADMIN_URL, ?loading, ?league and ?game parameters
   store.js            localStorage wrapper that never throws
   state.js            state shared by picker and board (games, picks, tab, filters, …)
   espn.js             fetches ESPN's scoreboard and normalizes each game
@@ -52,7 +51,7 @@ js/
   theme.js            light/dark theme and its header switch
   logo.js             the football beside the title, which spirals once when clicked
   counter.js          hidden visit counter
-  mds.js              joke mode (?MDS): arrows, explosions, missiles, synthesized air horn, ?MDS=demo games
+  mds.js              MDS mode (admin gear menu): arrows, explosions, missiles, synthesized air horn, demo games
 fonts/                Barlow Condensed Bold for the wordmark (self-hosted, SIL Open Font License in OFL.txt)
 images/               coach photos for "google me", favicon, link-preview image
 scripts/
@@ -63,7 +62,7 @@ scripts/
   check-old-address.js  checks that old GitHub Pages links forward to gametrackerlive.com with their query
   publish-pages-redirect.sh  publishes the gh-pages branch, which turns the old GitHub Pages address into that redirect
   preview-leader-styles.js  renders the board with each style considered for marking the leading team
-  preview-mds.js      screenshots joke mode's demo (?MDS=demo) as the fake scores change
+  preview-mds.js      screenshots MDS mode with its demo games as the fake scores change
   check-timeouts.js   compares ESPN's live timeout counts with the play log; why cards don't show timeouts
 wrangler.toml         the Cloudflare Worker that serves the site and its admin API, on gametrackerlive.com
 .assetsignore         repo files the site doesn't serve (the Worker's source, tests, tooling)

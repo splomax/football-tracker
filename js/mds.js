@@ -1,24 +1,28 @@
-// Joke mode, ?MDS: the leading team gets a bouncing red arrow, its name in blue, explosions and an air horn when a lead
-// changes, and missiles that hit the leaders' rows in the game list while it's open. A tie gets a sad trombone.
-// ?MDS=demo adds three fake live games whose scores swing every few seconds, to see and hear it when nothing's on.
-// Loaded only with ?MDS (js/main.js), so nobody else downloads it. Sounds are synthesized, no audio files; browsers
-// only allow sound after a click, so a button asks for one.
+// MDS mode, switched on from the admin's gear menu (worker/admin.js): the leading team gets a bouncing red arrow, its
+// name in blue, explosions and an air horn when a lead changes, and missiles that hit the leaders' rows in the game list
+// while it's open. A tie gets a sad trombone. Demo games (setDemo) are three fake live games whose scores swing every few
+// seconds, to see and hear it when nothing's on. Loaded only when switched on. Sounds are synthesized, no audio files;
+// browsers only allow sound after a click, so a button asks for one.
 
 const DEMO_TICK_MS = 4000;
 const MISSILE_EVERY_MS = 1800;
 const MISSILE_FLIGHT_MS = 1100;
 
-let app;  // { state, renderBoard, renderList }
-let canvas, ctx;
+let app;  // { state, renderBoard, renderList, setExtraGames }
+let canvas, ctx, soundBtn, styles, observer, missileTimer, demoTimer, frameId;
 const particles = [];  // fire, smoke and sparks from explosions and missile trails
 const missiles = [];
 const leaders = new Map();  // game key -> "away" | "home" | "" (tied), as last drawn
 let audio, master, muted = false;
 
-export function start(hooks, demo) {
+export function start(hooks) {
+  if (canvas) return;
   app = hooks;
   document.body.classList.add("mds");
-  document.head.insertAdjacentHTML("beforeend", `<link rel="stylesheet" href="css/mds.css">`);
+  styles = document.createElement("link");
+  styles.rel = "stylesheet";
+  styles.href = new URL("/css/mds.css", location.href).href;
+  document.head.append(styles);
   canvas = document.createElement("canvas");
   canvas.id = "mds-canvas";
   document.body.append(canvas);
@@ -26,10 +30,29 @@ export function start(hooks, demo) {
   addEventListener("resize", sizeCanvas);
   sizeCanvas();
   soundButton();
-  new MutationObserver(checkLeads).observe(document.getElementById("board"), { childList: true });
-  setInterval(launchMissile, MISSILE_EVERY_MS);
-  if (demo) startDemo();
-  requestAnimationFrame(frame);
+  observer = new MutationObserver(checkLeads);
+  observer.observe(document.getElementById("board"), { childList: true });
+  missileTimer = setInterval(launchMissile, MISSILE_EVERY_MS);
+  frameId = requestAnimationFrame(frame);
+  checkLeads();
+}
+
+export function stop() {
+  if (!canvas) return;
+  setDemo(false);
+  document.body.classList.remove("mds");
+  for (const el of [styles, canvas, soundBtn, ...document.querySelectorAll(".mds-banner")]) el.remove();
+  canvas = ctx = null;
+  removeEventListener("resize", sizeCanvas);
+  removeEventListener("pointerdown", unlockElsewhere, true);
+  observer.disconnect();
+  clearInterval(missileTimer);
+  cancelAnimationFrame(frameId);
+  particles.length = missiles.length = 0;
+  leaders.clear();
+  audio?.close();
+  audio = master = null;
+  muted = false;
 }
 
 // --- Leads --------------------------------------------------------------------------------------------------------
@@ -37,6 +60,7 @@ export function start(hooks, demo) {
 // After every board render: the side whose score is underlined (.pts.lead, js/board.js) leads. A new leader gets the
 // full treatment; a game that just got tied gets the trombone. The first look at a game only blows things up.
 function checkLeads() {
+  if (!canvas) return;
   let horn = false, trombone = false;
   for (const c of document.querySelectorAll("#board .card[data-key]")) {
     const side = c.querySelector(".team.away .pts.lead") ? "away" : c.querySelector(".team.home .pts.lead") ? "home" : "";
@@ -54,6 +78,7 @@ function checkLeads() {
 }
 
 function celebrate(key, side, name, isChange) {
+  if (!canvas) return;
   const box = teamBox(key, side);
   if (!box) return;
   const x = box.left + box.width / 2, y = box.top + box.height / 2;
@@ -82,7 +107,7 @@ function leaderRows() {
 
 function launchMissile() {
   const rows = leaderRows();
-  if (!rows.length || document.hidden) return;
+  if (!rows.length || document.hidden || !canvas) return;
   const row = rows[Math.floor(Math.random() * rows.length)];
   const key = row.closest("label.game").querySelector("input").dataset.key;
   const line = [...row.parentElement.children].indexOf(row);
@@ -244,7 +269,7 @@ function frame(now) {
   drawArrows(now);
   moveMissiles(now);
   drawParticles(dt);
-  requestAnimationFrame(frame);
+  frameId = requestAnimationFrame(frame);
 }
 
 function sizeCanvas() {
@@ -273,32 +298,36 @@ function shake() {
 
 // Browsers keep sound off until the page is clicked, so a big button asks for it; any click on the page also works.
 function soundButton() {
-  const button = document.createElement("button");
-  button.className = "mds-sound";
-  button.textContent = "🔊 TAP FOR MAXIMUM HYPE";
-  document.body.append(button);
-  const turnOn = () => {
-    if (!audio) {
-      audio = new AudioContext();
-      const squash = audio.createDynamicsCompressor();  // loud without clipping
-      master = audio.createGain();
-      master.gain.value = .9;
-      master.connect(squash).connect(audio.destination);
-    }
-    removeEventListener("pointerdown", elsewhere, true);
-    button.textContent = "🔇 Mute";
-    button.classList.add("on");  // shrinks into the corner
-    return audio.resume();
-  };
-  const elsewhere = (e) => { if (e.target !== button) turnOn(); };
-  addEventListener("pointerdown", elsewhere, true);
+  soundBtn = document.createElement("button");
+  soundBtn.className = "mds-sound";
+  soundBtn.textContent = "🔊 TAP FOR MAXIMUM HYPE";
+  document.body.append(soundBtn);
+  addEventListener("pointerdown", unlockElsewhere, true);
   // On the button itself, wait for the click: moving it on pointerdown would leave the pointer's release elsewhere.
-  button.addEventListener("click", () => {
-    if (!button.classList.contains("on")) { turnOn().then(airHorn); return; }
+  soundBtn.addEventListener("click", () => {
+    if (!soundBtn.classList.contains("on")) { turnSoundOn().then(airHorn); return; }
     muted = !muted;
     master.gain.value = muted ? 0 : .9;
-    button.textContent = muted ? "🔊 Unmute" : "🔇 Mute";
+    soundBtn.textContent = muted ? "🔊 Unmute" : "🔇 Mute";
   });
+}
+
+function unlockElsewhere(e) {
+  if (e.target !== soundBtn) turnSoundOn();
+}
+
+function turnSoundOn() {
+  if (!audio) {
+    audio = new AudioContext();
+    const squash = audio.createDynamicsCompressor();  // loud without clipping
+    master = audio.createGain();
+    master.gain.value = .9;
+    master.connect(squash).connect(audio.destination);
+  }
+  removeEventListener("pointerdown", unlockElsewhere, true);
+  soundBtn.textContent = "🔇 Mute";
+  soundBtn.classList.add("on");  // shrinks into the corner
+  return audio.resume();
 }
 
 const ready = () => audio && audio.state === "running" && !muted;
@@ -421,31 +450,40 @@ const PLAYS = [
   [2, "SAFETY! {t} gets two points the hard way."],
 ];
 
-let demoOn = false;
-export function demoGames(league) {
-  return demoOn && league === "cfb" ? demo : [];
+/** Adds or removes the demo games, picked (but never saved: js/state.js saveSelected) so they show on the board. */
+export function setDemo(on) {
+  if (on === !!demoTimer || (on && !app)) return;
+  clearInterval(demoTimer);
+  demoTimer = null;
+  const keys = new Set(demo.map((g) => g.key));
+  app.state.games.cfb = app.state.games.cfb.filter((g) => !keys.has(g.key));
+  if (on) {
+    // Into the list right away, so the demo works even while ESPN can't be reached; each poll adds them again.
+    app.state.games.cfb.push(...demo);
+    keys.forEach((k) => app.state.selected.add(k));
+    syncDemo();
+    demoTimer = setInterval(demoPlay, DEMO_TICK_MS);
+  } else {
+    keys.forEach((k) => app.state.selected.delete(k));
+  }
+  app.setExtraGames((league) => (demoTimer && league === "cfb" ? demo : []));
+  app.renderList();
+  app.renderBoard();
 }
 
-function startDemo() {
-  demoOn = true;
-  // In the list right away, so the demo works even while ESPN can't be reached; each poll appends them again.
-  app.state.games.cfb.push(...demo);
-  for (const g of demo) app.state.selected.add(g.key);  // shown, but never saved (js/state.js saveSelected)
+function demoPlay() {
+  const g = demo[Math.floor(Math.random() * demo.length)];
+  // The trailing team scores more often, so leads keep changing.
+  const away = +g.away.score, home = +g.home.score;
+  const trailer = away < home ? g.away : home < away ? g.home : null;
+  const scorer = trailer && Math.random() < .75 ? trailer : Math.random() < .5 ? g.away : g.home;
+  const [pts, text] = PLAYS[Math.floor(Math.random() * PLAYS.length)];
+  scorer.score = String(+scorer.score + pts);
+  g.lastPlay = text.replace("{t}", scorer.name);
+  for (const d of demo) d.secs = Math.max(1, d.secs - 37);
   syncDemo();
-  setInterval(() => {
-    const g = demo[Math.floor(Math.random() * demo.length)];
-    // The trailing team scores more often, so leads keep changing.
-    const away = +g.away.score, home = +g.home.score;
-    const trailer = away < home ? g.away : home < away ? g.home : null;
-    const scorer = trailer && Math.random() < .75 ? trailer : Math.random() < .5 ? g.away : g.home;
-    const [pts, text] = PLAYS[Math.floor(Math.random() * PLAYS.length)];
-    scorer.score = String(+scorer.score + pts);
-    g.lastPlay = text.replace("{t}", scorer.name);
-    for (const d of demo) d.secs = Math.max(1, d.secs - 37);
-    syncDemo();
-    app.renderList();
-    app.renderBoard();
-  }, DEMO_TICK_MS);
+  app.renderList();
+  app.renderBoard();
 }
 
 // Clock, ball and down text that look about right.

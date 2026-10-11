@@ -42,7 +42,13 @@ function loadFilters() {
 }
 
 export function saveSelected() {
-  store.set("selected", [...state.selected].filter((k) => !k.includes(":mds-")));  // ?MDS=demo's fake games
+  store.set("selected", [...state.selected].filter((k) => !k.includes(":mds-")));  // MDS mode's demo games
 }
 
 export const allGames = () => [...state.games.cfb, ...state.games.nfl];
+
+// Games added to each poll's list, like MDS mode's demo games (js/mds.js): (league) => games.
+export let extraGames = () => [];
+export function setExtraGames(fn) {
+  extraGames = fn;
+}
