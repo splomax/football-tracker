@@ -1,7 +1,8 @@
 // MDS, the loud version, switched on by a ?mds link (js/settings.js): FOOTBALL IS HAPPENING scrolls up and down the
 // screen's edges; the leading team gets a huge red arrow and its name in blue; a lead change sets off explosions and a
 // banner; a tie gets a sad trombone; missiles hit the leaders' rows in the game list that are on screen; and an air horn
-// goes off at a random moment once a minute; and every so often a banner shouts something like HOLY SHIT. It always brings three fake live games whose scores swing every few
+// goes off at a random moment once a minute; every so often a banner shouts something like HOLY SHIT; fireworks go up
+// about every 20 seconds; and now and then a big arrow spins all the way round. It always brings three fake live games whose scores swing every few
 // seconds, alongside the visitor's own picks. Loaded only by that link. Sounds are synthesized, no audio files; browsers only allow sound after a
 // click, so a button asks for one.
 
@@ -23,6 +24,7 @@ const HORN_EVERY_MS = 60_000;  // once in every minute, at a random moment in it
 let app;  // { state, renderBoard, renderList, setExtraGames }
 let startedAt;
 const pace = ([warmingUp, fullSpeed]) => (performance.now() - startedAt < WARM_UP_MS ? warmingUp : fullSpeed);
+let fireworkTimer;
 let canvas, ctx, soundBtn, styles, marquees, observer, missileTimer, hornTimer, frameId;
 const particles = [];  // fire, smoke and sparks from explosions and missile trails
 const missiles = [];
@@ -65,6 +67,7 @@ export function start(hooks) {
   missileTimer = setTimeout(fire, 8000);
   scheduleHorn(performance.now());
   setTimeout(shout, 18_000);
+  fireworkTimer = setTimeout(fireworks, 8000);
   frameId = requestAnimationFrame(frame);
   checkLeads();
   startDemo();
@@ -206,13 +209,33 @@ function drawParticles(dt) {
     const p = particles[i];
     p.age += dt;
     const k = p.age / p.life;
-    if (k >= 1) { particles.splice(i, 1); continue; }
-    if (p.vx != null) {
+    if (k >= 1) {
+      particles.splice(i, 1);
+      if (p.kind === "rocket") burst(p.x, p.y);
+      continue;
+    }
+    if (p.kind === "rocket" || p.kind === "star") {  // no air drag to speak of, gentler gravity for the stars
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.vy += (p.kind === "star" ? 70 : 160) * dt;
+      p.vx *= .99;
+    } else if (p.vx != null) {
       p.x += p.vx * dt; p.y += p.vy * dt;
       p.vx *= .96; p.vy = p.vy * .96 + (p.kind === "smoke" ? -20 : 260) * dt;
     }
     ctx.globalAlpha = 1 - k;
-    if (p.kind === "fire") {
+    if (p.kind === "rocket") {
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "#fff6c0";
+      circle(p.x, p.y, 2.5);
+      particles.push({ x: p.x, y: p.y, vx: (Math.random() - .5) * 20, vy: 30, life: .5, age: 0, kind: "spark" });
+    } else if (p.kind === "star") {
+      ctx.globalAlpha = k > .7 && Math.random() < .5 ? 0 : 1 - k * k;  // twinkles out
+      ctx.fillStyle = p.color;
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = 8;
+      circle(p.x, p.y, p.size);
+      ctx.shadowBlur = 0;
+    } else if (p.kind === "fire") {
       ctx.fillStyle = k < .3 ? "#fff3b0" : k < .6 ? "#ff9d00" : "#e0301e";
       circle(p.x, p.y, p.size * (1 - k * .5));
     } else if (p.kind === "spark") {
@@ -239,6 +262,40 @@ function drawParticles(dt) {
   ctx.globalAlpha = 1;
 }
 
+// --- Fireworks ---------------------------------------------------------------------------------------------------
+
+// The first at 8 seconds, then one about every 20; now and then two or three go up together.
+const FIREWORK_MS = [16_000, 24_000];
+const FIREWORK_COLORS = ["#ff3b3b", "#ffd23f", "#3bff6f", "#3bc8ff", "#c63bff", "#ff8a3b", "#ffffff"];
+
+function fireworks() {
+  if (!document.hidden) {
+    const count = Math.random() < .3 ? 2 + Math.floor(Math.random() * 2) : 1;
+    for (let i = 0; i < count; i++) setTimeout(launchRocket, i * (150 + Math.random() * 350));
+  }
+  fireworkTimer = setTimeout(fireworks, FIREWORK_MS[0] + Math.random() * (FIREWORK_MS[1] - FIREWORK_MS[0]));
+}
+
+// From the bottom edge, bursting somewhere in the top half of the window.
+function launchRocket() {
+  const x = innerWidth * (.15 + Math.random() * .7), rise = innerHeight * (.5 + Math.random() * .3), life = 1.1;
+  particles.push({ x, y: innerHeight + 10, vx: (Math.random() - .5) * 80, vy: -(rise / life + 160 * life / 2), life, age: 0, kind: "rocket" });
+  rocketWhoosh(life);
+}
+
+function burst(x, y) {
+  const color = () => FIREWORK_COLORS[Math.floor(Math.random() * FIREWORK_COLORS.length)];
+  const main = color(), second = color();
+  for (let i = 0; i < 110; i++) {
+    const a = (i / 110) * Math.PI * 2 + Math.random() * .05, v = 150 + Math.random() * 170;
+    particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1.4 + Math.random() * .8, age: 0,
+      size: 2 + Math.random() * 1.5, kind: "star", color: Math.random() < .75 ? main : second });
+  }
+  particles.push({ x, y, life: .35, age: 0, size: 120, kind: "ring" });
+  boomSound(.55);
+  crackle(.5);
+}
+
 function circle(x, y, r) {
   ctx.beginPath(); ctx.arc(x, y, Math.max(0, r), 0, Math.PI * 2); ctx.fill();
 }
@@ -248,13 +305,26 @@ function circle(x, y, r) {
 // A huge red arrow beside every leading team on the board, coming in from the card's outer edge and jabbing at the team's
 // logo (the away team is on the left, so its arrow points right). Drawn over everything, the game list included; only a
 // team scrolled out of the board's view goes without.
+// Every so often (about every 8 seconds each) a big arrow does a full turn, to really hammer it home.
+const SPIN_MS = 700;
+const spins = new Map();  // card key + side -> when its turn started
+
+function spinAngle(id, now) {
+  if (!spins.has(id) && Math.random() < .002) spins.set(id, now);
+  const t = (now - (spins.get(id) ?? now)) / SPIN_MS;
+  if (t >= 1) spins.delete(id);
+  if (!spins.has(id) || t <= 0) return 0;
+  return Math.PI * 2 * (t < .5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);  // ease in and out
+}
+
 function drawArrows(now) {
   const board = document.getElementById("board").getBoundingClientRect();
   for (const pts of document.querySelectorAll("#board .card .pts.lead")) {
     const team = pts.closest(".team"), r = (team.querySelector("img") ?? team).getBoundingClientRect();
     if (r.bottom < board.top || r.top > board.bottom) continue;
     const jab = Math.abs(Math.sin(now / 180)) * 18, away = team.classList.contains("away");
-    arrow(away ? r.left - 4 - jab : r.right + 4 + jab, r.top + r.height / 2, away ? 1 : -1);
+    const spin = spinAngle(`${pts.closest(".card").dataset.key} ${away}`, now);
+    arrow(away ? r.left - 4 - jab : r.right + 4 + jab, r.top + r.height / 2, away ? 1 : -1, 1.6, spin);
   }
   // Smaller ones in the game list, over the status column, jabbing left at each on-screen leader's score.
   for (const line of leaderRows()) {
@@ -264,10 +334,12 @@ function drawArrows(now) {
 }
 
 // Its tip at (x, y), pointing right (dir 1) or left (dir -1).
-function arrow(x, y, dir, size = 1.6) {
+// spin turns it about its middle.
+function arrow(x, y, dir, size = 1.6, spin = 0) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(-dir * Math.PI / 2);  // drawn pointing down
+  if (spin) { ctx.translate(0, -27 * size); ctx.rotate(spin); ctx.translate(0, 27 * size); }
   ctx.scale(size, size);
   ctx.beginPath();
   ctx.moveTo(0, 0); ctx.lineTo(-22, -24); ctx.lineTo(-9, -24); ctx.lineTo(-9, -54);
@@ -458,6 +530,39 @@ function boomSound(scale) {
   thump.connect(tg).connect(master);
   thump.start(t0);
   thump.stop(t0 + .6);
+}
+
+// A firework going up: a rising hiss.
+function rocketWhoosh(len) {
+  if (!ready()) return;
+  const t0 = audio.currentTime;
+  const noise = audio.createBufferSource();
+  noise.buffer = audio.createBuffer(1, audio.sampleRate * len, audio.sampleRate);
+  noise.buffer.getChannelData(0).forEach((_, i, d) => { d[i] = Math.random() * 2 - 1; });
+  const bp = audio.createBiquadFilter(), g = audio.createGain();
+  bp.type = "bandpass";
+  bp.Q.value = 4;
+  bp.frequency.setValueAtTime(600, t0);
+  bp.frequency.exponentialRampToValueAtTime(3500, t0 + len);
+  g.gain.setValueAtTime(0, t0);
+  g.gain.linearRampToValueAtTime(.25, t0 + len * .7);
+  g.gain.linearRampToValueAtTime(0, t0 + len);
+  noise.connect(bp).connect(g).connect(master);
+  noise.start(t0);
+}
+
+// The crackle after a burst: a scatter of tiny clicks over a second or so.
+function crackle(start) {
+  if (!ready()) return;
+  for (let i = 0; i < 40; i++) {
+    const t = audio.currentTime + start + Math.random() * 1.2, click = audio.createBufferSource();
+    click.buffer = audio.createBuffer(1, 400, audio.sampleRate);
+    click.buffer.getChannelData(0).forEach((_, j, d) => { d[j] = (Math.random() * 2 - 1) * (1 - j / 400); });
+    const g = audio.createGain();
+    g.gain.value = .15 + Math.random() * .2;
+    click.connect(g).connect(master);
+    click.start(t);
+  }
 }
 
 // The falling whistle of an incoming missile.
