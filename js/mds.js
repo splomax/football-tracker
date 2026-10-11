@@ -1,5 +1,5 @@
-// MDS mode, switched on from the gear menu (js/settings.js): the leading team gets a bouncing red arrow, its name in
-// blue, explosions and a banner when a lead changes, an air horn every few seconds while anyone leads, and missiles that
+// MDS mode, switched on from the gear menu (js/settings.js): FOOTBALL IS HAPPENING scrolls up and down the screen's
+// edges, the leading team gets a huge red arrow, its name in blue, explosions and a banner when a lead changes, an air horn every few seconds while anyone leads, and missiles that
 // hit the leaders' rows in the game list that are on screen. A tie gets a sad trombone. Demo games (setDemo) are three fake live games whose scores swing every few
 // seconds, to see and hear it when nothing's on. Loaded only when switched on. Sounds are synthesized, no audio files;
 // browsers only allow sound after a click, so a button asks for one.
@@ -10,7 +10,7 @@ const MISSILE_FLIGHT_MS = 1100;
 const HORN_EVERY_MS = 3500;  // the air horn keeps going while anyone leads
 
 let app;  // { state, renderBoard, renderList, setExtraGames }
-let canvas, ctx, soundBtn, styles, observer, missileTimer, hornTimer, demoTimer, frameId;
+let canvas, ctx, soundBtn, styles, marquees, observer, missileTimer, hornTimer, demoTimer, frameId;
 const particles = [];  // fire, smoke and sparks from explosions and missile trails
 const missiles = [];
 const leaders = new Map();  // game key -> "away" | "home" | "" (tied), as last drawn
@@ -31,6 +31,15 @@ export function start(hooks) {
   addEventListener("resize", sizeCanvas);
   sizeCanvas();
   soundButton();
+  // FOOTBALL IS HAPPENING, scrolling up the left edge and down the right (css/mds.css). Twice over, so the loop is seamless.
+  const words = "🏈 FOOTBALL IS HAPPENING ".repeat(8);
+  marquees = ["left", "right"].map((side) => {
+    const el = document.createElement("div");
+    el.className = `mds-marquee ${side}`;
+    el.innerHTML = `<div>${words}${words}</div>`;
+    document.body.append(el);
+    return el;
+  });
   observer = new MutationObserver(checkLeads);
   observer.observe(document.getElementById("board"), { childList: true });
   missileTimer = setInterval(launchMissile, MISSILE_EVERY_MS);
@@ -43,7 +52,7 @@ export function stop() {
   if (!canvas) return;
   setDemo(false);
   document.body.classList.remove("mds");
-  for (const el of [styles, canvas, soundBtn, ...document.querySelectorAll(".mds-banner")]) el.remove();
+  for (const el of [styles, canvas, soundBtn, ...marquees, ...document.querySelectorAll(".mds-banner")]) el.remove();
   canvas = ctx = null;
   removeEventListener("resize", sizeCanvas);
   removeEventListener("pointerdown", unlockElsewhere, true);
