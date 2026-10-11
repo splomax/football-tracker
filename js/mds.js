@@ -5,8 +5,10 @@
 // seconds, alongside the visitor's own picks. Loaded only by that link. Sounds are synthesized, no audio files; browsers only allow sound after a
 // click, so a button asks for one.
 
-const DEMO_TICK_MS = 4000;
-const MISSILE_EVERY_MS = 1800;
+// It starts calm and builds: for the first WARM_UP_MS, missiles and fake scores come at the slower pace.
+const WARM_UP_MS = 30_000;
+const DEMO_TICK_MS = [7000, 4000];        // [warming up, full speed]
+const MISSILE_EVERY_MS = [4500, 1800];
 const MISSILE_FLIGHT_MS = 1100;
 // Shouted across the screen now and then, like a lead change's banner but about nothing.
 const SHOUTS = [
@@ -19,6 +21,8 @@ const SHOUT_MS = [6000, 14000];  // the gap before the next one, at random betwe
 const HORN_EVERY_MS = 60_000;  // once in every minute, at a random moment in it
 
 let app;  // { state, renderBoard, renderList, setExtraGames }
+let startedAt;
+const pace = ([warmingUp, fullSpeed]) => (performance.now() - startedAt < WARM_UP_MS ? warmingUp : fullSpeed);
 let canvas, ctx, soundBtn, styles, marquees, observer, missileTimer, hornTimer, frameId;
 const particles = [];  // fire, smoke and sparks from explosions and missile trails
 const missiles = [];
@@ -51,14 +55,16 @@ export function start(hooks) {
   });
   observer = new MutationObserver(checkLeads);
   observer.observe(document.getElementById("board"), { childList: true });
-  // At first, one thing at a time: each leader blows up in turn (checkLeads), then the first missile, then the first
-  // lead change (startDemo); after that the timers take over.
-  setTimeout(() => {
+  // The opening, one thing at a time: a small pop on each leader in turn (checkLeads), the first missile at 8s, the
+  // first fake score at 10s (startDemo), the first shout at 18s.
+  startedAt = performance.now();
+  const fire = () => {
     launchMissile();
-    missileTimer = setInterval(launchMissile, MISSILE_EVERY_MS);
-  }, 3500);
+    missileTimer = setTimeout(fire, pace(MISSILE_EVERY_MS));
+  };
+  missileTimer = setTimeout(fire, 8000);
   scheduleHorn(performance.now());
-  setTimeout(shout, 8000);  // the first after the opening sequence
+  setTimeout(shout, 18_000);
   frameId = requestAnimationFrame(frame);
   checkLeads();
   startDemo();
@@ -67,8 +73,7 @@ export function start(hooks) {
 // --- Leads --------------------------------------------------------------------------------------------------------
 
 // After every board render: the side whose score is underlined (.pts.lead, js/board.js) leads. A new leader gets the
-// full treatment; a game that just got tied gets the trombone. The first look at a game blows it up just as hard,
-// minus the banner.
+// full treatment; a game that just got tied gets the trombone. The first look at a game gets a small pop.
 function checkLeads() {
   if (!canvas) return;
   let trombone = false, firstLooks = 0;
@@ -79,19 +84,20 @@ function checkLeads() {
     if (side === before) continue;
     if (side) {
       const name = c.querySelector(`.team.${side} .abbr`)?.textContent ?? "";
-      // Lead changes go off together; first looks one every 1.2 seconds.
-      const delay = before === undefined ? firstLooks++ * 1200 : Math.random() * 300;
-      setTimeout(() => celebrate(c.dataset.key, side, name, before !== undefined), delay);
+      // Lead changes go off together, full size; first looks get a small pop each, two seconds apart.
+      const first = before === undefined;
+      setTimeout(() => celebrate(c.dataset.key, side, name, !first, first), first ? firstLooks++ * 2000 : Math.random() * 300);
     } else if (before) trombone = true;
   }
   if (trombone) sadTrombone();
 }
 
-function celebrate(key, side, name, isChange) {
+function celebrate(key, side, name, isChange, small = false) {
   if (!canvas) return;
   const box = teamBox(key, side);
   if (!box) return;
   const x = box.left + box.width / 2, y = box.top + box.height / 2;
+  if (small) return explode(x, y, .8);
   for (let i = 0; i < 4; i++) setTimeout(() => explode(x + (Math.random() - .5) * 120, y + (Math.random() - .5) * 50, 1.4), i * 180);
   shake();
   if (isChange) banner(`${name} TAKES THE LEAD`);
@@ -512,10 +518,11 @@ function startDemo() {
   demo.forEach((g) => app.state.selected.add(g.key));
   app.setExtraGames((league) => (league === "cfb" ? demo : []));
   syncDemo();
-  setTimeout(() => {  // the first lead change once the opening explosions and missile are done
+  const plays = () => {
     demoPlay();
-    setInterval(demoPlay, DEMO_TICK_MS);
-  }, 5500);
+    setTimeout(plays, pace(DEMO_TICK_MS));
+  };
+  setTimeout(plays, 10_000);
   app.renderList();
   app.renderBoard();
 }
