@@ -1,8 +1,9 @@
 // MDS, the loud version, switched on by a ?mds link (js/settings.js): FOOTBALL IS HAPPENING scrolls up and down the
 // screen's edges; the leading team gets a huge red arrow and its name in blue; a lead change sets off explosions and a
-// banner; every so often a little soldier pops up in the corner, fires a missile at a leader and winks; banners shout
-// things like HOLY SHIT every so often; and fireworks go up about every 20 seconds. It always brings three fake live
-// games whose scores swing every few seconds, alongside the visitor's own picks. Loaded only by that link. No sound.
+// banner; every so often a missile flies in from the lower right corner at a leader; banners shout things like HOLY
+// SHIT every so often; and fireworks go up about every half minute. It always brings three fake live games whose scores
+// swing every few seconds, alongside the visitor's own picks. Loaded only by that link; switching MDS off in the gear
+// menu stops it (stop()) until the next ?mds visit. No sound.
 
 // It starts calm and builds: for the first WARM_UP_MS, fake scores come at the slower pace.
 const WARM_UP_MS = 30_000;
@@ -19,17 +20,18 @@ const SHOUT_MS = [6000, 14000];  // the gap before the next one, at random betwe
 let app;  // { state, renderBoard, renderList, setExtraGames, firstPoll } from js/main.js
 let startedAt;
 const pace = ([warmingUp, fullSpeed]) => (performance.now() - startedAt < WARM_UP_MS ? warmingUp : fullSpeed);
-let fireworkTimer;
-let canvas, ctx, styles, marquees, observer, frameId;
+let canvas, ctx, observer;
+// False once stop() has run: every timer still pending checks it and does nothing.
+let running = false;
 const particles = [];  // fire, smoke and sparks from explosions and missile trails
 const missiles = [];
 const leaders = new Map();  // game key -> "away" | "home" | "" (tied), as last drawn
 
 export function start(hooks) {
-  if (canvas) return;
   app = hooks;
+  running = true;
   document.body.classList.add("mds");
-  styles = document.createElement("link");
+  const styles = document.createElement("link");
   styles.rel = "stylesheet";
   styles.href = new URL("/css/mds.css", location.href).href;
   document.head.append(styles);
@@ -41,24 +43,39 @@ export function start(hooks) {
   sizeCanvas();
   // FOOTBALL IS HAPPENING, scrolling up the left edge and down the right (css/mds.css). Twice over, so the loop is seamless.
   const words = "🏈 FOOTBALL IS HAPPENING ".repeat(8);
-  marquees = ["left", "right"].map((side) => {
+  for (const side of ["left", "right"]) {
     const el = document.createElement("div");
     el.className = `mds-marquee ${side}`;
     el.innerHTML = `<div>${words}${words}</div>`;
     document.body.append(el);
-    return el;
-  });
+  }
   observer = new MutationObserver(checkLeads);
   observer.observe(document.getElementById("board"), { childList: true });
   // The opening, one thing at a time: a small pop on each leader in turn (checkLeads), the first missile at 8s, the
   // first fake score at 10s (startDemo), the first shout at 18s.
   startedAt = performance.now();
   setTimeout(shout, 18_000);
-  fireworkTimer = setTimeout(fireworks, 8000);
-  scheduleCameo(true);
-  frameId = requestAnimationFrame(frame);
+  setTimeout(fireworks, 8000);
+  scheduleMissile(true);
+  requestAnimationFrame(frame);
   checkLeads();
   startDemo();
+}
+
+// Back to the normal page, for good (it comes back only with a reload): everything drawn goes, the timers stop and the
+// fake games leave the list and the board.
+export function stop() {
+  running = false;
+  observer.disconnect();
+  removeEventListener("resize", sizeCanvas);
+  document.body.classList.remove("mds");
+  for (const el of document.querySelectorAll("#mds-canvas, .mds-marquee, .mds-banner, link[href$='/css/mds.css']")) el.remove();
+  const keys = new Set(demo.map((g) => g.key));
+  app.setExtraGames(() => []);
+  app.state.games.cfb = app.state.games.cfb.filter((g) => !keys.has(g.key));
+  keys.forEach((k) => app.state.selected.delete(k));
+  app.renderList();
+  app.renderBoard();
 }
 
 // --- Leads --------------------------------------------------------------------------------------------------------
@@ -66,7 +83,6 @@ export function start(hooks) {
 // After every board render: the side whose score is underlined (.pts.lead, js/board.js) leads. A new leader gets the
 // full treatment. The first look at a game gets a small pop.
 function checkLeads() {
-  if (!canvas) return;
   let firstLooks = 0;
   for (const c of document.querySelectorAll("#board .card[data-key]")) {
     const side = c.querySelector(".team.away .pts.lead") ? "away" : c.querySelector(".team.home .pts.lead") ? "home" : "";
@@ -83,7 +99,7 @@ function checkLeads() {
 }
 
 function celebrate(key, side, name, isChange, small = false) {
-  if (!canvas) return;
+  if (!running) return;
   const box = teamBox(key, side);
   if (!box) return;
   const x = box.left + box.width / 2, y = box.top + box.height / 2;
@@ -134,7 +150,7 @@ function pickTarget() {
 
 // From `from` at the target, arcing in.
 function launchMissile(from, target) {
-  if (!target || document.hidden || !canvas || !missileTarget(target)) return;
+  if (!target || document.hidden || !missileTarget(target)) return;
   missiles.push({ ...target, from, bend: (Math.random() - .5) * 400, born: performance.now() });
 }
 
@@ -190,110 +206,20 @@ function drawMissile(x, y, angle) {
   ctx.restore();
 }
 
-// --- The little man ----------------------------------------------------------------------------------------------
+// --- Missile launches --------------------------------------------------------------------------------------------
 
-// Every 8 to 14 seconds a little soldier slides up out of the lower right corner, aims his bazooka at a leader (in the
-// game list, or on the board when the list is closed), fires, winks at the camera and slides back down. Every missile is
-// his.
-const CAMEO_GAP_MS = [8000, 14000];
-const CAMEO = { in: 450, fire: 900, wink: 1300, winkEnd: 2000, out: 2150, gone: 2600 };  // ms into his visit
+// Every 8 to 14 seconds a missile flies in from the lower right corner (just inside the right-hand scroller) at a leader:
+// in the game list, or on the board when the list is closed.
+const MISSILE_GAP_MS = [8000, 14000];
 const EDGE = 34;  // the side scrollers' width (css/mds.css)
-const manSize = () => (innerWidth < 700 ? 1.7 : 2.6);
-let cameo = null;  // { born, row, angle, firedAt }
 
-function scheduleCameo(first = false) {
-  const gap = first ? 12_000 : CAMEO_GAP_MS[0] + Math.random() * (CAMEO_GAP_MS[1] - CAMEO_GAP_MS[0]);
+function scheduleMissile(first = false) {
+  const gap = first ? 8000 : MISSILE_GAP_MS[0] + Math.random() * (MISSILE_GAP_MS[1] - MISSILE_GAP_MS[0]);
   setTimeout(() => {
-    if (!document.hidden) cameo = { born: performance.now(), row: pickTarget() };
-    scheduleCameo();
+    if (!running) return;
+    launchMissile({ x: innerWidth - EDGE - 10, y: innerHeight + 10 }, pickTarget());
+    scheduleMissile();
   }, gap);
-}
-
-// Where he stands: bottom right, just inside the right-hand scroller, rising out of the bottom edge.
-function manSpot(t) {
-  const ease = (u) => 1 - (1 - u) ** 3;
-  const up = t < CAMEO.in ? ease(t / CAMEO.in) : t > CAMEO.out ? 1 - ease((t - CAMEO.out) / (CAMEO.gone - CAMEO.out)) : 1;
-  return { x: innerWidth - EDGE - 34 * manSize(), y: innerHeight + 82 * manSize() * (1 - up) };
-}
-
-const SHOULDER = { x: -17, y: -24 }, TUBE = 34;
-
-function drawCameo(now) {
-  if (!cameo) return;
-  const t = now - cameo.born;
-  if (t > CAMEO.gone) { cameo = null; return; }
-  const size = manSize(), spot = manSpot(t);
-  const shoulder = { x: spot.x + SHOULDER.x * size, y: spot.y + SHOULDER.y * size };
-  // He aims at what he picked, or up and to the left when there was nothing (and then only winks).
-  const target = (cameo.row && missileTarget(cameo.row)) ?? { x: spot.x - 300, y: spot.y - 260 };
-  cameo.angle = Math.atan2(target.y - shoulder.y, target.x - shoulder.x);
-  if (!cameo.firedAt && t >= CAMEO.fire) {
-    cameo.firedAt = now;
-    const a = cameo.angle;
-    if (cameo.row) launchMissile({ x: shoulder.x + Math.cos(a) * TUBE * size, y: shoulder.y + Math.sin(a) * TUBE * size }, cameo.row);
-  }
-  const winking = t > CAMEO.wink && t < CAMEO.winkEnd;
-  // His eyes follow the bazooka until he turns to wink at the camera.
-  const look = winking || t > CAMEO.winkEnd ? { x: 0, y: 0 } : { x: Math.cos(cameo.angle) * 1.3, y: Math.sin(cameo.angle) * 1.1 };
-
-  ctx.save();
-  ctx.translate(spot.x, spot.y);
-  ctx.scale(size, size);
-  ctx.strokeStyle = "#000";
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  const path = (draw, fill, width = 2) => {
-    ctx.beginPath(); draw();
-    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
-    if (width) { ctx.lineWidth = width; ctx.stroke(); }
-  };
-
-  // Shoulders and chest, with a collar.
-  path(() => ctx.roundRect(-26, -32, 52, 40, 12), "#6b8e23");
-  path(() => { ctx.moveTo(-8, -32); ctx.lineTo(0, -24); ctx.lineTo(8, -32); }, null, 1.5);
-  // Ears, then the face.
-  path(() => { ctx.arc(-14, -45, 3.5, 0, Math.PI * 2); }, "#e8b06a", 1.5);
-  path(() => { ctx.arc(14, -45, 3.5, 0, Math.PI * 2); }, "#e8b06a", 1.5);
-  path(() => ctx.ellipse(0, -45, 13.5, 15, 0, 0, Math.PI * 2), "#f1c27d");
-  // Rosy cheeks.
-  ctx.globalAlpha = .35;
-  path(() => { ctx.arc(-8, -39.5, 3, 0, Math.PI * 2); ctx.moveTo(11, -39.5); ctx.arc(8, -39.5, 3, 0, Math.PI * 2); }, "#ff6b6b", 0);
-  ctx.globalAlpha = 1;
-  // Eyes: whites and pupils, the left one (his left, our right) shut in a wink.
-  path(() => ctx.ellipse(-5.5, -46, 3.4, 2.8, 0, 0, Math.PI * 2), "#fff", 1.2);
-  path(() => { ctx.arc(-5.5 + look.x, -46 + look.y, 1.5, 0, Math.PI * 2); }, "#1b1b1b", 0);
-  if (winking) {
-    path(() => { ctx.moveTo(2.3, -46); ctx.quadraticCurveTo(5.5, -43, 8.7, -46); }, null, 1.6);
-  } else {
-    path(() => ctx.ellipse(5.5, -46, 3.4, 2.8, 0, 0, Math.PI * 2), "#fff", 1.2);
-    path(() => { ctx.arc(5.5 + look.x, -46 + look.y, 1.5, 0, Math.PI * 2); }, "#1b1b1b", 0);
-  }
-  // Eyebrows: a wink drops one and cocks the other.
-  path(() => { ctx.moveTo(-9, winking ? -51.5 : -50.5); ctx.lineTo(-2.5, winking ? -52.5 : -50.5); }, null, 1.8);
-  path(() => { ctx.moveTo(2.5, winking ? -49 : -50.5); ctx.lineTo(9, winking ? -48.5 : -50.5); }, null, 1.8);
-  // Nose, and a toothy grin.
-  path(() => { ctx.moveTo(0, -44); ctx.quadraticCurveTo(-2.4, -40.5, .5, -40); }, null, 1.2);
-  path(() => { ctx.moveTo(-6, -36.5); ctx.quadraticCurveTo(0, -30, 6, -36.5); ctx.closePath(); }, "#fff", 1.3);
-  path(() => { ctx.moveTo(-5, -35.6); ctx.lineTo(5, -35.6); }, null, .6);
-  // Helmet: a dome with camo spots, a brim, and a chin strap.
-  path(() => { ctx.moveTo(-12.5, -52); ctx.lineTo(-12.5, -38); ctx.moveTo(12.5, -52); ctx.lineTo(12.5, -38); }, null, 1.2);
-  path(() => { ctx.arc(0, -51, 16, Math.PI, 0); ctx.closePath(); }, "#4f6420");
-  path(() => { ctx.arc(-6, -58, 2.6, 0, Math.PI * 2); ctx.moveTo(8.6, -55); ctx.arc(6, -55, 2.6, 0, Math.PI * 2); }, "#3a4a18", 0);
-  path(() => ctx.roundRect(-19, -53, 38, 4, 2), "#3a4a18", 1.5);
-  if (winking) {  // a twinkle off the winking eye
-    ctx.fillStyle = "#fff";
-    ctx.font = "bold 12px sans-serif";
-    ctx.fillText("✦", 12, -54);
-  }
-  // The bazooka on his shoulder, pointed at the target.
-  ctx.translate(SHOULDER.x, SHOULDER.y);
-  ctx.rotate(cameo.angle);
-  path(() => ctx.roundRect(-14, -5, TUBE + 14, 10, 3), "#4f6420");
-  path(() => ctx.rect(TUBE - 4, -6, 5, 12), "#3a4a18", 1.5);  // the muzzle's rim
-  if (cameo.firedAt && now - cameo.firedAt < 140) {  // muzzle flash
-    path(() => { ctx.moveTo(TUBE + 1, -9); ctx.lineTo(TUBE + 24, 0); ctx.lineTo(TUBE + 1, 9); }, "#ffd23f", 0);
-  }
-  ctx.restore();
 }
 
 // --- Explosions ---------------------------------------------------------------------------------------------------
@@ -301,6 +227,7 @@ function drawCameo(now) {
 const WORDS = ["BOOM!", "KABOOM!", "BLAM!", "POW!", "WINNING!", "BANG!"];
 
 function explode(x, y, scale = 1) {
+  if (!running) return;
   for (let i = 0; i < 70 * scale; i++) {
     const a = Math.random() * Math.PI * 2, v = (80 + Math.random() * 420) * scale;
     particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 60, life: .5 + Math.random() * .7, age: 0,
@@ -374,20 +301,22 @@ function drawParticles(dt) {
 
 // --- Fireworks ---------------------------------------------------------------------------------------------------
 
-// The first at 8 seconds, then one about every 20; now and then two or three go up together.
-const FIREWORK_MS = [16_000, 24_000];
+// The first at 8 seconds, then one about every half minute; now and then two or three go up together.
+const FIREWORK_MS = [24_000, 36_000];
 const FIREWORK_COLORS = ["#ff3b3b", "#ffd23f", "#3bff6f", "#3bc8ff", "#c63bff", "#ff8a3b", "#ffffff"];
 
 function fireworks() {
+  if (!running) return;
   if (!document.hidden) {
     const count = Math.random() < .3 ? 2 + Math.floor(Math.random() * 2) : 1;
     for (let i = 0; i < count; i++) setTimeout(launchRocket, i * (150 + Math.random() * 350));
   }
-  fireworkTimer = setTimeout(fireworks, FIREWORK_MS[0] + Math.random() * (FIREWORK_MS[1] - FIREWORK_MS[0]));
+  setTimeout(fireworks, FIREWORK_MS[0] + Math.random() * (FIREWORK_MS[1] - FIREWORK_MS[0]));
 }
 
 // From the bottom edge, bursting somewhere in the top half of the window.
 function launchRocket() {
+  if (!running) return;
   const x = innerWidth * (.15 + Math.random() * .7), rise = innerHeight * (.5 + Math.random() * .3), life = 1.1;
   particles.push({ x, y: innerHeight + 10, vx: (Math.random() - .5) * 80, vy: -(rise / life + 160 * life / 2), life, age: 0, kind: "rocket" });
 }
@@ -451,14 +380,14 @@ function arrow(x, y, angle, size = 1.6) {
 
 let last = performance.now();
 function frame(now) {
+  if (!running) return;
   const dt = Math.min(.05, (now - last) / 1000);
   last = now;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawArrows(now);
-  drawCameo(now);
   moveMissiles(now);
   drawParticles(dt);
-  frameId = requestAnimationFrame(frame);
+  requestAnimationFrame(frame);
 }
 
 function sizeCanvas() {
@@ -470,6 +399,7 @@ function sizeCanvas() {
 
 // A random shout, then the next one a random while later.
 function shout() {
+  if (!running) return;
   // Somewhere off the middle, so it doesn't land on a lead change's banner.
   if (!document.hidden) banner(SHOUTS[Math.floor(Math.random() * SHOUTS.length)], `${[22, 62][Math.floor(Math.random() * 2)] + Math.random() * 10}%`);
   setTimeout(shout, SHOUT_MS[0] + Math.random() * (SHOUT_MS[1] - SHOUT_MS[0]));
@@ -487,6 +417,7 @@ function banner(text, top) {
 }
 
 function showBanner(text, top) {
+  if (!running) return;
   const el = document.createElement("div");
   el.className = "mds-banner";
   if (top) el.style.top = top;
@@ -508,7 +439,7 @@ const logo = (id) => `https://a.espncdn.com/i/teamlogos/ncaa/500/${id}.png`;
 // Every game starts with someone ahead, so the arrows and missiles start at once.
 const team = (id, abbr, name, color, conf, rank, record, score) => ({ id, abbr, name, logo: logo(id), conf, color, score, rank, record });
 const demo = [
-  { away: team("84", "IU", "Indiana", "#990000", 5, 3, "6-0", "14"), home: team("158", "NEB", "Nebraska", "#e41c38", 5, 24, "4-2", "10") },
+  { away: team("154", "WAKE", "Wake Forest", "#9e7e38", 1, undefined, "3-3", "14"), home: team("150", "DUKE", "Duke", "#013088", 1, undefined, "4-2", "10") },
   { away: team("130", "MICH", "Michigan", "#00274c", 5, 12, "5-1", "3"), home: team("194", "OSU", "Ohio State", "#ce1141", 5, 1, "6-0", "7") },
   { away: team("251", "TEX", "Texas", "#bf5700", 8, 6, "5-1", "21"), home: team("201", "OU", "Oklahoma", "#841617", 8, 15, "4-2", "17") },
 ].map((g, i) => ({
@@ -526,11 +457,13 @@ const PLAYS = [
 // wait for ESPN's first answer, so they don't jump in ahead of the real games; if ESPN can't be reached, they come anyway.
 async function startDemo() {
   await app.firstPoll;
+  if (!running) return;
   app.state.games.cfb.push(...demo);
   demo.forEach((g) => app.state.selected.add(g.key));
   app.setExtraGames((league) => (league === "cfb" ? demo : []));
   syncDemo();
   const plays = () => {
+    if (!running) return;
     demoPlay();
     setTimeout(plays, pace(DEMO_TICK_MS));
   };

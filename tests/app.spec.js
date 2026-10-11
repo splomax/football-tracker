@@ -570,6 +570,28 @@ test.describe("MDS", () => {
     expect(errors).toEqual([]);
   });
 
+  test("with ?mds the gear menu shows MDS on; off ends the loud version for the visit, and on again is just the blue", async ({ page }) => {
+    const errors = errorsOn(page);
+    await open(page, { query: "?mds", storage: { selected: ["cfb:1"] } });
+    await expect(fake(page)).toHaveCount(3);
+    await page.locator("#settings").click();
+    await expect(page.locator("#mds-blue")).toHaveAttribute("aria-pressed", "true");
+    expect(await page.evaluate(() => localStorage.getItem("mdsBlue"))).toBeNull();  // the link alone saves nothing
+    await page.locator("#mds-blue").click();
+    await expect(page.locator("body")).not.toHaveClass(/mds/);
+    await expect(page.locator("#mds-canvas, .mds-marquee, .mds-banner")).toHaveCount(0);
+    await expect(fake(page)).toHaveCount(0);
+    await expect(row(page, "cfb:mds-1")).toHaveCount(0);
+    await expect(card(page, "cfb:1").locator(".team.away .abbr")).not.toHaveCSS("color", BLUE.dark);
+    await page.locator("#mds-blue").click();
+    await expect(card(page, "cfb:1").locator(".team.away .abbr")).toHaveCSS("color", BLUE.dark);
+    await expect(card(page, "cfb:1").locator(".team.away")).toHaveCSS("outline-style", "solid");
+    await page.waitForTimeout(1500);
+    await expect(page.locator("#mds-canvas, .mds-marquee")).toHaveCount(0);  // the loud version stays gone
+    await expect(fake(page)).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+
   test("?mds's fake games wait for ESPN's first answer", async ({ page }) => {
     let release;
     const gate = new Promise((r) => { release = r; });

@@ -1,5 +1,6 @@
 // Settings gear in the corner. "google me" toggles a coach photo: Curt Cignetti usually, Bo Pelini one time in ten.
-// "MDS" colors the leading team blue. A ?mds link instead loads the loud version (js/mds.js) for that visit.
+// "MDS" colors the leading team blue. A ?mds link also loads the loud version (js/mds.js) for that visit, until MDS is
+// switched off.
 
 import { store } from "./store.js";
 import { MDS_LINK } from "./config.js";
@@ -88,9 +89,16 @@ export function initSettings({ mds }) {
   coach = $("coach");
   googleMe = $("google-me");
   mdsBtn = $("mds-blue");
-  mdsBtn.addEventListener("click", () => setBlue(mdsBtn.getAttribute("aria-pressed") !== "true"));
-  setBlue(store.get("mdsBlue", false));
-  if (MDS_LINK) import("./mds.js").then((m) => m.start(mds));
+  // A ?mds visit shows MDS switched on, with the loud version on top, without changing what's remembered. Switching it
+  // off stops the loud version for the rest of the visit; switching it back on is the plain blue highlighting.
+  let loud = MDS_LINK ? import("./mds.js").then((m) => { m.start(mds); return m; }) : null;
+  mdsBtn.addEventListener("click", () => {
+    const on = mdsBtn.getAttribute("aria-pressed") !== "true";
+    if (!on && loud) { loud.then((m) => m.stop()); loud = null; }
+    setBlue(on);
+  });
+  if (MDS_LINK) { mdsBtn.setAttribute("aria-pressed", true); document.body.classList.add("mds-blue"); }
+  else setBlue(store.get("mdsBlue", false));
 
   settingsBtn.addEventListener("click", (e) => {
     e.stopPropagation();
