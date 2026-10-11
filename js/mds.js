@@ -113,15 +113,18 @@ const teamBox = (key, side) =>
   document.querySelector(`#board .card[data-key="${key}"] .team.${side}`)?.getBoundingClientRect();
 
 // The game list's lines for leading teams that are on screen right now (the row's first line is the away team): inside
-// the list's scrolling panel (the side panel on a computer, the slide-in drawer on a phone) and the window, and not with
-// the panel hidden or slid away.
+// the list's scrolling panel (the side panel on a computer, the slide-in drawer on a phone) and the window, clear of what's
+// pinned at its top and bottom, and not with the panel hidden or slid away.
 function leaderRows() {
   const list = document.getElementById("list");
   let panel = list;
   while (panel.parentElement && !/auto|scroll/.test(getComputedStyle(panel).overflowY)) panel = panel.parentElement;
   const area = panel.getBoundingClientRect();
   if (!list.checkVisibility() || area.right <= 0 || area.left >= screenW()) return [];
-  const top = Math.max(area.top, 0), bottom = Math.min(area.bottom, screenH());
+  // Not under the panel's pinned header (the tabs and filters) or, on a phone, its Done bar.
+  const head = panel.querySelector(".list-head")?.getBoundingClientRect(), foot = panel.querySelector(".drawer-foot");
+  const top = Math.max(area.top, 0, head?.bottom ?? 0);
+  const bottom = Math.min(area.bottom, screenH(), foot?.checkVisibility() ? foot.getBoundingClientRect().top : Infinity);
   return [...list.querySelectorAll(".bug-team:has(.pts.lead)")].filter((el) => {
     const r = el.getBoundingClientRect();
     return r.height && r.top >= top && r.bottom <= bottom;
