@@ -252,14 +252,19 @@ function drawArrows(now) {
     const jab = Math.abs(Math.sin(now / 180)) * 18, away = team.classList.contains("away");
     arrow(away ? r.left - 4 - jab : r.right + 4 + jab, r.top + r.height / 2, away ? 1 : -1);
   }
+  // Smaller ones in the game list, over the status column, jabbing left at each on-screen leader's score.
+  for (const line of leaderRows()) {
+    const r = line.querySelector(".pts").getBoundingClientRect();
+    arrow(r.right + 3 + Math.abs(Math.sin(now / 150)) * 6, r.top + r.height / 2, -1, .55);
+  }
 }
 
 // Its tip at (x, y), pointing right (dir 1) or left (dir -1).
-function arrow(x, y, dir) {
+function arrow(x, y, dir, size = 1.6) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(-dir * Math.PI / 2);  // drawn pointing down
-  ctx.scale(1.6, 1.6);
+  ctx.scale(size, size);
   ctx.beginPath();
   ctx.moveTo(0, 0); ctx.lineTo(-22, -24); ctx.lineTo(-9, -24); ctx.lineTo(-9, -54);
   ctx.lineTo(9, -54); ctx.lineTo(9, -24); ctx.lineTo(22, -24); ctx.closePath();
