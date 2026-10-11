@@ -1,5 +1,6 @@
 /* The loud MDS (?mds, js/mds.js): the canvas for arrows, missiles and explosions, the lead banner and the sound button. */
-#mds-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 1000; pointer-events: none; }
+/* Above everything else here, side scrollers and banners included, so the BOOMs and POWs always show. */
+#mds-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 1010; pointer-events: none; }
 
 /* The leading team's name, in blue, as requested. */
 .mds .team:has(.pts.lead) .abbr, .mds .bug-team:has(.pts.lead) .abbr {
