@@ -12,7 +12,8 @@ const MISSILE_FLIGHT_MS = 1100;
 // Shouted across the screen now and then, like a lead change's banner but about nothing.
 const SHOUTS = [
   "HOLY SHIT", "CALL THE COPS", "UNBELIEVABLE SCENES", "THEY'RE PLAYING FOOTBALL", "LOOK AT THE NUMBERS",
-  "BOTH TEAMS WANT TO WIN", "THE CLOCK IS GOING DOWN", "ENHANCE", "HACKING THE MAINFRAME",
+  "BOTH TEAMS WANT TO WIN", "THE CLOCK IS GOING DOWN", "THE BALL IS OVAL", "SOMEONE HAS THE BALL", "THIS CHANGES EVERYTHING",
+  "ENHANCE", "ZOOM IN", "HACKING THE MAINFRAME",
 ];
 const SHOUT_MS = [6000, 14000];  // the gap before the next one, at random between these
 
