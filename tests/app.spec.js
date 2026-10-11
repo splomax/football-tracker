@@ -527,7 +527,7 @@ test.describe("MDS", () => {
   const fake = (page) => page.locator('.card[data-key^="cfb:mds-"]');
   const BLUE = { dark: "rgb(74, 134, 255)", light: "rgb(31, 107, 255)" };
 
-  test("the gear menu's MDS colors the leading team's name and score blue, remembered; nothing loud loads", async ({ page }) => {
+  test("the gear menu's MDS colors the leading team's name and score blue in a grey box, remembered; nothing loud loads", async ({ page }) => {
     const loaded = [];
     page.on("request", (r) => r.url().includes("mds") && loaded.push(r.url()));
     await open(page, { storage: { selected: ["cfb:1", "cfb:4"] } });
@@ -539,6 +539,9 @@ test.describe("MDS", () => {
     await expect(away.locator(".abbr")).toHaveCSS("color", BLUE.dark);
     await expect(away.locator(".pts")).toHaveCSS("color", BLUE.dark);
     await expect(home.locator(".abbr")).not.toHaveCSS("color", BLUE.dark);  // trailing
+    await expect(away).toHaveCSS("outline-style", "solid");  // the grey box
+    await expect(home).toHaveCSS("outline-style", "none");
+    await expect(row(page, "cfb:1").locator(".bug-team").first()).toHaveCSS("outline-style", "solid");
     await expect(row(page, "cfb:1").locator(".bug-team").first().locator(".abbr")).toHaveCSS("color", BLUE.dark);
     await page.reload();
     await expect(card(page, "cfb:1").locator(".team.away .pts")).toHaveCSS("color", BLUE.dark);
