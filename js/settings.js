@@ -1,7 +1,9 @@
 // Settings gear in the corner. "google me" toggles a coach photo: Curt Cignetti usually, Bo Pelini one time in ten.
-// "MDS mode" switches on js/mds.js (loaded the first time), remembered in this browser.
+// "MDS mode" switches on js/mds.js (loaded the first time), remembered in this browser; ?mds and ?mds=demo links switch
+// it on for one visit (js/config.js MDS_LINK).
 
 import { store } from "./store.js";
+import { MDS_LINK } from "./config.js";
 
 const $ = (id) => document.getElementById(id);
 let settingsBtn, settingsMenu, coach, googleMe, mdsBtn, mdsHooks, mdsModule;
@@ -75,10 +77,13 @@ function hideCoach(into) {
 /** The MDS mode module, loaded on first use. */
 export const loadMds = async () => (mdsModule ??= await import("./mds.js"));
 
-/** Switches MDS mode on or off and remembers it; fires "mds-change" on document so the admin's demo switch follows. */
-export async function setMds(on) {
+/**
+ * Switches MDS mode on or off, remembering it unless it came from a share link; fires "mds-change" on document so the
+ * admin's demo switch follows.
+ */
+export async function setMds(on, remember = true) {
   mdsBtn.setAttribute("aria-pressed", on);
-  store.set("mds", on);
+  if (remember) store.set("mds", on);
   if (!on && !mdsModule) return;
   const mds = await loadMds();
   on ? mds.start(mdsHooks) : mds.stop();
@@ -95,7 +100,8 @@ export function initSettings({ mds }) {
   googleMe = $("google-me");
   mdsBtn = $("mds-mode");
   mdsBtn.addEventListener("click", () => setMds(mdsBtn.getAttribute("aria-pressed") !== "true"));
-  if (store.get("mds", false)) setMds(true);
+  if (MDS_LINK) setMds(true, false).then(async () => { if (MDS_LINK === "demo") (await loadMds()).setDemo(true); });
+  else if (store.get("mds", false)) setMds(true);
 
   settingsBtn.addEventListener("click", (e) => {
     e.stopPropagation();

@@ -1,15 +1,16 @@
-// MDS mode, switched on from the admin's gear menu (worker/admin.js): the leading team gets a bouncing red arrow, its
-// name in blue, explosions and an air horn when a lead changes, and missiles that hit the leaders' rows in the game list
-// while it's open. A tie gets a sad trombone. Demo games (setDemo) are three fake live games whose scores swing every few
+// MDS mode, switched on from the gear menu (js/settings.js): the leading team gets a bouncing red arrow, its name in
+// blue, explosions and a banner when a lead changes, an air horn every few seconds while anyone leads, and missiles that
+// hit the leaders' rows in the game list that are on screen. A tie gets a sad trombone. Demo games (setDemo) are three fake live games whose scores swing every few
 // seconds, to see and hear it when nothing's on. Loaded only when switched on. Sounds are synthesized, no audio files;
 // browsers only allow sound after a click, so a button asks for one.
 
 const DEMO_TICK_MS = 4000;
 const MISSILE_EVERY_MS = 1800;
 const MISSILE_FLIGHT_MS = 1100;
+const HORN_EVERY_MS = 3500;  // the air horn keeps going while anyone leads
 
 let app;  // { state, renderBoard, renderList, setExtraGames }
-let canvas, ctx, soundBtn, styles, observer, missileTimer, demoTimer, frameId;
+let canvas, ctx, soundBtn, styles, observer, missileTimer, hornTimer, demoTimer, frameId;
 const particles = [];  // fire, smoke and sparks from explosions and missile trails
 const missiles = [];
 const leaders = new Map();  // game key -> "away" | "home" | "" (tied), as last drawn
@@ -33,6 +34,7 @@ export function start(hooks) {
   observer = new MutationObserver(checkLeads);
   observer.observe(document.getElementById("board"), { childList: true });
   missileTimer = setInterval(launchMissile, MISSILE_EVERY_MS);
+  hornTimer = setInterval(() => { if (!document.hidden && document.querySelector("#board .pts.lead")) airHorn(); }, HORN_EVERY_MS);
   frameId = requestAnimationFrame(frame);
   checkLeads();
 }
@@ -47,6 +49,7 @@ export function stop() {
   removeEventListener("pointerdown", unlockElsewhere, true);
   observer.disconnect();
   clearInterval(missileTimer);
+  clearInterval(hornTimer);
   cancelAnimationFrame(frameId);
   particles.length = missiles.length = 0;
   leaders.clear();
@@ -93,13 +96,16 @@ function celebrate(key, side, name, isChange) {
 const teamBox = (key, side) =>
   document.querySelector(`#board .card[data-key="${key}"] .team.${side}`)?.getBoundingClientRect();
 
-// The game list's line for a leading team: the row's first line is the away team.
+// The game list's lines for leading teams that are on screen right now (the row's first line is the away team): inside
+// the list's scrolling panel and the window, and not with the panel hidden or slid away.
 function leaderRows() {
-  const list = document.getElementById("list"), area = list.getBoundingClientRect();
+  const list = document.getElementById("list"), panel = list.closest("aside") ?? list;
+  const area = panel.getBoundingClientRect();
   if (!list.checkVisibility() || area.right <= 0 || area.left >= innerWidth) return [];
+  const top = Math.max(area.top, 0), bottom = Math.min(area.bottom, innerHeight);
   return [...list.querySelectorAll(".bug-team:has(.pts.lead)")].filter((el) => {
     const r = el.getBoundingClientRect();
-    return r.height && r.top >= area.top && r.bottom <= area.bottom;
+    return r.height && r.top >= top && r.bottom <= bottom;
   });
 }
 
@@ -226,24 +232,26 @@ function circle(x, y, r) {
 
 // --- Arrows -------------------------------------------------------------------------------------------------------
 
-// A huge red arrow bouncing over every leading team on the board, kept inside the board's scroll area.
+// A huge red arrow beside every leading team on the board, coming in from the card's outer edge and jabbing at the team's
+// logo (the away team is on the left, so its arrow points right). Kept inside the board's scroll area.
 function drawArrows(now) {
   const board = document.getElementById("board").getBoundingClientRect();
   ctx.save();
   ctx.beginPath(); ctx.rect(board.left, board.top, board.width, board.height); ctx.clip();
   for (const pts of document.querySelectorAll("#board .card .pts.lead")) {
-    const r = pts.closest(".team").querySelector(".name").getBoundingClientRect();
+    const team = pts.closest(".team"), r = (team.querySelector("img") ?? team).getBoundingClientRect();
     if (r.bottom < board.top || r.top > board.bottom) continue;
-    const bob = Math.abs(Math.sin(now / 180)) * 18;
-    arrow(r.left + Math.min(r.width, 60) / 2 + 6, r.top - 4 - bob);
+    const jab = Math.abs(Math.sin(now / 180)) * 18, away = team.classList.contains("away");
+    arrow(away ? r.left - 4 - jab : r.right + 4 + jab, r.top + r.height / 2, away ? 1 : -1);
   }
   ctx.restore();
 }
 
-// Pointing down, its tip at (x, y).
-function arrow(x, y) {
+// Its tip at (x, y), pointing right (dir 1) or left (dir -1).
+function arrow(x, y, dir) {
   ctx.save();
   ctx.translate(x, y);
+  ctx.rotate(-dir * Math.PI / 2);  // drawn pointing down
   ctx.scale(1.6, 1.6);
   ctx.beginPath();
   ctx.moveTo(0, 0); ctx.lineTo(-22, -24); ctx.lineTo(-9, -24); ctx.lineTo(-9, -54);

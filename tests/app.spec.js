@@ -590,6 +590,23 @@ test.describe("MDS mode", () => {
     expect(errors).toEqual([]);
   });
 
+  test("share links, any case: ?MDS=demo shows the demo games to anyone, and neither link is remembered", async ({ page }) => {
+    const errors = errorsOn(page);
+    await open(page, { query: "?MDS=demo" });
+    await expect(page.locator("body")).toHaveClass(/mds/);
+    await expect(fake(page)).toHaveCount(3);
+    await expect(await menuItem(page, "#mds-mode")).toHaveAttribute("aria-pressed", "true");
+    await page.goto("/index.html?mds");
+    await expect(page.locator("body")).toHaveClass(/mds/);
+    await expect(row(page, "cfb:1")).toBeVisible();
+    await expect(fake(page)).toHaveCount(0);
+    expect(await page.evaluate(() => localStorage.getItem("mds"))).toBeNull();
+    await page.goto("/index.html");
+    await expect(row(page, "cfb:1")).toBeVisible();
+    await expect(page.locator("body")).not.toHaveClass(/mds/);
+    expect(errors).toEqual([]);
+  });
+
   test("the sound button turns sound on with the first click, then mutes and unmutes", async ({ page }) => {
     const errors = errorsOn(page);
     await open(page, { storage: { mds: true } });
