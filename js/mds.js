@@ -446,6 +446,8 @@ const demo = [
   ...g, key: `cfb:mds-${i + 1}`, date: new Date(), state: "in", period: 2, secs: 600 + i * 200, network: "MDS+",
   yardLine: 50, distance: 10, possession: g.away.id, redZone: false, lastPlay: "Kickoff. Everyone is very calm.",
 }));
+const MAX_DEMO_SCORE = 45;
+const BELIEVABLE = [0, 3, 7, 10, 13, 14, 17, 20, 21, 24, 27, 28];
 const PLAYS = [
   [7, "TOUCHDOWN {t}!!! Absolutely nobody could have seen that coming."],
   [3, "{t} field goal is GOOD. Modest, tasteful, three points."],
@@ -482,6 +484,13 @@ function demoPlay() {
   scorer.score = String(+scorer.score + pts);
   g.lastPlay = text.replace("{t}", scorer.name);
   for (const d of demo) d.secs = Math.max(1, d.secs - 37);
+  // Past a believable score, start the game over from one that is, a few minutes back on the clock.
+  if (+scorer.score > MAX_DEMO_SCORE) {
+    g.away.score = String(pick(BELIEVABLE));
+    g.home.score = String(pick(BELIEVABLE));
+    g.secs = 600 + Math.floor(Math.random() * 300);
+    g.lastPlay = "Officials have reviewed the score. It was too much. Resetting.";
+  }
   syncDemo();
   app.renderList();
   app.renderBoard();
