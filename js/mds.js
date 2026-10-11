@@ -11,9 +11,8 @@ const DEMO_TICK_MS = [7000, 4000];        // [warming up, full speed]
 const MISSILE_FLIGHT_MS = 1100;
 // Shouted across the screen now and then, like a lead change's banner but about nothing.
 const SHOUTS = [
-  "HOLY SHIT", "NOW THAT'S WHAT I CALL FOOTBALL", "FOOTBALL!!!", "THIS IS THE BIG ONE", "SOMEBODY CALL AN AMBULANCE",
-  "I CAN'T FEEL MY LEGS", "BALL DON'T LIE", "UNBELIEVABLE SCENES", "MOM GET THE CAMERA", "WHAT A TIME TO BE ALIVE",
-  "CALL THE COPS", "ALL GAS NO BRAKES", "THEY'RE PLAYING FOOTBALL", "LOOK AT THE NUMBERS",
+  "HOLY SHIT", "I CAN'T FEEL MY LEGS", "UNBELIEVABLE SCENES", "WHAT A TIME TO BE ALIVE", "CALL THE COPS",
+  "ALL GAS NO BRAKES", "THEY'RE PLAYING FOOTBALL", "LOOK AT THE NUMBERS", "ENHANCE", "THE TEAM WITH MORE POINTS IS WINNING",
 ];
 const SHOUT_MS = [6000, 14000];  // the gap before the next one, at random between these
 
