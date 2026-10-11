@@ -283,7 +283,7 @@ function drawParticles(dt) {
     } else if (p.kind === "ring") {
       ctx.strokeStyle = "#fff";
       ctx.lineWidth = 6 * (1 - k);
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.size * k, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0, p.size * k), 0, Math.PI * 2); ctx.stroke();
     } else if (p.kind === "word") {
       const s = p.size * (1 + Math.min(k * 4, .6));
       ctx.font = `900 ${s}px Impact, "Arial Black", sans-serif`;
@@ -380,7 +380,8 @@ function arrow(x, y, angle, size = 1.6) {
 let last = performance.now();
 function frame(now) {
   if (!running) return;
-  const dt = Math.min(.05, (now - last) / 1000);
+  // A frame's timestamp can be a touch earlier than the last time we looked; never step time backwards.
+  const dt = Math.max(0, Math.min(.05, (now - last) / 1000));
   last = now;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawArrows(now);
