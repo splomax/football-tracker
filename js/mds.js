@@ -43,8 +43,12 @@ export function start(hooks) {
   });
   observer = new MutationObserver(checkLeads);
   observer.observe(document.getElementById("board"), { childList: true });
-  missileTimer = setInterval(launchMissile, MISSILE_EVERY_MS);
-  setTimeout(launchMissile, 400);
+  // At first, one thing at a time: each leader blows up in turn (checkLeads), then the first missile, then the first
+  // lead change (startDemo); after that the timers take over.
+  setTimeout(() => {
+    launchMissile();
+    missileTimer = setInterval(launchMissile, MISSILE_EVERY_MS);
+  }, 3500);
   scheduleHorn(performance.now());
   frameId = requestAnimationFrame(frame);
   checkLeads();
@@ -58,7 +62,7 @@ export function start(hooks) {
 // minus the banner.
 function checkLeads() {
   if (!canvas) return;
-  let trombone = false;
+  let trombone = false, firstLooks = 0;
   for (const c of document.querySelectorAll("#board .card[data-key]")) {
     const side = c.querySelector(".team.away .pts.lead") ? "away" : c.querySelector(".team.home .pts.lead") ? "home" : "";
     const before = leaders.get(c.dataset.key);
@@ -66,7 +70,9 @@ function checkLeads() {
     if (side === before) continue;
     if (side) {
       const name = c.querySelector(`.team.${side} .abbr`)?.textContent ?? "";
-      setTimeout(() => celebrate(c.dataset.key, side, name, before !== undefined), Math.random() * 300);
+      // Lead changes go off together; first looks one every 1.2 seconds.
+      const delay = before === undefined ? firstLooks++ * 1200 : Math.random() * 300;
+      setTimeout(() => celebrate(c.dataset.key, side, name, before !== undefined), delay);
     } else if (before) trombone = true;
   }
   if (trombone) sadTrombone();
@@ -486,8 +492,10 @@ function startDemo() {
   demo.forEach((g) => app.state.selected.add(g.key));
   app.setExtraGames((league) => (league === "cfb" ? demo : []));
   syncDemo();
-  setTimeout(demoPlay, 1200);  // the first lead change right away
-  setInterval(demoPlay, DEMO_TICK_MS);
+  setTimeout(() => {  // the first lead change once the opening explosions and missile are done
+    demoPlay();
+    setInterval(demoPlay, DEMO_TICK_MS);
+  }, 5500);
   app.renderList();
   app.renderBoard();
 }

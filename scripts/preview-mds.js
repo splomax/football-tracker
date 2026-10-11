@@ -27,7 +27,7 @@ const THEME = process.argv[3] ?? "dark";
     await page.goto(`${SITE}/?mds`);
     await page.waitForSelector('.card[data-key="cfb:mds-1"]');
     for (let i = 1; i <= 6; i++) {
-      await page.waitForTimeout(i === 1 ? 100 : 700);
+      await page.waitForTimeout(i === 1 ? 100 : 1200);
       const file = path.join(OUT, `mds-${i}.png`);
       await page.screenshot({ path: file });
       console.log(file);
