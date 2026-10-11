@@ -1,8 +1,8 @@
 // MDS, the loud version, switched on by a ?mds link (js/settings.js): FOOTBALL IS HAPPENING scrolls up and down the
 // screen's edges; the leading team gets a huge red arrow and its name in blue; a lead change sets off explosions and a
 // banner; a tie gets a sad trombone; missiles hit the leaders' rows in the game list that are on screen; and an air horn
-// goes off at a random moment once a minute. Unless a picked game is live it brings three fake live games whose scores swing
-// every few seconds. Loaded only by that link. Sounds are synthesized, no audio files; browsers only allow sound after a
+// goes off at a random moment once a minute. It always brings three fake live games whose scores swing every few
+// seconds, alongside the visitor's own picks. Loaded only by that link. Sounds are synthesized, no audio files; browsers only allow sound after a
 // click, so a button asks for one.
 
 const DEMO_TICK_MS = 4000;
@@ -48,7 +48,7 @@ export function start(hooks) {
   scheduleHorn(performance.now());
   frameId = requestAnimationFrame(frame);
   checkLeads();
-  demoIfQuiet();
+  startDemo();
 }
 
 // --- Leads --------------------------------------------------------------------------------------------------------
@@ -478,18 +478,6 @@ const PLAYS = [
   [7, "{t} pick-six. The stadium is on fire (figuratively)."],
   [2, "SAFETY! {t} gets two points the hard way."],
 ];
-
-// The demo games, once the first games arrive, unless a picked game is live (a fresh visitor has picked nothing, so their
-// board would be empty); also if no games arrive within a few seconds.
-function demoIfQuiet() {
-  const since = performance.now();
-  const wait = setInterval(() => {
-    const games = [...app.state.games.cfb, ...app.state.games.nfl];
-    if (!games.length && performance.now() - since < 6000) return;
-    clearInterval(wait);
-    if (!games.some((g) => g.state === "in" && app.state.selected.has(g.key))) startDemo();
-  }, 250);
-}
 
 // Picked (but never saved: js/state.js saveSelected) so they show on the board, and added to every poll's games.
 function startDemo() {

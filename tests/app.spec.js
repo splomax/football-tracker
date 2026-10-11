@@ -552,25 +552,22 @@ test.describe("MDS", () => {
     await expect(page.locator("#mds-canvas")).toHaveCount(0);
   });
 
-  test("?mds, any case, turns on the loud version for the visit; with a picked game live, no fake ones", async ({ page }) => {
+  test("?mds, any case, turns on the loud version for the visit, fake games and all, beside the visitor's own picks", async ({ page }) => {
     const errors = errorsOn(page);
     await open(page, { query: "?MDS", storage: { selected: ["cfb:1", "cfb:4"] } });
     await expect(page.locator("body")).toHaveClass(/mds/);
     await expect(page.locator("#mds-canvas")).toBeAttached();
     await expect(page.locator(".mds-marquee")).toHaveCount(2);
     await expect(page.locator(".mds-sound")).toHaveText(/MAXIMUM HYPE/);
+    await expect(fake(page)).toHaveCount(3);
+    await expect(card(page, "cfb:1")).toBeVisible();
     await expect(card(page, "cfb:1").locator(".team.away .abbr")).toHaveCSS("color", /rgb\((31, 107, 255|\d+, \d+, 255)\)/);
-    await page.waitForTimeout(2500);  // a missile or two at the leaders' rows, and time to decide on fake games
-    await expect(fake(page)).toHaveCount(0);
+    await page.waitForTimeout(2500);  // missiles at the leaders' rows
     await page.goto("/index.html");
     await expect(row(page, "cfb:1")).toBeVisible();
     await expect(page.locator("body")).not.toHaveClass(/mds/);
+    await expect(fake(page)).toHaveCount(0);
     expect(errors).toEqual([]);
-  });
-
-  test("?mds with no picked game live brings three fake live games whose scores change, never saved as picks", async ({ page }) => {
-    await open(page, { query: "?mds", storage: { selected: ["cfb:7"] } });  // games are live, but none of them picked
-    await expect(fake(page)).toHaveCount(3);
   });
 
   test("the fake games' scores change, and they're never saved as picks", async ({ page }) => {
