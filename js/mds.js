@@ -233,18 +233,16 @@ function circle(x, y, r) {
 // --- Arrows -------------------------------------------------------------------------------------------------------
 
 // A huge red arrow beside every leading team on the board, coming in from the card's outer edge and jabbing at the team's
-// logo (the away team is on the left, so its arrow points right). Kept inside the board's scroll area.
+// logo (the away team is on the left, so its arrow points right). Drawn over everything, the game list included; only a
+// team scrolled out of the board's view goes without.
 function drawArrows(now) {
   const board = document.getElementById("board").getBoundingClientRect();
-  ctx.save();
-  ctx.beginPath(); ctx.rect(board.left, board.top, board.width, board.height); ctx.clip();
   for (const pts of document.querySelectorAll("#board .card .pts.lead")) {
     const team = pts.closest(".team"), r = (team.querySelector("img") ?? team).getBoundingClientRect();
     if (r.bottom < board.top || r.top > board.bottom) continue;
     const jab = Math.abs(Math.sin(now / 180)) * 18, away = team.classList.contains("away");
     arrow(away ? r.left - 4 - jab : r.right + 4 + jab, r.top + r.height / 2, away ? 1 : -1);
   }
-  ctx.restore();
 }
 
 // Its tip at (x, y), pointing right (dir 1) or left (dir -1).
