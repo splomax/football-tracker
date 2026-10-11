@@ -517,7 +517,7 @@ test.describe("admin login", () => {
   });
 });
 
-test.describe("MDS mode", () => {
+test.describe("MDS", () => {
   const errorsOn = (page) => {
     const errors = [];
     page.on("pageerror", (e) => errors.push(String(e)));
@@ -525,91 +525,66 @@ test.describe("MDS mode", () => {
     return errors;
   };
   const fake = (page) => page.locator('.card[data-key^="cfb:mds-"]');
-  const menuItem = async (page, id) => {
-    if ((await page.locator("#settings").getAttribute("aria-expanded")) !== "true") await page.locator("#settings").click();
-    return page.locator(id);
-  };
+  const BLUE = { dark: "rgb(74, 134, 255)", light: "rgb(31, 107, 255)" };
 
-  test("everyone's gear menu has it, only the admin's has demo games, and nothing downloads until it's switched on", async ({ page }) => {
+  test("the gear menu's MDS colors the leading team's name and score blue, remembered; nothing loud loads", async ({ page }) => {
     const loaded = [];
     page.on("request", (r) => r.url().includes("mds") && loaded.push(r.url()));
-    await open(page, { storage: { selected: ["cfb:1"] } });
+    await open(page, { storage: { selected: ["cfb:1", "cfb:4"] } });
+    const away = card(page, "cfb:1").locator(".team.away"), home = card(page, "cfb:1").locator(".team.home");
+    await expect(away.locator(".abbr")).not.toHaveCSS("color", BLUE.dark);
     await page.locator("#settings").click();
-    await expect(page.locator("#mds-mode")).toHaveText(/MDS mode/);
-    await expect(page.locator("#mds-mode")).toHaveAttribute("aria-pressed", "false");
-    await expect(page.locator("#mds-demo")).toHaveCount(0);
-    await page.evaluate((token) => localStorage.setItem("adminToken", JSON.stringify(token)), ADMIN_TOKEN);
-    await page.goto("/index.html?admin");
-    await expect(await menuItem(page, "#mds-demo")).toHaveText(/MDS demo games/);
+    await page.locator("#mds-blue").click();
+    await expect(page.locator("#mds-blue")).toHaveAttribute("aria-pressed", "true");
+    await expect(away.locator(".abbr")).toHaveCSS("color", BLUE.dark);
+    await expect(away.locator(".pts")).toHaveCSS("color", BLUE.dark);
+    await expect(home.locator(".abbr")).not.toHaveCSS("color", BLUE.dark);  // trailing
+    await expect(row(page, "cfb:1").locator(".bug-team").first().locator(".abbr")).toHaveCSS("color", BLUE.dark);
+    await page.reload();
+    await expect(card(page, "cfb:1").locator(".team.away .pts")).toHaveCSS("color", BLUE.dark);
+    await page.locator("#settings").click();
+    await page.locator("#mds-blue").click();
+    await expect(card(page, "cfb:1").locator(".team.away .pts")).not.toHaveCSS("color", BLUE.dark);
     expect(loaded).toEqual([]);
-    await expect(page.locator("body")).not.toHaveClass(/mds/);
+    await expect(page.locator("#mds-canvas")).toHaveCount(0);
   });
 
-  test("switched on, the leader's name goes blue with the overlay and the sound button; off takes it all away", async ({ page }) => {
+  test("?mds, any case, turns on the loud version for the visit; with games live, no fake ones", async ({ page }) => {
     const errors = errorsOn(page);
-    await open(page, { storage: { selected: ["cfb:1", "cfb:4"] } });  // a regular visitor
-    await (await menuItem(page, "#mds-mode")).click();
-    await expect(page.locator("#mds-mode")).toHaveAttribute("aria-pressed", "true");
+    await open(page, { query: "?MDS", storage: { selected: ["cfb:1", "cfb:4"] } });
     await expect(page.locator("body")).toHaveClass(/mds/);
     await expect(page.locator("#mds-canvas")).toBeAttached();
+    await expect(page.locator(".mds-marquee")).toHaveCount(2);
     await expect(page.locator(".mds-sound")).toHaveText(/MAXIMUM HYPE/);
     await expect(card(page, "cfb:1").locator(".team.away .abbr")).toHaveCSS("color", /rgb\((31, 107, 255|\d+, \d+, 255)\)/);
+    await page.waitForTimeout(2500);  // a missile or two at the leaders' rows, and time to decide on fake games
     await expect(fake(page)).toHaveCount(0);
-    await page.waitForTimeout(2500);  // a missile or two at the leaders' rows
-    await page.reload();  // remembered
-    await expect(page.locator("#mds-canvas")).toBeAttached();
-    await (await menuItem(page, "#mds-mode")).click();
-    await expect(page.locator("body")).not.toHaveClass(/mds/);
-    await expect(page.locator("#mds-canvas, .mds-sound")).toHaveCount(0);
-    expect(errors).toEqual([]);
-  });
-
-  test("demo games: three fake live games whose scores change, never saved as picks, gone when switched off", async ({ page }) => {
-    await page.clock.install({ time: new Date("2026-10-03T20:00:00Z") });
-    const errors = errorsOn(page);
-    await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:1"] } });
-    await (await menuItem(page, "#mds-demo")).click();
-    await expect(page.locator("#mds-mode")).toHaveAttribute("aria-pressed", "true");  // demo games turn the mode on
-    await expect(fake(page)).toHaveCount(3);
-    await expect(row(page, "cfb:mds-1")).toBeVisible();
-    const scores = () => fake(page).locator(".pts").allTextContents();
-    const before = await scores();
-    await page.clock.runFor(12_000);  // three scoring plays, and a poll that must keep them
-    expect(await scores()).not.toEqual(before);
-    await row(page, "cfb:2").click();  // saving picks leaves the fake games out
-    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("selected")))).toEqual(["cfb:1", "cfb:2"]);
-    await (await menuItem(page, "#mds-demo")).click();
-    await expect(fake(page)).toHaveCount(0);
-    await expect(row(page, "cfb:mds-1")).toHaveCount(0);
-    await expect(page.locator("body")).toHaveClass(/mds/);  // the mode stays on
-    await (await menuItem(page, "#mds-demo")).click();
-    await expect(fake(page)).toHaveCount(3);
-    await (await menuItem(page, "#mds-mode")).click();  // the mode off takes the demo games with it
-    await expect(fake(page)).toHaveCount(0);
-    await expect(page.locator("#mds-demo")).toHaveAttribute("aria-pressed", "false");
-    expect(errors).toEqual([]);
-  });
-
-  test("share links, any case: ?MDS=demo shows the demo games to anyone, and neither link is remembered", async ({ page }) => {
-    const errors = errorsOn(page);
-    await open(page, { query: "?MDS=demo" });
-    await expect(page.locator("body")).toHaveClass(/mds/);
-    await expect(fake(page)).toHaveCount(3);
-    await expect(await menuItem(page, "#mds-mode")).toHaveAttribute("aria-pressed", "true");
-    await page.goto("/index.html?mds");
-    await expect(page.locator("body")).toHaveClass(/mds/);
-    await expect(row(page, "cfb:1")).toBeVisible();
-    await expect(fake(page)).toHaveCount(0);
-    expect(await page.evaluate(() => localStorage.getItem("mds"))).toBeNull();
     await page.goto("/index.html");
     await expect(row(page, "cfb:1")).toBeVisible();
     await expect(page.locator("body")).not.toHaveClass(/mds/);
     expect(errors).toEqual([]);
   });
 
+  test("?mds with nothing live brings three fake live games whose scores change, never saved as picks", async ({ page }) => {
+    await page.clock.install({ time: new Date("2026-10-03T20:00:00Z") });
+    const errors = errorsOn(page);
+    const quiet = cfbGames().filter((e) => e.status.type.state !== "in");
+    await open(page, { query: "?mds", cfb: quiet, nfl: [], storage: { selected: ["cfb:7"] } });
+    await page.clock.runFor(1000);
+    await expect(fake(page)).toHaveCount(3);
+    await expect(row(page, "cfb:mds-1")).toBeVisible();
+    const scores = () => fake(page).locator(".pts").allTextContents();
+    const before = await scores();
+    await page.clock.runFor(12_000);  // three scoring plays, and a poll that must keep them
+    expect(await scores()).not.toEqual(before);
+    await row(page, "cfb:8").click();  // saving picks leaves the fake games out
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("selected")))).toEqual(["cfb:7", "cfb:8"]);
+    expect(errors).toEqual([]);
+  });
+
   test("the sound button turns sound on with the first click, then mutes and unmutes", async ({ page }) => {
     const errors = errorsOn(page);
-    await open(page, { storage: { mds: true } });
+    await open(page, { query: "?mds" });
     const button = page.locator(".mds-sound");
     await button.click({ force: true });  // it throbs, so it's never "stable"
     await expect(button).toHaveText("🔇 Mute");
@@ -1255,14 +1230,14 @@ test.describe("counter, and a game that kicks off", () => {
 });
 
 test.describe("settings gear and google me", () => {
-  test("gear menu animates open with google me and MDS mode, and closes on Escape or outside click", async ({ page }) => {
+  test("gear menu animates open with google me and MDS, and closes on Escape or outside click", async ({ page }) => {
     await open(page);
     const menu = page.locator("#settings-menu");
     await expect(menu).toBeHidden();
     await page.locator("#settings").click();
     await expect(menu).toBeVisible();
     expect(await menu.evaluate((m) => m.getAnimations().length)).toBeGreaterThan(0);
-    await expect(menu.locator("button")).toHaveText(["✓google me", "✓MDS mode"]);
+    await expect(menu.locator("button")).toHaveText(["✓google me", "✓MDS"]);
     await page.keyboard.press("Escape");
     await expect(menu).toBeHidden();
     await page.locator("#settings").click();

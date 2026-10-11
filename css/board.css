@@ -52,6 +52,8 @@
 .team .pts { flex: none; min-width: 2ch; font-size: 22px; line-height: 28px; font-variant-numeric: tabular-nums; }
 /* The leading team's score (js/format.js leads); nothing on a tie. */
 .team .pts.lead { text-decoration: underline 3px var(--accent); text-underline-offset: 5px; }
+/* "MDS" in the gear menu (js/settings.js): the leading team's name and score in blue too. */
+.mds-blue .team:has(.pts.lead) .abbr, .mds-blue .team .pts.lead { color: var(--leader); }
 .team.away .pts { margin-left: auto; text-align: right; }
 .team.home .pts { margin-right: auto; text-align: left; }
 .team .poss { margin-left: 4px; color: var(--poss); font-size: 12px; }

@@ -86,5 +86,6 @@ label.game input:focus-visible ~ .pick { outline: 2px solid var(--accent); outli
 .bug-team .poss { color: var(--poss); font-size: 9px; }
 .bug-team .pts { margin-left: auto; font-variant-numeric: tabular-nums; }
 .bug-team .pts.lead { text-decoration: underline 2px var(--accent); text-underline-offset: 3px; }
+.mds-blue .bug-team:has(.pts.lead) .abbr, .mds-blue .bug-team .pts.lead { color: var(--leader); }  /* "MDS" (js/settings.js) */
 .bug-team.lost { color: var(--muted); font-weight: 400; }
 .bug-status { flex: none; width: 54px; margin-right: 12px; padding-left: 8px; border-left: 1px solid var(--border); color: var(--muted); font-size: 11px; line-height: 15px; text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }

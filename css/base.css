@@ -9,6 +9,7 @@
   --remove-bg: #9aa0a6; --remove-hover: #c4c8cc;
   --logo-edge: drop-shadow(0 0 1px rgba(255, 255, 255, .45));  /* keeps dark logos visible on dark backgrounds */
   --grass: #2e6b34; --grass-alt: #2a6230; --los: #4c8dff; --ltg: #f5d000;
+  --leader: #4a86ff;  /* the leading team, with "MDS" on */
   color-scheme: dark;  /* dark native scrollbars and form controls */
 }
 :root[data-theme="light"] {
@@ -19,6 +20,7 @@
   --control-hover: #d3d8df; --scrollbar: #c2c7ce; --shadow: rgba(0, 0, 0, .15);
   --remove-bg: #c4c8cc; --remove-hover: #aeb4bb;
   --logo-edge: none;
+  --leader: #1f6bff;
   color-scheme: light;
 }
 * { scrollbar-width: thin; scrollbar-color: var(--scrollbar) transparent; }

@@ -21,10 +21,8 @@ export const ADMIN_PARAM = params.get("admin");
 // The site's own API (worker/handler.js) that logs the admin in and hands out the admin code.
 export const ADMIN_URL = "/api";
 
-// Share links for MDS mode (js/mds.js), any case: ?mds switches it on for this visit, ?mds=demo adds its demo games too.
-// Neither changes what the gear menu's switch remembers. null when absent.
-const mdsKey = [...params.keys()].find((k) => k.toLowerCase() === "mds");
-export const MDS_LINK = mdsKey === undefined ? null : params.get(mdsKey).toLowerCase() === "demo" ? "demo" : "on";
+// ?mds (any case) turns on the loud version of MDS (js/mds.js) for this visit.
+export const MDS_LINK = [...params.keys()].some((k) => k.toLowerCase() === "mds");
 
 // ?league=nfl or ?league=college picks the starting league, for links shared with one audience.
 // null when absent or unrecognized.

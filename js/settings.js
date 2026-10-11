@@ -1,12 +1,11 @@
 // Settings gear in the corner. "google me" toggles a coach photo: Curt Cignetti usually, Bo Pelini one time in ten.
-// "MDS mode" switches on js/mds.js (loaded the first time), remembered in this browser; ?mds and ?mds=demo links switch
-// it on for one visit (js/config.js MDS_LINK).
+// "MDS" colors the leading team blue. A ?mds link instead loads the loud version (js/mds.js) for that visit.
 
 import { store } from "./store.js";
 import { MDS_LINK } from "./config.js";
 
 const $ = (id) => document.getElementById(id);
-let settingsBtn, settingsMenu, coach, googleMe, mdsBtn, mdsHooks, mdsModule;
+let settingsBtn, settingsMenu, coach, googleMe, mdsBtn;
 let settingsOpen = false;
 
 function setSettingsMenu(open) {
@@ -74,34 +73,24 @@ function hideCoach(into) {
   ], { duration: 400, easing: "cubic-bezier(.5, 0, .75, 0)" }).onfinish = () => { coach.hidden = true; };
 }
 
-/** The MDS mode module, loaded on first use. */
-export const loadMds = async () => (mdsModule ??= await import("./mds.js"));
-
-/**
- * Switches MDS mode on or off, remembering it unless it came from a share link; fires "mds-change" on document so the
- * admin's demo switch follows.
- */
-export async function setMds(on, remember = true) {
+// "MDS": the leading team's name and score in blue (css/board.css, css/picker.css), remembered in this browser.
+function setBlue(on) {
   mdsBtn.setAttribute("aria-pressed", on);
-  if (remember) store.set("mds", on);
-  if (!on && !mdsModule) return;
-  const mds = await loadMds();
-  on ? mds.start(mdsHooks) : mds.stop();
-  document.dispatchEvent(new CustomEvent("mds-change", { detail: on }));
+  document.body.classList.toggle("mds-blue", on);
+  store.set("mdsBlue", on);
 }
 
 /** @param {{ mds: object }} hooks  what js/mds.js's start() needs: { state, renderBoard, renderList, setExtraGames } */
 export function initSettings({ mds }) {
-  mdsHooks = mds;
   for (const { src } of Object.values(COACHES)) new Image().src = src;  // preload so a swap is instant
   settingsBtn = $("settings");
   settingsMenu = $("settings-menu");
   coach = $("coach");
   googleMe = $("google-me");
-  mdsBtn = $("mds-mode");
-  mdsBtn.addEventListener("click", () => setMds(mdsBtn.getAttribute("aria-pressed") !== "true"));
-  if (MDS_LINK) setMds(true, false).then(async () => { if (MDS_LINK === "demo") (await loadMds()).setDemo(true); });
-  else if (store.get("mds", false)) setMds(true);
+  mdsBtn = $("mds-blue");
+  mdsBtn.addEventListener("click", () => setBlue(mdsBtn.getAttribute("aria-pressed") !== "true"));
+  setBlue(store.get("mdsBlue", false));
+  if (MDS_LINK) import("./mds.js").then((m) => m.start(mds));
 
   settingsBtn.addEventListener("click", (e) => {
     e.stopPropagation();

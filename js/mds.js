@@ -1,9 +1,9 @@
-// MDS mode, switched on from the gear menu (js/settings.js): FOOTBALL IS HAPPENING scrolls up and down the screen's
-// edges; the leading team gets a huge red arrow and its name in blue; a lead change sets off explosions and a banner;
-// a tie gets a sad trombone; missiles hit the leaders' rows in the game list that are on screen; and an air horn goes
-// off at a random moment once a minute. Demo games (setDemo) are three fake live games whose scores swing every few
-// seconds, to see and hear it when nothing's on. Loaded only when switched on. Sounds are synthesized, no audio files;
-// browsers only allow sound after a click, so a button asks for one.
+// MDS, the loud version, switched on by a ?mds link (js/settings.js): FOOTBALL IS HAPPENING scrolls up and down the
+// screen's edges; the leading team gets a huge red arrow and its name in blue; a lead change sets off explosions and a
+// banner; a tie gets a sad trombone; missiles hit the leaders' rows in the game list that are on screen; and an air horn
+// goes off at a random moment once a minute. When nothing's live it brings three fake live games whose scores swing
+// every few seconds. Loaded only by that link. Sounds are synthesized, no audio files; browsers only allow sound after a
+// click, so a button asks for one.
 
 const DEMO_TICK_MS = 4000;
 const MISSILE_EVERY_MS = 1800;
@@ -11,7 +11,7 @@ const MISSILE_FLIGHT_MS = 1100;
 const HORN_EVERY_MS = 60_000;  // once in every minute, at a random moment in it
 
 let app;  // { state, renderBoard, renderList, setExtraGames }
-let canvas, ctx, soundBtn, styles, marquees, observer, missileTimer, hornTimer, demoTimer, frameId;
+let canvas, ctx, soundBtn, styles, marquees, observer, missileTimer, hornTimer, frameId;
 const particles = [];  // fire, smoke and sparks from explosions and missile trails
 const missiles = [];
 const leaders = new Map();  // game key -> "away" | "home" | "" (tied), as last drawn
@@ -44,34 +44,18 @@ export function start(hooks) {
   observer = new MutationObserver(checkLeads);
   observer.observe(document.getElementById("board"), { childList: true });
   missileTimer = setInterval(launchMissile, MISSILE_EVERY_MS);
+  setTimeout(launchMissile, 400);
   scheduleHorn(performance.now());
   frameId = requestAnimationFrame(frame);
   checkLeads();
-}
-
-export function stop() {
-  if (!canvas) return;
-  setDemo(false);
-  document.body.classList.remove("mds");
-  for (const el of [styles, canvas, soundBtn, ...marquees, ...document.querySelectorAll(".mds-banner")]) el.remove();
-  canvas = ctx = null;
-  removeEventListener("resize", sizeCanvas);
-  removeEventListener("pointerdown", unlockElsewhere, true);
-  observer.disconnect();
-  clearInterval(missileTimer);
-  clearTimeout(hornTimer);
-  cancelAnimationFrame(frameId);
-  particles.length = missiles.length = 0;
-  leaders.clear();
-  audio?.close();
-  audio = master = null;
-  muted = false;
+  demoIfQuiet();
 }
 
 // --- Leads --------------------------------------------------------------------------------------------------------
 
 // After every board render: the side whose score is underlined (.pts.lead, js/board.js) leads. A new leader gets the
-// full treatment; a game that just got tied gets the trombone. The first look at a game only blows things up.
+// full treatment; a game that just got tied gets the trombone. The first look at a game blows it up just as hard,
+// minus the banner.
 function checkLeads() {
   if (!canvas) return;
   let trombone = false;
@@ -93,12 +77,9 @@ function celebrate(key, side, name, isChange) {
   const box = teamBox(key, side);
   if (!box) return;
   const x = box.left + box.width / 2, y = box.top + box.height / 2;
-  for (let i = 0; i < (isChange ? 4 : 1); i++) {
-    setTimeout(() => explode(x + (Math.random() - .5) * 120, y + (Math.random() - .5) * 50, isChange ? 1.4 : .8), i * 180);
-  }
-  if (!isChange) return;
+  for (let i = 0; i < 4; i++) setTimeout(() => explode(x + (Math.random() - .5) * 120, y + (Math.random() - .5) * 50, 1.4), i * 180);
   shake();
-  banner(`${name} TAKES THE LEAD`);
+  if (isChange) banner(`${name} TAKES THE LEAD`);
 }
 
 const teamBox = (key, side) =>
@@ -324,11 +305,17 @@ function soundButton() {
   addEventListener("pointerdown", unlockElsewhere, true);
   // On the button itself, wait for the click: moving it on pointerdown would leave the pointer's release elsewhere.
   soundBtn.addEventListener("click", () => {
-    if (!soundBtn.classList.contains("on")) { turnSoundOn().then(airHorn); return; }
+    if (!soundBtn.classList.contains("on")) { turnSoundOn().then(blastEveryone); return; }
     muted = !muted;
     master.gain.value = muted ? 0 : .9;
     soundBtn.textContent = muted ? "🔊 Unmute" : "🔇 Mute";
   });
+}
+
+// The sound button's payoff: the horn, and every leader on the board blown up.
+function blastEveryone() {
+  airHorn();
+  for (const [key, side] of leaders) if (side) setTimeout(() => celebrate(key, side, "", false), Math.random() * 600);
 }
 
 function unlockElsewhere(e) {
@@ -475,11 +462,12 @@ function sadTrombone() {
 // --- Demo games ---------------------------------------------------------------------------------------------------
 
 const logo = (id) => `https://a.espncdn.com/i/teamlogos/ncaa/500/${id}.png`;
-const team = (id, abbr, name, color, conf, rank, record) => ({ id, abbr, name, logo: logo(id), conf, color, score: "0", rank, record });
+// Every game starts with someone ahead, so the arrows and missiles start at once.
+const team = (id, abbr, name, color, conf, rank, record, score) => ({ id, abbr, name, logo: logo(id), conf, color, score, rank, record });
 const demo = [
-  { away: team("84", "IU", "Indiana", "#990000", 5, 3, "6-0"), home: team("158", "NEB", "Nebraska", "#e41c38", 5, 24, "4-2") },
-  { away: team("130", "MICH", "Michigan", "#00274c", 5, 12, "5-1"), home: team("194", "OSU", "Ohio State", "#ce1141", 5, 1, "6-0") },
-  { away: team("251", "TEX", "Texas", "#bf5700", 8, 6, "5-1"), home: team("201", "OU", "Oklahoma", "#841617", 8, 15, "4-2") },
+  { away: team("84", "IU", "Indiana", "#990000", 5, 3, "6-0", "14"), home: team("158", "NEB", "Nebraska", "#e41c38", 5, 24, "4-2", "10") },
+  { away: team("130", "MICH", "Michigan", "#00274c", 5, 12, "5-1", "3"), home: team("194", "OSU", "Ohio State", "#ce1141", 5, 1, "6-0", "7") },
+  { away: team("251", "TEX", "Texas", "#bf5700", 8, 6, "5-1", "21"), home: team("201", "OU", "Oklahoma", "#841617", 8, 15, "4-2", "17") },
 ].map((g, i) => ({
   ...g, key: `cfb:mds-${i + 1}`, date: new Date(), state: "in", period: 2, secs: 600 + i * 200, network: "MDS+",
   yardLine: 50, distance: 10, possession: g.away.id, redZone: false, lastPlay: "Kickoff. Everyone is very calm.",
@@ -491,23 +479,26 @@ const PLAYS = [
   [2, "SAFETY! {t} gets two points the hard way."],
 ];
 
-/** Adds or removes the demo games, picked (but never saved: js/state.js saveSelected) so they show on the board. */
-export function setDemo(on) {
-  if (on === !!demoTimer || (on && !app)) return;
-  clearInterval(demoTimer);
-  demoTimer = null;
-  const keys = new Set(demo.map((g) => g.key));
-  app.state.games.cfb = app.state.games.cfb.filter((g) => !keys.has(g.key));
-  if (on) {
-    // Into the list right away, so the demo works even while ESPN can't be reached; each poll adds them again.
-    app.state.games.cfb.push(...demo);
-    keys.forEach((k) => app.state.selected.add(k));
-    syncDemo();
-    demoTimer = setInterval(demoPlay, DEMO_TICK_MS);
-  } else {
-    keys.forEach((k) => app.state.selected.delete(k));
-  }
-  app.setExtraGames((league) => (demoTimer && league === "cfb" ? demo : []));
+// The demo games, once the first games arrive, if none of them is live; also if none arrive within a few seconds.
+function demoIfQuiet() {
+  const since = performance.now();
+  const wait = setInterval(() => {
+    const games = [...app.state.games.cfb, ...app.state.games.nfl];
+    if (!games.length && performance.now() - since < 6000) return;
+    clearInterval(wait);
+    if (!games.some((g) => g.state === "in")) startDemo();
+  }, 250);
+}
+
+// Picked (but never saved: js/state.js saveSelected) so they show on the board, and added to every poll's games.
+function startDemo() {
+  // Into the list right away, so the demo works even while ESPN can't be reached.
+  app.state.games.cfb.push(...demo);
+  demo.forEach((g) => app.state.selected.add(g.key));
+  app.setExtraGames((league) => (league === "cfb" ? demo : []));
+  syncDemo();
+  setTimeout(demoPlay, 1200);  // the first lead change right away
+  setInterval(demoPlay, DEMO_TICK_MS);
   app.renderList();
   app.renderBoard();
 }
