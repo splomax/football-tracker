@@ -530,25 +530,24 @@ test.describe("MDS mode", () => {
     return page.locator(id);
   };
 
-  test("only the admin's gear menu has it, and nothing downloads until it's switched on", async ({ page }) => {
+  test("everyone's gear menu has it, only the admin's has demo games, and nothing downloads until it's switched on", async ({ page }) => {
     const loaded = [];
     page.on("request", (r) => r.url().includes("mds") && loaded.push(r.url()));
-    await open(page, { storage: { ...admin, selected: ["cfb:1"], mds: true } });  // switched on before, but no ?admin
+    await open(page, { storage: { selected: ["cfb:1"] } });
     await page.locator("#settings").click();
-    await expect(page.locator("#google-me")).toBeVisible();
-    await expect(page.locator("#mds-mode")).toHaveCount(0);
-    await page.evaluate(() => localStorage.setItem("mds", "false"));
-    await page.goto("/index.html?admin");
-    await expect(await menuItem(page, "#mds-mode")).toHaveText(/MDS mode/);
+    await expect(page.locator("#mds-mode")).toHaveText(/MDS mode/);
     await expect(page.locator("#mds-mode")).toHaveAttribute("aria-pressed", "false");
-    await expect(page.locator("#mds-demo")).toHaveText(/MDS demo games/);
+    await expect(page.locator("#mds-demo")).toHaveCount(0);
+    await page.evaluate((token) => localStorage.setItem("adminToken", JSON.stringify(token)), ADMIN_TOKEN);
+    await page.goto("/index.html?admin");
+    await expect(await menuItem(page, "#mds-demo")).toHaveText(/MDS demo games/);
     expect(loaded).toEqual([]);
     await expect(page.locator("body")).not.toHaveClass(/mds/);
   });
 
   test("switched on, the leader's name goes blue with the overlay and the sound button; off takes it all away", async ({ page }) => {
     const errors = errorsOn(page);
-    await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:1", "cfb:4"] } });
+    await open(page, { storage: { selected: ["cfb:1", "cfb:4"] } });  // a regular visitor
     await (await menuItem(page, "#mds-mode")).click();
     await expect(page.locator("#mds-mode")).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator("body")).toHaveClass(/mds/);
@@ -583,12 +582,17 @@ test.describe("MDS mode", () => {
     await expect(fake(page)).toHaveCount(0);
     await expect(row(page, "cfb:mds-1")).toHaveCount(0);
     await expect(page.locator("body")).toHaveClass(/mds/);  // the mode stays on
+    await (await menuItem(page, "#mds-demo")).click();
+    await expect(fake(page)).toHaveCount(3);
+    await (await menuItem(page, "#mds-mode")).click();  // the mode off takes the demo games with it
+    await expect(fake(page)).toHaveCount(0);
+    await expect(page.locator("#mds-demo")).toHaveAttribute("aria-pressed", "false");
     expect(errors).toEqual([]);
   });
 
   test("the sound button turns sound on with the first click, then mutes and unmutes", async ({ page }) => {
     const errors = errorsOn(page);
-    await open(page, { query: "?admin", storage: { ...admin, mds: true } });
+    await open(page, { storage: { mds: true } });
     const button = page.locator(".mds-sound");
     await button.click({ force: true });  // it throbs, so it's never "stable"
     await expect(button).toHaveText("🔇 Mute");
@@ -1234,14 +1238,14 @@ test.describe("counter, and a game that kicks off", () => {
 });
 
 test.describe("settings gear and google me", () => {
-  test("gear menu animates open with exactly one option and closes on Escape or outside click", async ({ page }) => {
+  test("gear menu animates open with google me and MDS mode, and closes on Escape or outside click", async ({ page }) => {
     await open(page);
     const menu = page.locator("#settings-menu");
     await expect(menu).toBeHidden();
     await page.locator("#settings").click();
     await expect(menu).toBeVisible();
     expect(await menu.evaluate((m) => m.getAnimations().length)).toBeGreaterThan(0);
-    await expect(menu.locator("button")).toHaveText(["✓google me"]);
+    await expect(menu.locator("button")).toHaveText(["✓google me", "✓MDS mode"]);
     await page.keyboard.press("Escape");
     await expect(menu).toBeHidden();
     await page.locator("#settings").click();

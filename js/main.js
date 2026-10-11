@@ -1,7 +1,7 @@
 // Entry point: wires the modules together and polls ESPN.
 
 import { LINKED_GAMES, LOADING, MOBILE_QUERY, POLL_MS } from "./config.js";
-import { state, allGames, extraGames } from "./state.js";
+import { state, allGames, extraGames, setExtraGames } from "./state.js";
 import { fetchGames } from "./espn.js";
 import { checkRecaps } from "./recap.js";
 import { renderList, listIsStale, initPicker } from "./picker.js";
@@ -58,7 +58,7 @@ initBoard({
   onSelectionChanged: () => { renderList(); renderBoard(); },  // a card's ✕ unpicks, so uncheck its row too
 });
 initDrawer({ animateLayout: animateBoardLayout });
-initSettings();
+initSettings({ mds: { state, renderBoard, renderList, setExtraGames } });
 initLogo();
 initTheme({ onChange: () => { renderList(); renderBoard(); } });  // logos differ per theme
 

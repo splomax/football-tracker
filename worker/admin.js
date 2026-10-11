@@ -7,15 +7,15 @@
 //   with logos, ranks and records, network).
 // - "Save board as image" in the gear menu: the whole board as it looks right now.
 // - The visit counter's weekly, monthly and total counts atop the gear menu, fetched each time it opens.
-// - "MDS mode" and "MDS demo games" switches in the gear menu (js/mds.js), remembered in this browser.
+// - "MDS demo games" in the gear menu: fake live games to show off MDS mode (js/mds.js, whose switch is public).
 // - In the game list, a row of bulk buttons atop each section: Live, Upcoming and Final get "Select all" (every game
 //   the section shows) and "Remove all" (that state's picked games, which sit under Selected); Selected gets
 //   "Remove all" (every picked game in the current tab and filters).
 // Every image is in the current theme, gives kickoff times in Eastern time whatever the admin's own time zone, and
 // carries a small, muted Game Tracker logo in the bottom-right corner.
 
-let app;  // { renderBoard, renderList, listView, allGames, state, saveSelected, currentTheme, setTimeZone, visits, store, mds }
-          // from js/admin.js
+let app;  // { renderBoard, renderList, listView, allGames, state, saveSelected, currentTheme, setTimeZone, visits, store, setMds,
+          //   loadMds } from js/admin.js
 
 const IMAGE_ZONE = "America/New_York";  // the time zone of every kickoff time in an image
 
@@ -125,34 +125,29 @@ function addVisits() {
   gear.addEventListener("click", () => { if (gear.getAttribute("aria-expanded") === "true") refresh(); });
 }
 
-// Gear menu switches for MDS mode and its demo games. Demo games need the mode, so each switch keeps the other in step.
+// Gear menu switch for MDS mode's demo games, remembered in this browser. The games need the mode, so switching them on
+// switches it on, and switching the mode off (its public switch, js/settings.js) takes the games away.
 function addMds() {
   const menu = document.getElementById("settings-menu");
-  if (!menu || document.getElementById("mds-mode")) return;
-  const toggle = (id, label) => {
-    const button = document.createElement("button");
-    button.id = id;
-    button.setAttribute("aria-pressed", "false");
-    button.innerHTML = `<span class="check">✓</span>${label}`;
-    menu.append(button);
-    return button;
+  if (!menu || document.getElementById("mds-demo")) return;
+  const demo = document.createElement("button");
+  demo.id = "mds-demo";
+  demo.setAttribute("aria-pressed", "false");
+  demo.innerHTML = `<span class="check">✓</span>MDS demo games`;
+  menu.append(demo);
+  const set = async (on) => {
+    demo.setAttribute("aria-pressed", on);
+    app.store.set("mdsDemo", on);
+    if (on) await app.setMds(true);
+    if (on || app.store.get("mds", false)) (await app.loadMds()).setDemo(on);
   };
-  const mode = toggle("mds-mode", "MDS mode"), demo = toggle("mds-demo", "MDS demo games");
-  let mds;
-  const set = async (modeOn, demoOn) => {
-    mode.setAttribute("aria-pressed", modeOn);
-    demo.setAttribute("aria-pressed", demoOn);
-    app.store.set("mds", modeOn);
-    app.store.set("mdsDemo", demoOn);
-    if (!modeOn && !mds) return;
-    mds ??= await app.mds();
-    if (modeOn) mds.start();
-    mds.setDemo(demoOn);
-    if (!modeOn) mds.stop();
-  };
-  mode.addEventListener("click", () => set(mode.getAttribute("aria-pressed") !== "true", false));
-  demo.addEventListener("click", () => { const on = demo.getAttribute("aria-pressed") !== "true"; set(on || app.store.get("mds", false), on); });
-  if (app.store.get("mds", false)) set(true, app.store.get("mdsDemo", false));
+  demo.addEventListener("click", () => set(demo.getAttribute("aria-pressed") !== "true"));
+  document.addEventListener("mds-change", (e) => {
+    if (e.detail) return;
+    demo.setAttribute("aria-pressed", "false");
+    app.store.set("mdsDemo", false);
+  });
+  if (app.store.get("mdsDemo", false)) set(true);
 }
 
 const W = 640, PAD = 24, ROW = 44, DAY_HEAD = 34, FOOT = 34, SCALE = 2;
