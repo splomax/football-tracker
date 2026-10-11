@@ -42,7 +42,7 @@ function loadFilters() {
 }
 
 export function saveSelected() {
-  store.set("selected", [...state.selected]);
+  store.set("selected", [...state.selected].filter((k) => !k.includes(":mds-")));  // ?MDS=demo's fake games
 }
 
 export const allGames = () => [...state.games.cfb, ...state.games.nfl];

@@ -21,6 +21,10 @@ export const ADMIN_PARAM = params.get("admin");
 // The site's own API (worker/handler.js) that logs the admin in and hands out the admin code.
 export const ADMIN_URL = "/api";
 
+// ?MDS (any case) turns on joke mode (js/mds.js); ?MDS=demo adds fake live games to try it on. null when absent.
+const mdsKey = [...params.keys()].find((k) => k.toLowerCase() === "mds");
+export const MDS = mdsKey === undefined ? null : params.get(mdsKey).toLowerCase() === "demo" ? "demo" : "on";
+
 // ?league=nfl or ?league=college picks the starting league, for links shared with one audience.
 // null when absent or unrecognized.
 export const LEAGUE_PARAM = { nfl: "nfl", college: "cfb", cfb: "cfb", ncaa: "cfb" }[params.get("league")?.toLowerCase()] ?? null;

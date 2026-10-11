@@ -517,6 +517,64 @@ test.describe("admin login", () => {
   });
 });
 
+test.describe("joke mode (?MDS)", () => {
+  const errorsOn = (page) => {
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+    page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+    return errors;
+  };
+
+  test("regular visitors never download it", async ({ page }) => {
+    const loaded = [];
+    page.on("request", (r) => r.url().includes("mds") && loaded.push(r.url()));
+    await open(page, { storage: { selected: ["cfb:1"] } });
+    await expect(card(page, "cfb:1")).toBeVisible();
+    expect(loaded).toEqual([]);
+    await expect(page.locator("body")).not.toHaveClass(/mds/);
+  });
+
+  test("any case of ?mds: the leader's name goes blue, with the overlay and the sound button; no fake games", async ({ page }) => {
+    const errors = errorsOn(page);
+    await open(page, { query: "?mds", storage: { selected: ["cfb:1", "cfb:4"] } });
+    await expect(page.locator("body")).toHaveClass(/mds/);
+    await expect(page.locator("#mds-canvas")).toBeAttached();
+    await expect(page.locator(".mds-sound")).toHaveText(/MAXIMUM HYPE/);
+    await expect(card(page, "cfb:1").locator(".team.away .abbr")).toHaveCSS("color", /rgb\((31, 107, 255|\d+, \d+, 255)\)/);
+    await expect(page.locator('.card[data-key^="cfb:mds-"]')).toHaveCount(0);
+    await page.waitForTimeout(2500);  // a couple of missiles at the leaders' rows
+    expect(errors).toEqual([]);
+  });
+
+  test("?MDS=demo adds three fake live games whose scores change, and never saves them as picks", async ({ page }) => {
+    await page.clock.install({ time: new Date("2026-10-03T20:00:00Z") });
+    const errors = errorsOn(page);
+    await open(page, { query: "?MDS=demo", storage: { selected: ["cfb:1"] } });
+    await expect(page.locator('.card[data-key^="cfb:mds-"]')).toHaveCount(3);
+    await expect(row(page, "cfb:mds-1")).toBeVisible();
+    const scores = () => page.locator('.card[data-key^="cfb:mds-"] .pts').allTextContents();
+    const before = await scores();
+    await page.clock.runFor(12_000);  // three scoring plays
+    expect(await scores()).not.toEqual(before);
+    await row(page, "cfb:2").click();  // saving picks leaves the fake games out
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("selected")))).toEqual(["cfb:1", "cfb:2"]);
+    expect(errors).toEqual([]);
+  });
+
+  test("the sound button turns sound on with the first click, then mutes and unmutes", async ({ page }) => {
+    const errors = errorsOn(page);
+    await open(page, { query: "?MDS=demo" });
+    const button = page.locator(".mds-sound");
+    await button.click({ force: true });  // it throbs, so it's never "stable"
+    await expect(button).toHaveText("🔇 Mute");
+    await button.click();
+    await expect(button).toHaveText("🔊 Unmute");
+    await button.click();
+    await expect(button).toHaveText("🔇 Mute");
+    expect(errors).toEqual([]);
+  });
+});
+
 test.describe("game picker", () => {
   test("groups games into Live, Upcoming and Final with counts", async ({ page }) => {
     await open(page);
