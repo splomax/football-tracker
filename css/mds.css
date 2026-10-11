@@ -11,7 +11,7 @@
 .mds .pts.lead { color: #ff1a1a; }
 
 .mds-banner {
-  position: fixed; left: 50%; top: 40%; z-index: 1001; pointer-events: none; width: max-content; max-width: 88vw; text-align: center;
+  position: fixed; left: 50%; top: 40%; z-index: 1001; pointer-events: none; width: max-content; max-width: calc(100vw - 90px); text-align: center;
   font: 900 clamp(28px, 7vw, 84px) Impact, "Arial Black", sans-serif; color: #ffdd00; letter-spacing: .02em;
   -webkit-text-stroke: 3px #000; text-shadow: 6px 6px 0 #ff1a1a;
   animation: mds-banner 2.2s cubic-bezier(.2, 1.6, .4, 1) forwards;  /* BANNER_MS in js/mds.js */
@@ -23,6 +23,16 @@
   100% { transform: translate(-50%, -50%) scale(2.2) rotate(4deg); opacity: 0; }
 }
 
+
+/* The page fits between the side scrollers rather than running under them, fixed-position pieces included. */
+body.mds { padding: 0 34px; }
+.mds #corner { right: 34px; }
+.mds #coach { right: 46px; }
+@media (max-width: 700px) {  /* css/mobile.css */
+  .mds #picker-body { left: 34px; width: min(calc(85vw - 34px), 320px); }
+  .mds #corner { right: auto; }
+  .mds #coach { right: 50px; }
+}
 
 /* FOOTBALL IS HAPPENING up the left edge and down the right. The text is there twice, so moving it by half loops. */
 .mds-marquee {

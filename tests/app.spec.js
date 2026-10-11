@@ -1448,6 +1448,15 @@ test.describe("desktop game list panel", () => {
 test.describe("mobile", () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
+  test("?mds keeps the page and the game list drawer between the side scrollers, with no sideways scrolling", async ({ page }) => {
+    await open(page, { query: "?mds", storage: { selected: ["cfb:1"], pickerOpen: true } });
+    await expect(page.locator(".mds-marquee")).toHaveCount(2);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+    const drawer = await page.locator("#picker-body").boundingBox();
+    expect(drawer.x).toBe(34);
+    expect(drawer.x + drawer.width).toBeLessThanOrEqual(390 - 34);
+  });
+
   test("with no picks, the board says to tap the Games bar", async ({ page }) => {
     await open(page, { storage: { pickerOpen: false } });
     await expect(page.locator("#board .empty .mobile-only")).toHaveText("Tap ☰ Games at the top to pick a few games, and they'll show up here.");

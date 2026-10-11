@@ -340,18 +340,25 @@ function circle(x, y, r) {
 // A huge red arrow beside every leading team on the board, coming in from the card's outer edge and jabbing at the team's
 // logo (the away team is on the left, so its arrow points right). Drawn over everything, the game list included; only a
 // team scrolled out of the board's view goes without.
+// On a phone, where the cards are narrow, the arrows come down from above instead (matches css/mobile.css).
+const phone = () => matchMedia("(max-width: 700px)").matches;
+
 function drawArrows(now) {
-  const board = document.getElementById("board").getBoundingClientRect();
-  for (const pts of document.querySelectorAll("#board .card .pts.lead")) {
+  const board = document.getElementById("board").getBoundingClientRect(), down = phone();
+  // On a phone the open game list covers the board, so the board's arrows wait until it closes.
+  const covered = down && !document.querySelector("aside")?.classList.contains("collapsed");
+  for (const pts of covered ? [] : document.querySelectorAll("#board .card .pts.lead")) {
     const team = pts.closest(".team"), r = (team.querySelector("img") ?? team).getBoundingClientRect();
     if (r.bottom < board.top || r.top > board.bottom) continue;
-    const jab = Math.abs(Math.sin(now / 180)) * 18, away = team.classList.contains("away");
-    arrow(away ? r.left - 4 - jab : r.right + 4 + jab, r.top + r.height / 2, away ? 0 : Math.PI);
+    const jab = Math.abs(Math.sin(now / 180)) * (down ? 10 : 18), away = team.classList.contains("away");
+    if (down) arrow(r.left + r.width / 2, r.top - 2 - jab, Math.PI / 2, .9);
+    else arrow(away ? r.left - 4 - jab : r.right + 4 + jab, r.top + r.height / 2, away ? 0 : Math.PI);
   }
-  // Smaller ones in the game list, over the status column, jabbing left at each on-screen leader's score.
+  // Smaller ones in the game list at each on-screen leader's score: from its right, or from above on a phone.
   for (const line of leaderRows()) {
-    const r = line.querySelector(".pts").getBoundingClientRect();
-    arrow(r.right + 3 + Math.abs(Math.sin(now / 150)) * 6, r.top + r.height / 2, Math.PI, .55);
+    const r = line.querySelector(".pts").getBoundingClientRect(), jab = Math.abs(Math.sin(now / 150)) * 6;
+    if (down) arrow(r.left + r.width / 2, r.top - 1 - jab, Math.PI / 2, .45);
+    else arrow(r.right + 3 + jab, r.top + r.height / 2, Math.PI, .55);
   }
 }
 
