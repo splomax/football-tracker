@@ -1,13 +1,14 @@
 // MDS mode, switched on from the gear menu (js/settings.js): FOOTBALL IS HAPPENING scrolls up and down the screen's
-// edges, the leading team gets a huge red arrow, its name in blue, explosions and a banner when a lead changes, an air horn every few seconds while anyone leads, and missiles that
-// hit the leaders' rows in the game list that are on screen. A tie gets a sad trombone. Demo games (setDemo) are three fake live games whose scores swing every few
+// edges; the leading team gets a huge red arrow and its name in blue; a lead change sets off explosions and a banner;
+// a tie gets a sad trombone; missiles hit the leaders' rows in the game list that are on screen; and an air horn goes
+// off at a random moment once a minute. Demo games (setDemo) are three fake live games whose scores swing every few
 // seconds, to see and hear it when nothing's on. Loaded only when switched on. Sounds are synthesized, no audio files;
 // browsers only allow sound after a click, so a button asks for one.
 
 const DEMO_TICK_MS = 4000;
 const MISSILE_EVERY_MS = 1800;
 const MISSILE_FLIGHT_MS = 1100;
-const HORN_EVERY_MS = 3500;  // the air horn keeps going while anyone leads
+const HORN_EVERY_MS = 60_000;  // once in every minute, at a random moment in it
 
 let app;  // { state, renderBoard, renderList, setExtraGames }
 let canvas, ctx, soundBtn, styles, marquees, observer, missileTimer, hornTimer, demoTimer, frameId;
@@ -43,7 +44,7 @@ export function start(hooks) {
   observer = new MutationObserver(checkLeads);
   observer.observe(document.getElementById("board"), { childList: true });
   missileTimer = setInterval(launchMissile, MISSILE_EVERY_MS);
-  hornTimer = setInterval(() => { if (!document.hidden && document.querySelector("#board .pts.lead")) airHorn(); }, HORN_EVERY_MS);
+  scheduleHorn(performance.now());
   frameId = requestAnimationFrame(frame);
   checkLeads();
 }
@@ -58,7 +59,7 @@ export function stop() {
   removeEventListener("pointerdown", unlockElsewhere, true);
   observer.disconnect();
   clearInterval(missileTimer);
-  clearInterval(hornTimer);
+  clearTimeout(hornTimer);
   cancelAnimationFrame(frameId);
   particles.length = missiles.length = 0;
   leaders.clear();
@@ -73,7 +74,7 @@ export function stop() {
 // full treatment; a game that just got tied gets the trombone. The first look at a game only blows things up.
 function checkLeads() {
   if (!canvas) return;
-  let horn = false, trombone = false;
+  let trombone = false;
   for (const c of document.querySelectorAll("#board .card[data-key]")) {
     const side = c.querySelector(".team.away .pts.lead") ? "away" : c.querySelector(".team.home .pts.lead") ? "home" : "";
     const before = leaders.get(c.dataset.key);
@@ -82,11 +83,9 @@ function checkLeads() {
     if (side) {
       const name = c.querySelector(`.team.${side} .abbr`)?.textContent ?? "";
       setTimeout(() => celebrate(c.dataset.key, side, name, before !== undefined), Math.random() * 300);
-      horn ||= before !== undefined;
     } else if (before) trombone = true;
   }
-  if (horn) airHorn();
-  else if (trombone) sadTrombone();
+  if (trombone) sadTrombone();
 }
 
 function celebrate(key, side, name, isChange) {
@@ -352,33 +351,55 @@ function turnSoundOn() {
 
 const ready = () => audio && audio.state === "running" && !muted;
 
-// BWAA BWA BWA BWAAAAA: three detuned sawtooth voices through distortion, each blast starting a touch sharp.
+// One air horn somewhere in the minute starting at slotStart, then the next minute's.
+function scheduleHorn(slotStart) {
+  const at = slotStart + Math.random() * HORN_EVERY_MS;
+  hornTimer = setTimeout(() => {
+    if (!document.hidden) airHorn();
+    scheduleHorn(slotStart + HORN_EVERY_MS);
+  }, Math.max(0, at - performance.now()));
+}
+
+// BWAA BWA BWA BWAAAAA, twice, the second time a step higher: a stack of detuned sawtooth voices through heavy
+// distortion, each blast starting sharp and the long ones wobbling.
 function airHorn() {
   if (!ready()) return;
   const t0 = audio.currentTime + .02;
   const shaper = audio.createWaveShaper();
-  shaper.curve = Float32Array.from({ length: 1024 }, (_, i) => Math.tanh((i / 512 - 1) * 4));
+  shaper.curve = Float32Array.from({ length: 2048 }, (_, i) => Math.tanh((i / 1024 - 1) * 9));
   const tone = audio.createBiquadFilter();
-  tone.type = "lowpass";
-  tone.frequency.value = 3200;
+  tone.type = "peaking";  // a honky bump where horns hurt most
+  tone.frequency.value = 2500;
+  tone.gain.value = 9;
   const out = audio.createGain();
-  out.gain.value = .35;
+  out.gain.value = .5;
   shaper.connect(tone).connect(out).connect(master);
-  for (const [at, len] of [[0, .28], [.34, .1], [.5, .1], [.66, .9]]) {
-    const env = audio.createGain();
-    env.gain.setValueAtTime(0, t0 + at);
-    env.gain.linearRampToValueAtTime(1, t0 + at + .02);
-    env.gain.setValueAtTime(1, t0 + at + len - .04);
-    env.gain.linearRampToValueAtTime(0, t0 + at + len);
-    env.connect(shaper);
-    for (const f of [466, 470, 233, 349]) {
-      const o = audio.createOscillator();
-      o.type = "sawtooth";
-      o.frequency.setValueAtTime(f * 1.04, t0 + at);
-      o.frequency.exponentialRampToValueAtTime(f, t0 + at + .06);
-      o.connect(env);
-      o.start(t0 + at);
-      o.stop(t0 + at + len + .02);
+  const blasts = [[0, .3], [.36, .11], [.53, .11], [.7, 1]];
+  for (const [round, lift] of [[0, 1], [1.85, 1.12]]) {
+    for (const [at, len] of blasts) {
+      const start = t0 + round + at, env = audio.createGain();
+      env.gain.setValueAtTime(0, start);
+      env.gain.linearRampToValueAtTime(1, start + .015);
+      env.gain.setValueAtTime(1, start + len - .04);
+      env.gain.linearRampToValueAtTime(0, start + len);
+      env.connect(shaper);
+      for (const f of [466, 470, 462, 233, 349, 699, 932]) {
+        const o = audio.createOscillator();
+        o.type = "sawtooth";
+        o.frequency.setValueAtTime(f * lift * 1.06, start);
+        o.frequency.exponentialRampToValueAtTime(f * lift, start + .07);
+        if (len > .5) {  // the long blast wobbles
+          const lfo = audio.createOscillator(), depth = audio.createGain();
+          lfo.frequency.value = 7;
+          depth.gain.value = f * lift * .012;
+          lfo.connect(depth).connect(o.frequency);
+          lfo.start(start);
+          lfo.stop(start + len);
+        }
+        o.connect(env);
+        o.start(start);
+        o.stop(start + len + .02);
+      }
     }
   }
 }
