@@ -1,10 +1,9 @@
 // MDS, the loud version, switched on by a ?mds link (js/settings.js): FOOTBALL IS HAPPENING scrolls up and down the
-// screen's edges; the leading team gets a huge red arrow (now and then swinging all the way round its score) and its name
-// in blue; a lead change sets off explosions and a banner; missiles from a point that travels round the window's edge
-// hit the leaders' rows in the game list that are on screen (and now and then a little man pops up in the corner to
-// fire one, and winks); banners shout things like HOLY SHIT every so often; and
-// fireworks go up about every 20 seconds. It always brings three fake live games whose scores swing every few seconds,
-// alongside the visitor's own picks. Loaded only by that link. No sound.
+// screen's edges; the leading team gets a huge red arrow and its name in blue; a lead change sets off explosions and a
+// banner; missiles from a point that travels round the window's edge hit the leaders' rows in the game list that are on
+// screen (and now and then a little man pops up in the corner to fire one, and winks); banners shout things like HOLY
+// SHIT every so often; and fireworks go up about every 20 seconds. It always brings three fake live games whose scores
+// swing every few seconds, alongside the visitor's own picks. Loaded only by that link. No sound.
 
 // It starts calm and builds: for the first WARM_UP_MS, missiles and fake scores come at the slower pace.
 const WARM_UP_MS = 30_000;
@@ -392,49 +391,18 @@ function circle(x, y, r) {
 // A huge red arrow beside every leading team on the board, coming in from the card's outer edge and jabbing at the team's
 // logo (the away team is on the left, so its arrow points right). Drawn over everything, the game list included; only a
 // team scrolled out of the board's view goes without.
-// Every so often (about every 25 seconds each) an arrow swings all the way round the leading score, still pointing at
-// it, to really hammer it home.
-const ORBIT_MS = 1200, ORBIT_EVERY_S = 25;
-const orbits = new Map();  // arrow id -> when its swing started
-
-function orbitAngle(id, now, dt) {
-  if (!orbits.has(id) && Math.random() < dt / ORBIT_EVERY_S) orbits.set(id, now);
-  const t = (now - (orbits.get(id) ?? now)) / ORBIT_MS;
-  if (t >= 1) orbits.delete(id);
-  if (!orbits.has(id) || t <= 0) return 0;
-  return Math.PI * 2 * (t < .5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);  // ease in and out
-}
-
-// An arrow whose tip rests at (x, y) pointing along angle, swung by turn round the point (cx, cy) and kept pointing at it.
-// The swing pulls its tip in to `close` px from that point and back out, so it circles the score tightly.
-function orbitingArrow(x, y, angle, size, cx, cy, turn, close) {
-  if (!turn) return arrow(x, y, angle, size);
-  const dx = x - cx, dy = y - cy, rest = Math.hypot(dx, dy);
-  const pull = Math.min(1, Math.sin(turn / 2) * 3);  // all the way in for most of the turn
-  const r = rest + (Math.min(close, rest) - rest) * pull;
-  const a = Math.atan2(dy, dx) + turn;
-  arrow(cx + Math.cos(a) * r, cy + Math.sin(a) * r, a + Math.PI, size);
-}
-
-const middle = (r) => [r.left + r.width / 2, r.top + r.height / 2];
-
-function drawArrows(now, dt) {
+function drawArrows(now) {
   const board = document.getElementById("board").getBoundingClientRect();
   for (const pts of document.querySelectorAll("#board .card .pts.lead")) {
     const team = pts.closest(".team"), r = (team.querySelector("img") ?? team).getBoundingClientRect();
     if (r.bottom < board.top || r.top > board.bottom) continue;
     const jab = Math.abs(Math.sin(now / 180)) * 18, away = team.classList.contains("away");
-    const turn = orbitAngle(`${pts.closest(".card").dataset.key} ${away}`, now, dt);
-    const score = pts.getBoundingClientRect();
-    orbitingArrow(away ? r.left - 4 - jab : r.right + 4 + jab, r.top + r.height / 2, away ? 0 : Math.PI, 1.6,
-      ...middle(score), turn, score.width / 2 + 8);
+    arrow(away ? r.left - 4 - jab : r.right + 4 + jab, r.top + r.height / 2, away ? 0 : Math.PI);
   }
   // Smaller ones in the game list, over the status column, jabbing left at each on-screen leader's score.
   for (const line of leaderRows()) {
-    const pts = line.querySelector(".pts"), r = pts.getBoundingClientRect();
-    const turn = orbitAngle(`list ${line.closest("label.game").querySelector("input").dataset.key} ${line.previousElementSibling ? 1 : 0}`, now, dt);
-    orbitingArrow(r.right + 3 + Math.abs(Math.sin(now / 150)) * 6, r.top + r.height / 2, Math.PI, .55, ...middle(r), turn,
-      r.width / 2 + 3);
+    const r = line.querySelector(".pts").getBoundingClientRect();
+    arrow(r.right + 3 + Math.abs(Math.sin(now / 150)) * 6, r.top + r.height / 2, Math.PI, .55);
   }
 }
 
@@ -465,7 +433,7 @@ function frame(now) {
   const dt = Math.min(.05, (now - last) / 1000);
   last = now;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  drawArrows(now, dt);
+  drawArrows(now);
   launcherAt += LAUNCHER_SPEED * dt;
   drawCameo(now);
   moveMissiles(now);

@@ -34,7 +34,7 @@
 .mds-marquee div {
   writing-mode: vertical-rl; white-space: nowrap; line-height: 30px; color: #ffdd00; -webkit-text-stroke: 1px #000;
   font: 900 22px/30px Impact, "Arial Black", sans-serif; letter-spacing: .06em;
-  animation: mds-down 14s linear infinite, mds-blink .5s steps(1) infinite;
+  animation: mds-down 28s linear infinite, mds-blink .5s steps(1) infinite;
 }
 .mds-marquee.left div { transform: rotate(180deg); animation-name: mds-up-left, mds-blink; }
 .mds-marquee.right div { animation-name: mds-down, mds-blink; }

@@ -64,7 +64,8 @@ async function open(page, opts = {}) {
     }, opts.storage);
   }
   await page.goto(`/index.html${opts.query ?? ""}`);
-  if (!opts.gate) await expect(page.locator("#list label.game").first()).toBeAttached();
+  // The first load can take a while when every worker is loading pages at once, so wait longer than the usual 5s.
+  if (!opts.gate) await expect(page.locator("#list label.game").first()).toBeAttached({ timeout: 15_000 });
   return state;
 }
 

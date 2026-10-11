@@ -6,6 +6,11 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+# A newer push to the same branch cancels the run still going for an older one, so a quick run of pushes ends in one
+# test-and-deploy of the latest, not one per push.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   test:
     runs-on: ubuntu-latest
