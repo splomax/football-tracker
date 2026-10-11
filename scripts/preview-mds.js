@@ -1,6 +1,5 @@
 // Screenshots the loud version of MDS (?mds) a few times from the moment it loads, with no games live so its fake games
-// come in, to check the arrows, explosions, missiles, banner and side scrollers by eye. Screenshots have no sound; to
-// hear it, open http://localhost:4173/?mds and click the yellow button.
+// come in, to check the arrows, explosions, the little man and his missiles, banners, fireworks and side scrollers by eye.
 //
 // Usage: start the local server (npm start), then run: node scripts/preview-mds.js [out-dir] [dark|light]
 // Writes mds-1.png ... to out-dir (default ./previews/mds, git-ignored).

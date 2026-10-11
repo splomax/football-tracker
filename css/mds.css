@@ -1,4 +1,5 @@
-/* The loud MDS (?mds, js/mds.js): the canvas for arrows, missiles and explosions, the lead banner and the sound button. */
+/* The loud MDS (?mds, js/mds.js): the canvas for arrows, missiles, explosions and the little man, the banners and the side
+   scrollers. */
 /* Above everything else here, side scrollers and banners included, so the BOOMs and POWs always show. */
 #mds-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 1010; pointer-events: none; }
 
@@ -22,14 +23,6 @@
   100% { transform: translate(-50%, -50%) scale(2.2) rotate(4deg); opacity: 0; }
 }
 
-.mds-sound {
-  position: fixed; left: 50%; bottom: 24px; z-index: 1002; transform: translateX(-50%); padding: 14px 22px; border: 3px solid #000;
-  border-radius: 10px; background: #ffdd00; color: #000; font: 900 20px Impact, "Arial Black", sans-serif; cursor: pointer;
-  box-shadow: 5px 5px 0 #ff1a1a; animation: mds-throb .6s ease-in-out infinite alternate;
-  max-width: calc(100vw - 100px); text-align: center;  /* clear of the side scrollers on a phone */
-}
-@keyframes mds-throb { to { transform: translateX(-50%) scale(1.08) rotate(-2deg); } }
-.mds-sound.on { left: 16px; bottom: 16px; transform: none; padding: 6px 10px; font-size: 13px; box-shadow: 3px 3px 0 #ff1a1a; animation: none; }
 
 /* FOOTBALL IS HAPPENING up the left edge and down the right. The text is there twice, so moving it by half loops. */
 .mds-marquee {

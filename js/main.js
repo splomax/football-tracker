@@ -13,7 +13,9 @@ import { countVisit } from "./counter.js";
 import { loadAdmin } from "./admin.js";
 import { initLogo } from "./logo.js";
 
-let lastUpdated = null;  // when data last arrived successfully; a failed poll leaves the old time showing
+let lastUpdated = null;
+let firstPollDone;
+const firstPoll = new Promise((resolve) => { firstPollDone = resolve; });  // settles once the first poll has drawn, either way  // when data last arrived successfully; a failed poll leaves the old time showing
 let linkPending = LINKED_GAMES.length > 0;  // a shared game link's card still needs its highlight once it first shows
 
 async function poll() {
@@ -31,6 +33,7 @@ async function poll() {
     }
   }));
   renderUpdated();
+  firstPollDone();
   // First load renders right away; after that the list waits out LIST_REFRESH_MS so it doesn't shift under your finger.
   if (listIsStale()) renderList();
   renderBoard();
@@ -58,7 +61,7 @@ initBoard({
   onSelectionChanged: () => { renderList(); renderBoard(); },  // a card's ✕ unpicks, so uncheck its row too
 });
 initDrawer({ animateLayout: animateBoardLayout });
-initSettings({ mds: { state, renderBoard, renderList, setExtraGames } });
+initSettings({ mds: { state, renderBoard, renderList, setExtraGames, firstPoll } });
 initLogo();
 initTheme({ onChange: () => { renderList(); renderBoard(); } });  // logos differ per theme
 

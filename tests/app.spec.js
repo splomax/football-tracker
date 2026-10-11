@@ -558,7 +558,6 @@ test.describe("MDS", () => {
     await expect(page.locator("body")).toHaveClass(/mds/);
     await expect(page.locator("#mds-canvas")).toBeAttached();
     await expect(page.locator(".mds-marquee")).toHaveCount(2);
-    await expect(page.locator(".mds-sound")).toHaveText(/TAP HERE IF YOU'RE NOT A PUSSY/);
     await expect(fake(page)).toHaveCount(3);
     await expect(card(page, "cfb:1")).toBeVisible();
     await expect(card(page, "cfb:1").locator(".team.away .abbr")).toHaveCSS("color", /rgb\((31, 107, 255|\d+, \d+, 255)\)/);
@@ -570,7 +569,19 @@ test.describe("MDS", () => {
     expect(errors).toEqual([]);
   });
 
+  test("?mds's fake games wait for ESPN's first answer", async ({ page }) => {
+    let release;
+    const gate = new Promise((r) => { release = r; });
+    const state = await open(page, { query: "?mds", gate });  // ESPN holds its answers until released
+    await page.waitForTimeout(800);
+    await expect(fake(page)).toHaveCount(0);
+    release();
+    await expect(fake(page)).toHaveCount(3);
+    expect(state.espnRequests).toBeGreaterThan(0);
+  });
+
   test("the fake games' scores change, and they're never saved as picks", async ({ page }) => {
+    test.slow();  // twelve seconds of animation frames on the fake clock
     await page.clock.install({ time: new Date("2026-10-03T20:00:00Z") });
     const errors = errorsOn(page);
     const quiet = cfbGames().filter((e) => e.status.type.state !== "in");
@@ -587,18 +598,6 @@ test.describe("MDS", () => {
     expect(errors).toEqual([]);
   });
 
-  test("the sound button turns sound on with the first click, then mutes and unmutes", async ({ page }) => {
-    const errors = errorsOn(page);
-    await open(page, { query: "?mds" });
-    const button = page.locator(".mds-sound");
-    await button.click({ force: true });  // it throbs, so it's never "stable"
-    await expect(button).toHaveText("🔇 Mute");
-    await button.click();
-    await expect(button).toHaveText("🔊 Unmute");
-    await button.click();
-    await expect(button).toHaveText("🔇 Mute");
-    expect(errors).toEqual([]);
-  });
 });
 
 test.describe("game picker", () => {

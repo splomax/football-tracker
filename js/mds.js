@@ -1,10 +1,9 @@
 // MDS, the loud version, switched on by a ?mds link (js/settings.js): FOOTBALL IS HAPPENING scrolls up and down the
-// screen's edges; the leading team gets a huge red arrow and its name in blue; a lead change sets off explosions and a
-// banner; a tie gets a sad trombone; missiles hit the leaders' rows in the game list that are on screen; and an air horn
-// goes off at a random moment once a minute; every so often a banner shouts something like HOLY SHIT; fireworks go up
-// about every 20 seconds; and now and then a big arrow spins all the way round. It always brings three fake live games whose scores swing every few
-// seconds, alongside the visitor's own picks. Loaded only by that link. Sounds are synthesized, no audio files; browsers only allow sound after a
-// click, so a button asks for one.
+// screen's edges; the leading team gets a huge red arrow (now and then swinging all the way round its score) and its name
+// in blue; a lead change sets off explosions and a banner; a little man walks round the edge of the window firing missiles
+// at the leaders' rows in the game list that are on screen; banners shout things like HOLY SHIT every so often; and
+// fireworks go up about every 20 seconds. It always brings three fake live games whose scores swing every few seconds,
+// alongside the visitor's own picks. Loaded only by that link. No sound.
 
 // It starts calm and builds: for the first WARM_UP_MS, missiles and fake scores come at the slower pace.
 const WARM_UP_MS = 30_000;
@@ -19,17 +18,15 @@ const SHOUTS = [
   "ALL GAS NO BRAKES", "THEY'RE PLAYING FOOTBALL", "LOOK AT THE NUMBERS",
 ];
 const SHOUT_MS = [6000, 14000];  // the gap before the next one, at random between these
-const HORN_EVERY_MS = 60_000;  // once in every minute, at a random moment in it
 
-let app;  // { state, renderBoard, renderList, setExtraGames }
+let app;  // { state, renderBoard, renderList, setExtraGames, firstPoll } from js/main.js
 let startedAt;
 const pace = ([warmingUp, fullSpeed]) => (performance.now() - startedAt < WARM_UP_MS ? warmingUp : fullSpeed);
 let fireworkTimer;
-let canvas, ctx, soundBtn, styles, marquees, observer, missileTimer, hornTimer, frameId;
+let canvas, ctx, styles, marquees, observer, missileTimer, frameId;
 const particles = [];  // fire, smoke and sparks from explosions and missile trails
 const missiles = [];
 const leaders = new Map();  // game key -> "away" | "home" | "" (tied), as last drawn
-let audio, master, muted = false;
 
 export function start(hooks) {
   if (canvas) return;
@@ -45,7 +42,6 @@ export function start(hooks) {
   ctx = canvas.getContext("2d");
   addEventListener("resize", sizeCanvas);
   sizeCanvas();
-  soundButton();
   // FOOTBALL IS HAPPENING, scrolling up the left edge and down the right (css/mds.css). Twice over, so the loop is seamless.
   const words = "🏈 FOOTBALL IS HAPPENING ".repeat(8);
   marquees = ["left", "right"].map((side) => {
@@ -65,7 +61,6 @@ export function start(hooks) {
     missileTimer = setTimeout(fire, pace(MISSILE_EVERY_MS));
   };
   missileTimer = setTimeout(fire, 8000);
-  scheduleHorn(performance.now());
   setTimeout(shout, 18_000);
   fireworkTimer = setTimeout(fireworks, 8000);
   frameId = requestAnimationFrame(frame);
@@ -76,10 +71,10 @@ export function start(hooks) {
 // --- Leads --------------------------------------------------------------------------------------------------------
 
 // After every board render: the side whose score is underlined (.pts.lead, js/board.js) leads. A new leader gets the
-// full treatment; a game that just got tied gets the trombone. The first look at a game gets a small pop.
+// full treatment. The first look at a game gets a small pop.
 function checkLeads() {
   if (!canvas) return;
-  let trombone = false, firstLooks = 0;
+  let firstLooks = 0;
   for (const c of document.querySelectorAll("#board .card[data-key]")) {
     const side = c.querySelector(".team.away .pts.lead") ? "away" : c.querySelector(".team.home .pts.lead") ? "home" : "";
     const before = leaders.get(c.dataset.key);
@@ -90,9 +85,8 @@ function checkLeads() {
       // Lead changes go off together, full size; first looks get a small pop each, two seconds apart.
       const first = before === undefined;
       setTimeout(() => celebrate(c.dataset.key, side, name, !first, first), first ? firstLooks++ * 2000 : Math.random() * 300);
-    } else if (before) trombone = true;
+    }
   }
-  if (trombone) sadTrombone();
 }
 
 function celebrate(key, side, name, isChange, small = false) {
@@ -133,11 +127,76 @@ function launchMissile() {
   const row = rows[Math.floor(Math.random() * rows.length)];
   const key = row.closest("label.game").querySelector("input").dataset.key;
   const line = [...row.parentElement.children].indexOf(row);
-  // From somewhere off the right or bottom edge, arcing in.
-  const fromRight = Math.random() < .5;
-  const from = fromRight ? { x: innerWidth + 40, y: Math.random() * innerHeight } : { x: Math.random() * innerWidth, y: innerHeight + 40 };
-  missiles.push({ key, line, from, bend: (Math.random() - .5) * 600, born: performance.now() });
-  whistle();
+  // Out of the little man's bazooka, arcing in.
+  soldier.aim = missileTarget({ key, line }) ?? soldier.aim;
+  soldier.firedAt = performance.now();
+  missiles.push({ key, line, from: muzzle(), bend: (Math.random() - .5) * 400, born: performance.now() });
+}
+
+// --- The little man -----------------------------------------------------------------------------------------------
+
+// He walks round and round the inside edge of the window (inside the side scrollers), feet on the edge and head toward
+// the middle, aiming his bazooka at whatever he last shot at. Every missile comes out of it.
+const WALK_SPEED = 70;  // px a second
+const EDGE = 34;        // the side scrollers' width (css/mds.css)
+const soldier = { s: 0, aim: null, firedAt: -Infinity };
+
+// Where he stands (x, y) and which way is up for him (rot: 0 on the bottom edge, turning a quarter at each corner as he
+// goes right along the bottom, up the right side, left along the top and down the left side).
+function soldierSpot() {
+  const w = innerWidth - 2 * EDGE, h = innerHeight, d = soldier.s % (2 * (w + h));
+  if (d < w) return { x: EDGE + d, y: h, rot: 0 };
+  if (d < w + h) return { x: EDGE + w, y: h - (d - w), rot: -Math.PI / 2 };
+  if (d < 2 * w + h) return { x: EDGE + w - (d - w - h), y: 0, rot: Math.PI };
+  return { x: EDGE, y: d - 2 * w - h, rot: Math.PI / 2 };
+}
+
+const SOLDIER_SIZE = 1.6;
+const SHOULDER = { x: 0, y: -24 }, TUBE = 20;
+const toScreen = ({ x, y, rot }, lx, ly) => ({ x: x + lx * Math.cos(rot) - ly * Math.sin(rot), y: y + lx * Math.sin(rot) + ly * Math.cos(rot) });
+
+// His aim in his own frame: straight up off the edge until he's had something to shoot at.
+function aimAngle(spot) {
+  const shoulder = toScreen(spot, SHOULDER.x * SOLDIER_SIZE, SHOULDER.y * SOLDIER_SIZE);
+  if (!soldier.aim) return -Math.PI / 2;
+  return Math.atan2(soldier.aim.y - shoulder.y, soldier.aim.x - shoulder.x) - spot.rot;
+}
+
+function muzzle() {
+  const spot = soldierSpot(), a = aimAngle(spot);
+  return toScreen(spot, (SHOULDER.x + Math.cos(a) * TUBE) * SOLDIER_SIZE, (SHOULDER.y + Math.sin(a) * TUBE) * SOLDIER_SIZE);
+}
+
+function drawSoldier(now, dt) {
+  soldier.s += WALK_SPEED * dt;
+  const spot = soldierSpot(), a = aimAngle(spot), step = Math.sin(now / 90) * 6;
+  ctx.save();
+  ctx.translate(spot.x, spot.y);
+  ctx.rotate(spot.rot);
+  ctx.scale(SOLDIER_SIZE, SOLDIER_SIZE);
+  ctx.lineCap = "round";
+  const line = (x1, y1, x2, y2, width, color) => {
+    ctx.strokeStyle = "#000"; ctx.lineWidth = width + 2;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    ctx.strokeStyle = color; ctx.lineWidth = width;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  };
+  line(0, -13, step, -1, 3, "#6b8e23");    // legs, marching
+  line(0, -13, -step, -1, 3, "#6b8e23");
+  line(0, -13, 0, -26, 5, "#7da82b");      // body
+  ctx.fillStyle = "#f1c27d"; ctx.strokeStyle = "#000"; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(0, -31, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();  // head
+  ctx.fillStyle = "#3b4a1c";
+  ctx.beginPath(); ctx.arc(0, -32, 6.5, Math.PI, 0); ctx.closePath(); ctx.fill(); ctx.stroke();  // helmet
+  ctx.translate(SHOULDER.x, SHOULDER.y);
+  ctx.rotate(a);
+  ctx.fillStyle = "#4f6420";
+  ctx.fillRect(-8, -3.5, TUBE + 8, 7); ctx.strokeRect(-8, -3.5, TUBE + 8, 7);  // bazooka
+  if (now - soldier.firedAt < 120) {  // muzzle flash
+    ctx.fillStyle = "#ffd23f";
+    ctx.beginPath(); ctx.moveTo(TUBE, -6); ctx.lineTo(TUBE + 16, 0); ctx.lineTo(TUBE, 6); ctx.fill();
+  }
+  ctx.restore();
 }
 
 function missileTarget(m) {
@@ -201,7 +260,6 @@ function explode(x, y, scale = 1) {
   }
   particles.push({ x, y, life: .45, age: 0, size: 160 * scale, kind: "ring" });
   particles.push({ x, y: y - 30 * scale, life: .9, age: 0, size: 30 * scale, kind: "word", text: WORDS[Math.floor(Math.random() * WORDS.length)] });
-  boomSound(scale);
 }
 
 function drawParticles(dt) {
@@ -280,7 +338,6 @@ function fireworks() {
 function launchRocket() {
   const x = innerWidth * (.15 + Math.random() * .7), rise = innerHeight * (.5 + Math.random() * .3), life = 1.1;
   particles.push({ x, y: innerHeight + 10, vx: (Math.random() - .5) * 80, vy: -(rise / life + 160 * life / 2), life, age: 0, kind: "rocket" });
-  rocketWhoosh(life);
 }
 
 function burst(x, y) {
@@ -292,8 +349,6 @@ function burst(x, y) {
       size: 2 + Math.random() * 1.5, kind: "star", color: Math.random() < .75 ? main : second });
   }
   particles.push({ x, y, life: .35, age: 0, size: 120, kind: "ring" });
-  boomSound(.55);
-  crackle(.5);
 }
 
 function circle(x, y, r) {
@@ -305,41 +360,52 @@ function circle(x, y, r) {
 // A huge red arrow beside every leading team on the board, coming in from the card's outer edge and jabbing at the team's
 // logo (the away team is on the left, so its arrow points right). Drawn over everything, the game list included; only a
 // team scrolled out of the board's view goes without.
-// Every so often (about every 8 seconds each) a big arrow does a full turn, to really hammer it home.
-const SPIN_MS = 700;
-const spins = new Map();  // card key + side -> when its turn started
+// Every so often (about every 25 seconds each) an arrow swings all the way round the leading score, still pointing at
+// it, to really hammer it home.
+const ORBIT_MS = 1200, ORBIT_EVERY_S = 25;
+const orbits = new Map();  // arrow id -> when its swing started
 
-function spinAngle(id, now) {
-  if (!spins.has(id) && Math.random() < .002) spins.set(id, now);
-  const t = (now - (spins.get(id) ?? now)) / SPIN_MS;
-  if (t >= 1) spins.delete(id);
-  if (!spins.has(id) || t <= 0) return 0;
+function orbitAngle(id, now, dt) {
+  if (!orbits.has(id) && Math.random() < dt / ORBIT_EVERY_S) orbits.set(id, now);
+  const t = (now - (orbits.get(id) ?? now)) / ORBIT_MS;
+  if (t >= 1) orbits.delete(id);
+  if (!orbits.has(id) || t <= 0) return 0;
   return Math.PI * 2 * (t < .5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);  // ease in and out
 }
 
-function drawArrows(now) {
+// An arrow whose tip rests at (x, y) pointing along angle, swung by turn round the point (cx, cy) and kept pointing at it.
+function orbitingArrow(x, y, angle, size, cx, cy, turn) {
+  if (!turn) return arrow(x, y, angle, size);
+  const dx = x - cx, dy = y - cy, c = Math.cos(turn), s = Math.sin(turn);
+  const tx = cx + dx * c - dy * s, ty = cy + dx * s + dy * c;
+  arrow(tx, ty, Math.atan2(cy - ty, cx - tx), size);
+}
+
+const middle = (r) => [r.left + r.width / 2, r.top + r.height / 2];
+
+function drawArrows(now, dt) {
   const board = document.getElementById("board").getBoundingClientRect();
   for (const pts of document.querySelectorAll("#board .card .pts.lead")) {
     const team = pts.closest(".team"), r = (team.querySelector("img") ?? team).getBoundingClientRect();
     if (r.bottom < board.top || r.top > board.bottom) continue;
     const jab = Math.abs(Math.sin(now / 180)) * 18, away = team.classList.contains("away");
-    const spin = spinAngle(`${pts.closest(".card").dataset.key} ${away}`, now);
-    arrow(away ? r.left - 4 - jab : r.right + 4 + jab, r.top + r.height / 2, away ? 1 : -1, 1.6, spin);
+    const turn = orbitAngle(`${pts.closest(".card").dataset.key} ${away}`, now, dt);
+    orbitingArrow(away ? r.left - 4 - jab : r.right + 4 + jab, r.top + r.height / 2, away ? 0 : Math.PI, 1.6,
+      ...middle(pts.getBoundingClientRect()), turn);
   }
   // Smaller ones in the game list, over the status column, jabbing left at each on-screen leader's score.
   for (const line of leaderRows()) {
-    const r = line.querySelector(".pts").getBoundingClientRect();
-    arrow(r.right + 3 + Math.abs(Math.sin(now / 150)) * 6, r.top + r.height / 2, -1, .55);
+    const pts = line.querySelector(".pts"), r = pts.getBoundingClientRect();
+    const turn = orbitAngle(`list ${line.closest("label.game").querySelector("input").dataset.key} ${line.previousElementSibling ? 1 : 0}`, now, dt);
+    orbitingArrow(r.right + 3 + Math.abs(Math.sin(now / 150)) * 6, r.top + r.height / 2, Math.PI, .55, ...middle(r), turn);
   }
 }
 
-// Its tip at (x, y), pointing right (dir 1) or left (dir -1).
-// spin turns it about its middle.
-function arrow(x, y, dir, size = 1.6, spin = 0) {
+// Its tip at (x, y), pointing along angle (0 is right, as on screen).
+function arrow(x, y, angle, size = 1.6) {
   ctx.save();
   ctx.translate(x, y);
-  ctx.rotate(-dir * Math.PI / 2);  // drawn pointing down
-  if (spin) { ctx.translate(0, -27 * size); ctx.rotate(spin); ctx.translate(0, 27 * size); }
+  ctx.rotate(angle - Math.PI / 2);  // drawn pointing down
   ctx.scale(size, size);
   ctx.beginPath();
   ctx.moveTo(0, 0); ctx.lineTo(-22, -24); ctx.lineTo(-9, -24); ctx.lineTo(-9, -54);
@@ -362,7 +428,8 @@ function frame(now) {
   const dt = Math.min(.05, (now - last) / 1000);
   last = now;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  drawArrows(now);
+  drawArrows(now, dt);
+  drawSoldier(now, dt);
   moveMissiles(now);
   drawParticles(dt);
   frameId = requestAnimationFrame(frame);
@@ -409,204 +476,6 @@ function shake() {
   }
 }
 
-// --- Sound --------------------------------------------------------------------------------------------------------
-
-// Browsers keep sound off until the page is clicked, so a big button asks for it; any click on the page also works.
-function soundButton() {
-  soundBtn = document.createElement("button");
-  soundBtn.className = "mds-sound";
-  soundBtn.textContent = "🔊 TAP HERE IF YOU'RE NOT A PUSSY";
-  document.body.append(soundBtn);
-  addEventListener("pointerdown", unlockElsewhere, true);
-  // On the button itself, wait for the click: moving it on pointerdown would leave the pointer's release elsewhere.
-  soundBtn.addEventListener("click", () => {
-    if (!soundBtn.classList.contains("on")) { turnSoundOn().then(blastEveryone); return; }
-    muted = !muted;
-    master.gain.value = muted ? 0 : .9;
-    soundBtn.textContent = muted ? "🔊 Unmute" : "🔇 Mute";
-  });
-}
-
-// The sound button's payoff: the horn, and every leader on the board blown up.
-function blastEveryone() {
-  airHorn();
-  for (const [key, side] of leaders) if (side) setTimeout(() => celebrate(key, side, "", false), Math.random() * 600);
-}
-
-function unlockElsewhere(e) {
-  if (e.target !== soundBtn) turnSoundOn();
-}
-
-function turnSoundOn() {
-  if (!audio) {
-    audio = new AudioContext();
-    const squash = audio.createDynamicsCompressor();  // loud without clipping
-    master = audio.createGain();
-    master.gain.value = .9;
-    master.connect(squash).connect(audio.destination);
-  }
-  removeEventListener("pointerdown", unlockElsewhere, true);
-  soundBtn.textContent = "🔇 Mute";
-  soundBtn.classList.add("on");  // shrinks into the corner
-  return audio.resume();
-}
-
-const ready = () => audio && audio.state === "running" && !muted;
-
-// One air horn somewhere in the minute starting at slotStart, then the next minute's.
-function scheduleHorn(slotStart) {
-  const at = slotStart + Math.random() * HORN_EVERY_MS;
-  hornTimer = setTimeout(() => {
-    if (!document.hidden) airHorn();
-    scheduleHorn(slotStart + HORN_EVERY_MS);
-  }, Math.max(0, at - performance.now()));
-}
-
-// BWAA BWA BWA BWAAAAA, twice, the second time a step higher: a stack of detuned sawtooth voices through heavy
-// distortion, each blast starting sharp and the long ones wobbling.
-function airHorn() {
-  if (!ready()) return;
-  const t0 = audio.currentTime + .02;
-  const shaper = audio.createWaveShaper();
-  shaper.curve = Float32Array.from({ length: 2048 }, (_, i) => Math.tanh((i / 1024 - 1) * 9));
-  const tone = audio.createBiquadFilter();
-  tone.type = "peaking";  // a honky bump where horns hurt most
-  tone.frequency.value = 2500;
-  tone.gain.value = 9;
-  const out = audio.createGain();
-  out.gain.value = .5;
-  shaper.connect(tone).connect(out).connect(master);
-  const blasts = [[0, .3], [.36, .11], [.53, .11], [.7, 1]];
-  for (const [round, lift] of [[0, 1], [1.85, 1.12]]) {
-    for (const [at, len] of blasts) {
-      const start = t0 + round + at, env = audio.createGain();
-      env.gain.setValueAtTime(0, start);
-      env.gain.linearRampToValueAtTime(1, start + .015);
-      env.gain.setValueAtTime(1, start + len - .04);
-      env.gain.linearRampToValueAtTime(0, start + len);
-      env.connect(shaper);
-      for (const f of [466, 470, 462, 233, 349, 699, 932]) {
-        const o = audio.createOscillator();
-        o.type = "sawtooth";
-        o.frequency.setValueAtTime(f * lift * 1.06, start);
-        o.frequency.exponentialRampToValueAtTime(f * lift, start + .07);
-        if (len > .5) {  // the long blast wobbles
-          const lfo = audio.createOscillator(), depth = audio.createGain();
-          lfo.frequency.value = 7;
-          depth.gain.value = f * lift * .012;
-          lfo.connect(depth).connect(o.frequency);
-          lfo.start(start);
-          lfo.stop(start + len);
-        }
-        o.connect(env);
-        o.start(start);
-        o.stop(start + len + .02);
-      }
-    }
-  }
-}
-
-// Filtered noise for the blast plus a falling low thump.
-function boomSound(scale) {
-  if (!ready()) return;
-  const t0 = audio.currentTime, len = 1.2;
-  const noise = audio.createBufferSource();
-  noise.buffer = audio.createBuffer(1, audio.sampleRate * len, audio.sampleRate);
-  noise.buffer.getChannelData(0).forEach((_, i, d) => { d[i] = Math.random() * 2 - 1; });
-  const lp = audio.createBiquadFilter();
-  lp.type = "lowpass";
-  lp.frequency.setValueAtTime(2200, t0);
-  lp.frequency.exponentialRampToValueAtTime(70, t0 + len);
-  const g = audio.createGain();
-  g.gain.setValueAtTime(Math.min(1, .6 * scale), t0);
-  g.gain.exponentialRampToValueAtTime(.001, t0 + len);
-  noise.connect(lp).connect(g).connect(master);
-  noise.start(t0);
-  const thump = audio.createOscillator(), tg = audio.createGain();
-  thump.frequency.setValueAtTime(110, t0);
-  thump.frequency.exponentialRampToValueAtTime(30, t0 + .5);
-  tg.gain.setValueAtTime(.9, t0);
-  tg.gain.exponentialRampToValueAtTime(.001, t0 + .6);
-  thump.connect(tg).connect(master);
-  thump.start(t0);
-  thump.stop(t0 + .6);
-}
-
-// A firework going up: a rising hiss.
-function rocketWhoosh(len) {
-  if (!ready()) return;
-  const t0 = audio.currentTime;
-  const noise = audio.createBufferSource();
-  noise.buffer = audio.createBuffer(1, audio.sampleRate * len, audio.sampleRate);
-  noise.buffer.getChannelData(0).forEach((_, i, d) => { d[i] = Math.random() * 2 - 1; });
-  const bp = audio.createBiquadFilter(), g = audio.createGain();
-  bp.type = "bandpass";
-  bp.Q.value = 4;
-  bp.frequency.setValueAtTime(600, t0);
-  bp.frequency.exponentialRampToValueAtTime(3500, t0 + len);
-  g.gain.setValueAtTime(0, t0);
-  g.gain.linearRampToValueAtTime(.25, t0 + len * .7);
-  g.gain.linearRampToValueAtTime(0, t0 + len);
-  noise.connect(bp).connect(g).connect(master);
-  noise.start(t0);
-}
-
-// The crackle after a burst: a scatter of tiny clicks over a second or so.
-function crackle(start) {
-  if (!ready()) return;
-  for (let i = 0; i < 40; i++) {
-    const t = audio.currentTime + start + Math.random() * 1.2, click = audio.createBufferSource();
-    click.buffer = audio.createBuffer(1, 400, audio.sampleRate);
-    click.buffer.getChannelData(0).forEach((_, j, d) => { d[j] = (Math.random() * 2 - 1) * (1 - j / 400); });
-    const g = audio.createGain();
-    g.gain.value = .15 + Math.random() * .2;
-    click.connect(g).connect(master);
-    click.start(t);
-  }
-}
-
-// The falling whistle of an incoming missile.
-function whistle() {
-  if (!ready()) return;
-  const t0 = audio.currentTime, len = MISSILE_FLIGHT_MS / 1000;
-  const o = audio.createOscillator(), g = audio.createGain();
-  o.frequency.setValueAtTime(1800, t0);
-  o.frequency.exponentialRampToValueAtTime(500, t0 + len);
-  g.gain.setValueAtTime(.08, t0);
-  g.gain.linearRampToValueAtTime(.15, t0 + len * .9);
-  g.gain.linearRampToValueAtTime(0, t0 + len);
-  o.connect(g).connect(master);
-  o.start(t0);
-  o.stop(t0 + len);
-}
-
-// Wah wah wah waaah.
-function sadTrombone() {
-  if (!ready()) return;
-  const t0 = audio.currentTime + .02;
-  [[294, 0, .45], [277, .5, .45], [262, 1, .45], [247, 1.5, 1.3]].forEach(([f, at, len], i) => {
-    const o = audio.createOscillator(), g = audio.createGain(), lp = audio.createBiquadFilter();
-    o.type = "sawtooth";
-    lp.type = "lowpass";
-    lp.frequency.value = 900;
-    o.frequency.setValueAtTime(f, t0 + at);
-    if (i === 3) {  // the last note wobbles
-      const lfo = audio.createOscillator(), depth = audio.createGain();
-      lfo.frequency.value = 6;
-      depth.gain.value = 6;
-      lfo.connect(depth).connect(o.frequency);
-      lfo.start(t0 + at);
-      lfo.stop(t0 + at + len);
-    }
-    g.gain.setValueAtTime(0, t0 + at);
-    g.gain.linearRampToValueAtTime(.3, t0 + at + .05);
-    g.gain.linearRampToValueAtTime(0, t0 + at + len);
-    o.connect(lp).connect(g).connect(master);
-    o.start(t0 + at);
-    o.stop(t0 + at + len);
-  });
-}
-
 // --- Demo games ---------------------------------------------------------------------------------------------------
 
 const logo = (id) => `https://a.espncdn.com/i/teamlogos/ncaa/500/${id}.png`;
@@ -627,9 +496,10 @@ const PLAYS = [
   [2, "SAFETY! {t} gets two points the hard way."],
 ];
 
-// Picked (but never saved: js/state.js saveSelected) so they show on the board, and added to every poll's games.
-function startDemo() {
-  // Into the list right away, so the demo works even while ESPN can't be reached.
+// Picked (but never saved: js/state.js saveSelected) so they show on the board, and added to every poll's games. They
+// wait for ESPN's first answer, so they don't jump in ahead of the real games; if ESPN can't be reached, they come anyway.
+async function startDemo() {
+  await app.firstPoll;
   app.state.games.cfb.push(...demo);
   demo.forEach((g) => app.state.selected.add(g.key));
   app.setExtraGames((league) => (league === "cfb" ? demo : []));

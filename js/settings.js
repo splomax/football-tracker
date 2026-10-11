@@ -80,7 +80,7 @@ function setBlue(on) {
   store.set("mdsBlue", on);
 }
 
-/** @param {{ mds: object }} hooks  what js/mds.js's start() needs: { state, renderBoard, renderList, setExtraGames } */
+/** @param {{ mds: object }} hooks  what js/mds.js's start() needs: { state, renderBoard, renderList, setExtraGames, firstPoll } */
 export function initSettings({ mds }) {
   for (const { src } of Object.values(COACHES)) new Image().src = src;  // preload so a swap is instant
   settingsBtn = $("settings");
