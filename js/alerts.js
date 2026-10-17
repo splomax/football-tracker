@@ -13,7 +13,7 @@ export function periodName(period) {
 }
 
 /** "OSU 24, IOWA 6 · 2:00 - 4th": both scores, away first, and where the game is. */
-export function scoreLine(g) {
+function scoreLine(g) {
   return `${g.away.abbr} ${g.away.score}, ${g.home.abbr} ${g.home.score} · ${g.detail}`;
 }
 

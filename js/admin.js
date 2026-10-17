@@ -8,7 +8,7 @@
 
 import { ADMIN_PARAM, ADMIN_URL } from "./config.js";
 import { store } from "./store.js";
-import { allGames, state, saveSelected } from "./state.js";
+import { state, saveSelected } from "./state.js";
 import { renderBoard, setAdmin, highlightCard } from "./board.js";
 import { gameAlerts, mergeAlerts } from "./alerts.js";
 import { listView, renderList, setPickerAdmin } from "./picker.js";
@@ -94,7 +94,7 @@ async function install(code) {
   const blob = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
   try {
     const { install } = await import(blob);
-    const hooks = install({ renderBoard, renderList, listView, allGames, state, saveSelected, visits, store, highlightCard, gameAlerts, mergeAlerts });
+    const hooks = install({ renderBoard, renderList, listView, state, saveSelected, visits, store, highlightCard, gameAlerts, mergeAlerts });
     setAdmin(hooks);
     setPickerAdmin(hooks);
     if (hooks.onPoll) polled = hooks.onPoll;
