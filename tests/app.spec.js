@@ -1277,7 +1277,7 @@ test.describe("google me: Cignetti, or Pelini one time in ten", () => {
       await page.locator("#google-me").click();
       await expect(page.locator("#coach")).toBeVisible();
       await page.waitForTimeout(600);
-      await page.locator("#coach").click({ position: { x: 75, y: 40 } });  // his face: the open menu covers his lower left
+      await page.locator("#coach").click();
       await expect(page.locator("#coach")).toBeHidden();
     }
     expect(await page.evaluate(() => window.reveals)).toEqual([

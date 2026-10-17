@@ -14,7 +14,7 @@ function setSettingsMenu(open) {
   settingsOpen = open;
   settingsBtn.setAttribute("aria-expanded", open);
   settingsMenu.getAnimations().forEach((a) => a.cancel());
-  // Pop up out of the gear (bottom-left corner) and drop back into it.
+  // Pop up out of the gear (the menu's bottom corner nearest it, css/corner.css) and drop back into it.
   const tucked = { opacity: 0, transform: "translateY(6px) scale(.9)" };
   const shown = { opacity: 1, transform: "none" };
   if (open) {

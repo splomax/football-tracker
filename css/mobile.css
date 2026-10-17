@@ -37,7 +37,7 @@
   #settings { width: 44px; height: 44px; padding: 0; border-bottom: 1px solid var(--border); border-radius: 10px; font-size: 20px; }
   #contact { padding: 0; background: none; border-radius: 0; user-select: auto; }
   #contact a { display: inline-block; padding: 12px 0; color: var(--text); }
-  #settings-menu { min-width: 160px; }
+  #settings-menu { right: auto; left: 0; transform-origin: bottom left; min-width: 160px; }
   #settings-menu button { padding: 12px 14px; font-size: 15px; }
   #coach { right: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); width: 130px; }
 }
