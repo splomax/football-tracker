@@ -18,9 +18,6 @@
 @container section (min-width: 1406px) { .compact .cards { --cols: 5; } }
 @container section (min-width: 1722px) { .compact .cards { --cols: 6; } }
 .board-section { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
-/* Admin-only "Save as image" beside the Upcoming heading (js/poster.js). */
-.poster { padding: 2px 8px; background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font: inherit; font-size: 11px; letter-spacing: 0; text-transform: none; cursor: pointer; }
-.poster:hover, .poster:focus-visible { color: var(--text); }
 .card { position: relative; min-width: 0; background: var(--card); border: 1px solid var(--card-border); border-radius: 10px; padding: 12px; }
 .card.redzone { border-color: var(--red); }
 .card.glow { animation: redzone-glow 2.4s ease-in-out; }

@@ -228,111 +228,18 @@ test.describe("?game= links and the share button", () => {
   });
 });
 
-test.describe("section images", () => {
-  test("only the admin gets Save as image, on every section", async ({ page }) => {
-    await open(page, { storage: { selected: ALL_CFB } });
-    await expect(page.locator('.board-group[data-section="pre"]')).toBeAttached();
-    await expect(page.locator("#board .poster")).toHaveCount(0);
-    await page.evaluate((token) => localStorage.setItem("adminToken", JSON.stringify(token)), ADMIN_TOKEN);
-    await page.reload();
-    await expect(page.locator('.board-group[data-section="pre"]')).toBeAttached();
-    await expect(page.locator("#board .poster")).toHaveCount(0);  // logged in, but no ?admin
-    await page.goto("/index.html?admin");
-    for (const st of ["in", "post", "pre"]) await expect(page.locator(`.board-group[data-section="${st}"] .poster`)).toHaveCount(1);
-  });
-
-  test("a team with no dark-mode logo doesn't break the image", async ({ page }) => {
-    // The image redraws the cards (for Eastern times), so New England's missing dark logo fails again mid-capture.
-    await open(page, { query: "?admin", missingLogo: "500-dark/17.png", storage: { ...admin, selected: ["nfl:101"] } });
-    const [download] = await Promise.all([page.waitForEvent("download"),
-      page.locator('.board-group[data-section="in"] .poster').click()]);
-    expect(require("fs").readFileSync(await download.path()).subarray(1, 4).toString()).toBe("PNG");
-  });
-
-  test("Live and Final save their cards as they look, cut off after the last card, with 16px around and room for the logo", async ({ page }) => {
-    await open(page, { query: "?admin", storage: { ...admin, selected: ALL_CFB } });
-    for (const [st, name] of [["in", "live"], ["post", "final"]]) {
-      const section = page.locator(`.board-group[data-section="${st}"]`);
-      // Cut off after the last card.
-      const size = await section.evaluate((s) => ({ height: s.scrollHeight, width: Math.ceil(Math.max(...[...s.querySelectorAll(".card")]
-        .map((c) => c.getBoundingClientRect().right)) - s.getBoundingClientRect().left) }));
-      const [download] = await Promise.all([page.waitForEvent("download"), section.locator(".poster").click()]);
-      expect(download.suggestedFilename()).toBe(`game-tracker-${name}.png`);
-      const png = require("fs").readFileSync(await download.path());
-      expect(png.readUInt32BE(16)).toBe((size.width + 32) * 2);
-      expect(png.readUInt32BE(20)).toBe((size.height + 48) * 2);
-    }
-  });
-
-  test("Save as image downloads a PNG of the picked upcoming games, one row per game plus a day heading", async ({ page }) => {
-    await open(page, { query: "?admin", storage: { ...admin, selected: [...ALL_CFB, "nfl:102"] } });
-    const upcoming = page.locator('.board-group[data-section="pre"] .poster');
-    const [download] = await Promise.all([page.waitForEvent("download"), upcoming.click()]);
-    expect(download.suggestedFilename()).toBe("upcoming-games.png");
-    const png = require("fs").readFileSync(await download.path());
-    expect(png.subarray(1, 4).toString()).toBe("PNG");
-    // Drawn at 2x: 640 wide, and its height grows by one 44px row per game and 34px per day.
-    const width = png.readUInt32BE(16), height = png.readUInt32BE(20);
-    expect(width).toBe(1280);
-    const days = await page.evaluate(() => new Set(["2026-10-03T23:30Z", "2026-10-04T00:00Z", "2026-10-04T20:25Z"]
-      .map((d) => new Date(d).toDateString())).size);
-    expect(height).toBe(2 * (24 + days * 34 + 3 * 44 + 34 + 12));
-  });
-});
-
-test.describe("images use Eastern time", () => {
-  test.use({ timezoneId: "Asia/Tokyo" });  // far from Eastern, so local and Eastern times differ (and so do days)
-
-  test("the Upcoming list gives kickoff times and days in Eastern time", async ({ page }) => {
-    // 23:30Z Oct 3 is Saturday 7:30 PM Eastern; 14:00Z Oct 4 is Sunday 10:00 AM. In Tokyo both fall on Sunday.
-    const cfb = cfbGames().map((e) => (e.id === "6" ? { ...e, date: "2026-10-04T14:00Z" } : e));
-    await open(page, { cfb, query: "?admin", storage: { ...admin, selected: ["cfb:5", "cfb:6"] } });
-    const [download] = await Promise.all([page.waitForEvent("download"),
-      page.locator('.board-group[data-section="pre"] .poster').click()]);
-    const png = require("fs").readFileSync(await download.path());
-    expect(png.readUInt32BE(20)).toBe(2 * (24 + 2 * 34 + 2 * 44 + 34 + 12));  // two day headings, not one
-  });
-
-  test("under Top 25 the board and the Upcoming list still go by kickoff, not rank", async ({ page }) => {
-    // Sunday's game has the best-ranked team, but Saturday's still comes first.
-    const cfb = cfbGames().map((e) => (e.id === "6" ? { ...e, date: "2026-10-04T17:00Z",
-      competitions: [{ ...e.competitions[0], competitors: e.competitions[0].competitors.map((c) => ({ ...c, curatedRank: { current: 1 } })) }] } : e));
-    await open(page, { cfb, query: "?admin", storage: { ...admin, selected: ["cfb:5", "cfb:6", "nfl:102"], filters: { cfb: { confs: [], top25: true }, nfl: { confs: [] } } } });
-    const board = page.locator('.board-group[data-section="pre"] .card');
-    await expect(board).toHaveCount(3);
-    expect(await board.evaluateAll((cs) => cs.map((c) => c.dataset.key))).toEqual(["cfb:5", "cfb:6", "nfl:102"]);
-    const [download] = await Promise.all([page.waitForEvent("download"),
-      page.locator('.board-group[data-section="pre"] .poster').click()]);
-    const png = require("fs").readFileSync(await download.path());
-    expect(png.readUInt32BE(20)).toBe(2 * (24 + 2 * 34 + 3 * 44 + 34 + 12));  // Saturday, Sunday: two headings, not three
-  });
-
-  test("section images redraw the cards in Eastern time, and the page goes back to local time after", async ({ page }) => {
-    // Stand in for the image library: note the times on the cards being captured.
-    await page.route("https://cdn.jsdelivr.net/npm/html-to-image@*/+esm", (route) => route.fulfill({ contentType: "text/javascript", body: `
-      export async function toCanvas(node) {
-        window.captured = node.innerText;
-        const canvas = document.createElement("canvas");
-        canvas.width = canvas.height = 10;
-        return canvas;
-      }` }));
-    await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:5", "cfb:7"] } });
-    const kickoff = card(page, "cfb:5").locator(".clock");
-    await expect(kickoff).toContainText("8:30 AM");  // 23:30Z in Tokyo
-    await Promise.all([page.waitForEvent("download"), page.locator('.board-group[data-section="post"] .poster').click()]);
-    expect(await page.evaluate(() => window.captured)).toContain("Final");
-    await expect(kickoff).toContainText("8:30 AM");  // back to local
-  });
-});
-
 test.describe("board image", () => {
-  test("only the admin's gear menu has Save board as image", async ({ page }) => {
-    await open(page, { storage: { selected: ["cfb:1"] } });
+  // Opens the gear menu and clicks Save board as image; resolves with the PNG's bytes and the download's name.
+  const saveBoard = async (page) => {
     await page.locator("#settings").click();
-    await expect(page.locator("#save-board")).toHaveCount(0);
-    await page.evaluate((token) => localStorage.setItem("adminToken", JSON.stringify(token)), ADMIN_TOKEN);
-    await page.goto("/index.html?admin");
-    await expect(card(page, "cfb:1")).toBeAttached();
+    const [download] = await Promise.all([page.waitForEvent("download"), page.locator("#save-board").click()]);
+    return { png: require("fs").readFileSync(await download.path()), name: download.suggestedFilename() };
+  };
+
+  test("everyone's gear menu has Save board as image, and no section has a Save as image button", async ({ page }) => {
+    await open(page, { storage: { selected: ALL_CFB } });
+    for (const st of ["in", "post", "pre"]) await expect(page.locator(`.board-group[data-section="${st}"]`)).toBeAttached();
+    await expect(page.locator("#board .board-section button")).toHaveCount(0);
     await page.locator("#settings").click();
     await expect(page.locator("#save-board")).toHaveText("Save board as image");
   });
@@ -359,14 +266,12 @@ test.describe("board image", () => {
     expect(state.visitsRequests).toBe(0);
   });
 
-  test("Save board as image downloads every game on the board as the Upcoming list, one row per game plus a day heading", async ({ page }) => {
+  test("Save board as image downloads every game on the board as a list, one row per game plus a day heading", async ({ page }) => {
     const selected = [...ALL_CFB, "nfl:101", "nfl:102"];
-    await open(page, { query: "?admin", storage: { ...admin, selected } });
+    await open(page, { storage: { selected } });
     await expect(card(page, "nfl:102")).toBeAttached();
-    await page.locator("#settings").click();
-    const [download] = await Promise.all([page.waitForEvent("download"), page.locator("#save-board").click()]);
-    expect(download.suggestedFilename()).toBe("game-tracker.png");
-    const png = require("fs").readFileSync(await download.path());
+    const { png, name } = await saveBoard(page);
+    expect(name).toBe("game-tracker.png");
     expect(png.subarray(1, 4).toString()).toBe("PNG");
     // Drawn at 2x: 640 wide, and its height grows by one 44px row per game and 34px per Eastern day.
     const dates = [...cfbGames().map((e) => ["cfb:" + e.id, e.date]), ...nflGames().map((e) => ["nfl:" + e.id, e.date])]
@@ -375,6 +280,37 @@ test.describe("board image", () => {
     const days = new Set(dates.map((d) => new Date(d).toLocaleDateString("en-CA", { timeZone: "America/New_York" }))).size;
     expect(png.readUInt32BE(16)).toBe(1280);
     expect(png.readUInt32BE(20)).toBe(2 * (24 + days * 34 + selected.length * 44 + 34 + 12));
+  });
+
+  test("a team with no dark-mode logo doesn't break the image", async ({ page }) => {
+    await open(page, { missingLogo: "500-dark/17.png", storage: { selected: ["nfl:101"] } });
+    await expect(card(page, "nfl:101")).toBeAttached();
+    expect((await saveBoard(page)).png.subarray(1, 4).toString()).toBe("PNG");
+  });
+
+  test.describe("in a time zone far from Eastern", () => {
+    test.use({ timezoneId: "Asia/Tokyo" });  // local and Eastern times differ (and so do days)
+
+    test("kickoff times and days are in Eastern time", async ({ page }) => {
+      // 23:30Z Oct 3 is Saturday 7:30 PM Eastern; 14:00Z Oct 4 is Sunday 10:00 AM. In Tokyo both fall on Sunday.
+      const cfb = cfbGames().map((e) => (e.id === "6" ? { ...e, date: "2026-10-04T14:00Z" } : e));
+      await open(page, { cfb, storage: { selected: ["cfb:5", "cfb:6"] } });
+      await expect(card(page, "cfb:6")).toBeAttached();
+      const { png } = await saveBoard(page);
+      expect(png.readUInt32BE(20)).toBe(2 * (24 + 2 * 34 + 2 * 44 + 34 + 12));  // two day headings, not one
+    });
+
+    test("under Top 25 the board and the list still go by kickoff, not rank", async ({ page }) => {
+      // Sunday's game has the best-ranked team, but Saturday's still comes first.
+      const cfb = cfbGames().map((e) => (e.id === "6" ? { ...e, date: "2026-10-04T17:00Z",
+        competitions: [{ ...e.competitions[0], competitors: e.competitions[0].competitors.map((c) => ({ ...c, curatedRank: { current: 1 } })) }] } : e));
+      await open(page, { cfb, storage: { selected: ["cfb:5", "cfb:6", "nfl:102"], filters: { cfb: { confs: [], top25: true }, nfl: { confs: [] } } } });
+      const board = page.locator('.board-group[data-section="pre"] .card');
+      await expect(board).toHaveCount(3);
+      expect(await board.evaluateAll((cs) => cs.map((c) => c.dataset.key))).toEqual(["cfb:5", "cfb:6", "nfl:102"]);
+      const { png } = await saveBoard(page);
+      expect(png.readUInt32BE(20)).toBe(2 * (24 + 2 * 34 + 3 * 44 + 34 + 12));  // Saturday, Sunday: two headings, not three
+    });
   });
 });
 
@@ -454,9 +390,9 @@ test.describe("admin login", () => {
     const state = await open(page, { storage: { ...admin, selected: ALL_CFB, pickerOpen: true } });
     await expect(card(page, "cfb:1")).toBeAttached();
     await expect.poll(() => state.adminRequests).toBe(1);  // the login is checked
-    await expect(page.locator("#board .share, #board .poster, #list .group-actions")).toHaveCount(0);
+    await expect(page.locator("#board .share, #list .group-actions")).toHaveCount(0);
     await page.locator("#settings").click();
-    await expect(page.locator("#save-board")).toHaveCount(0);
+    await expect(page.locator("#visits")).toHaveCount(0);
     expect(await page.evaluate(() => localStorage.getItem("adminToken"))).toContain("test-token");  // still logged in
     await page.waitForTimeout(500);
     expect(state.hits).toBe(0);
@@ -518,7 +454,7 @@ test.describe("admin login", () => {
     const sources = await page.evaluate(async () => Promise.all(performance.getEntriesByType("resource")
       .filter((r) => r.name.endsWith(".js")).map(async (r) => (await fetch(r.name)).text())));
     expect(sources.length).toBeGreaterThan(5);
-    for (const src of sources) expect(src).not.toMatch(/data-share|data-poster|toBlob/);
+    for (const src of sources) expect(src).not.toMatch(/data-share|data-bulk/);
   });
 });
 
@@ -1261,14 +1197,14 @@ test.describe("counter, and a game that kicks off", () => {
 });
 
 test.describe("settings gear and google me", () => {
-  test("gear menu animates open with google me and MDS, and closes on Escape or outside click", async ({ page }) => {
+  test("gear menu animates open with Save board as image, google me and MDS, and closes on Escape or outside click", async ({ page }) => {
     await open(page);
     const menu = page.locator("#settings-menu");
     await expect(menu).toBeHidden();
     await page.locator("#settings").click();
     await expect(menu).toBeVisible();
     expect(await menu.evaluate((m) => m.getAnimations().length)).toBeGreaterThan(0);
-    await expect(menu.locator("button")).toHaveText(["✓google me", "✓MDS"]);
+    await expect(menu.locator("button")).toHaveText(["Save board as image", "✓google me", "✓MDS"]);
     await page.keyboard.press("Escape");
     await expect(menu).toBeHidden();
     await page.locator("#settings").click();
@@ -1341,7 +1277,7 @@ test.describe("google me: Cignetti, or Pelini one time in ten", () => {
       await page.locator("#google-me").click();
       await expect(page.locator("#coach")).toBeVisible();
       await page.waitForTimeout(600);
-      await page.locator("#coach").click();
+      await page.locator("#coach").click({ position: { x: 75, y: 40 } });  // his face: the open menu covers his lower left
       await expect(page.locator("#coach")).toBeHidden();
     }
     expect(await page.evaluate(() => window.reveals)).toEqual([

@@ -1,6 +1,6 @@
 // Settings gear in the corner. "google me" toggles a coach photo: Curt Cignetti usually, Bo Pelini one time in ten.
 // "MDS" colors the leading team blue. A ?mds link also loads the loud version (js/mds.js) for that visit, until MDS is
-// switched off.
+// switched off. "Save board as image" saves the picked games as a list (js/image.js, loaded when first used).
 
 import { store } from "./store.js";
 import { MDS_LINK } from "./config.js";
@@ -109,6 +109,7 @@ export function initSettings({ mds }) {
     const from = googleMe.getBoundingClientRect();
     googleMe.getAttribute("aria-pressed") === "true" ? hideCoach(from) : showCoach(from);
   });
+  $("save-board").addEventListener("click", () => import("./image.js").then((m) => m.saveBoardImage()));
   coach.addEventListener("click", () => {
     if (googleMe.getAttribute("aria-pressed") === "true") hideCoach(settingsBtn.getBoundingClientRect());
   });

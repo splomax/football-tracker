@@ -1,4 +1,4 @@
-// Admin login. The admin's features (share buttons, the image exports) aren't in the public code: the Worker at
+// Admin login. The admin's features (share buttons, visit counts, bulk select) aren't in the public code: the Worker at
 // ADMIN_URL (worker/) hands them out only to a logged-in admin. ?admin asks for the password and trades it for a
 // token that lasts 30 days, kept in this browser's localStorage (adminToken) in place of the password. With a token
 // that still works, ?admin skips the password. ?admin=off logs out.
@@ -11,8 +11,6 @@ import { store } from "./store.js";
 import { allGames, state, saveSelected } from "./state.js";
 import { renderBoard, setAdmin } from "./board.js";
 import { listView, renderList, setPickerAdmin } from "./picker.js";
-import { currentTheme } from "./theme.js";
-import { setTimeZone } from "./format.js";
 
 /**
  * Check the admin login, and with ?admin turn the admin's features on (asking for the password if needed).
@@ -90,7 +88,7 @@ async function install(code) {
   const blob = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
   try {
     const { install } = await import(blob);
-    const hooks = install({ renderBoard, renderList, listView, allGames, state, saveSelected, currentTheme, setTimeZone, visits });
+    const hooks = install({ renderBoard, renderList, listView, allGames, state, saveSelected, visits });
     setAdmin(hooks);
     setPickerAdmin(hooks);
     return true;

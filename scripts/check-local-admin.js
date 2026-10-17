@@ -29,7 +29,7 @@ if (!password) {
     await page.waitForTimeout(3000);
     const token = await page.evaluate(() => localStorage.getItem("adminToken"));
     await page.click("#settings");
-    const features = await page.locator("#save-board").count();
+    const features = await page.locator("#visits").count();
     await page.waitForFunction(() => /\d/.test(document.getElementById("visits")?.textContent ?? ""), null, { timeout: 10000 })
       .catch(() => {});
     const visits = (await page.locator("#visits").textContent().catch(() => null)) ?? "none";

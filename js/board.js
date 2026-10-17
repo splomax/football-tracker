@@ -13,9 +13,9 @@ const glowStart = new Map();     // game key -> when its one-time glow began
 let flash = null;                // { key, at }: the card most recently highlighted from the picker
 let openPlay = null;             // game key whose full last-play text is showing; survives board refreshes
 // Extra controls for a logged-in admin (js/admin.js). Regular visitors never load that code, so these stay empty.
-let admin = { cardExtras: () => "", sectionExtras: () => "", onBoardClick: () => false };
+let admin = { cardExtras: () => "", onBoardClick: () => false };
 
-/** @param {{ cardExtras?: (g) => string, sectionExtras?: (st: string, games) => string, onBoardClick?: (e) => boolean }} hooks */
+/** @param {{ cardExtras?: (g) => string, onBoardClick?: (e) => boolean }} hooks */
 export function setAdmin(hooks) {
   admin = { ...admin, ...hooks };
 }
@@ -37,7 +37,7 @@ export function renderBoard() {
   $("board").innerHTML = SECTIONS.map(([st, label]) => {
     const games = picked.filter((g) => g.state === st);
     return games.length ? `<section class="board-group ${st === "in" ? "live" : "compact"}" data-section="${st}">
-      <h2 class="board-section">${label}${admin.sectionExtras(st, games)}</h2><div class="cards">${games.map(card).join("")}</div></section>` : "";
+      <h2 class="board-section">${label}</h2><div class="cards">${games.map(card).join("")}</div></section>` : "";
   }).join("");
   animateSectionChanges(before);
 }

@@ -14,17 +14,10 @@ export const rankBadge = (t) => (t.rank && t.rank <= 25 ? `<span class="rank">${
 /** Whether team t is ahead of other in a game that has started; a tie leads for neither. Its score gets underlined. */
 export const leads = (g, t, other) => g.state !== "pre" && +t.score > +other.score;
 
-// Kickoff times show in the viewer's own time zone. The admin's image exports switch this to Eastern for the moment
-// they capture the board (worker/admin.js).
-let timeZone;  // undefined: the viewer's
-export function setTimeZone(zone) {
-  timeZone = zone;
-}
-
 // Always two lines so the status block is the same height in every state.
 export function statusLines(g) {
   if (g.state === "in") return g.detail === "Halftime" ? "Half<br>&nbsp;" : `${g.clock}<br>${periodName(g)}`;
-  if (g.state === "pre") return `${g.date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", timeZone })}<br>${g.date.toLocaleDateString([], { weekday: "short", timeZone })}`;
+  if (g.state === "pre") return `${g.date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}<br>${g.date.toLocaleDateString([], { weekday: "short" })}`;
   return `${g.detail}<br>&nbsp;`;
 }
 
