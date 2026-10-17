@@ -11,3 +11,5 @@
 5. **A faster clock than ESPN.** ESPN's clock only moves when a play is logged, and some college games run minutes
    behind (Northwestern showed 11:42 left in the 4th while Google showed 9:43). Try NCAA.com's public scoreboard (and
    others) as a source, likely as part of the backend in #1.
+6. **Narrower list view on desktop.** Rows are too wide: move the network to the lower left of each row (the second
+   line, under the away team) and bring the width down.
