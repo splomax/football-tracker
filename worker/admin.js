@@ -5,7 +5,7 @@
 // - "Save as image" beside each section heading. Live and Final save the section's cards as they look right now.
 //   Upcoming saves a list made for posting on a forum: grouped by day, one row per game (kickoff time, away @ home
 //   with logos, ranks and records, network).
-// - "Save board as image" in the gear menu: the whole board as it looks right now.
+// - "Save board as image" in the gear menu: every game on the board, in the Upcoming list's format.
 // - The visit counter's weekly, monthly and total counts atop the gear menu, fetched each time it opens.
 // - In the game list, a row of bulk buttons atop each section: Live, Upcoming and Final get "Select all" (every game
 //   the section shows) and "Remove all" (that state's picked games, which sit under Selected); Selected gets
@@ -146,13 +146,16 @@ const cssColor = (name) => getComputedStyle(document.documentElement).getPropert
 
 // Each image comes as { blob, name }, the name being what a download is saved as.
 
-// The board already has room around its cards (css/board.css: 16px, and 32px below, where the logo goes).
-// Null when nothing is picked.
+// Every game on the board, live and final ones included, as the forum list, by kickoff. Null when nothing is picked.
 async function boardImage() {
-  const board = document.getElementById("board");
-  if (!board.querySelector(".card")) return null;
-  return { blob: await snapshot(() => board, 0, 0), name: "game-tracker.png" };
+  const games = cardGames(document.getElementById("board")).toSorted((a, b) => a.date - b.date);
+  if (!games.length) return null;
+  return { blob: await drawPoster(games), name: "game-tracker.png" };
 }
+
+// The games behind the cards under node, in the order they're drawn.
+const cardGames = (node) =>
+  [...node.querySelectorAll(".card")].map((c) => app.allGames().find((g) => g.key === c.dataset.key)).filter(Boolean);
 
 // The board redraws every poll, replacing its sections, so a section is looked up by its state when it's drawn.
 const sectionEl = (st) => document.querySelector(`#board .board-group[data-section="${st}"]`);
@@ -169,8 +172,7 @@ async function sectionImage(st) {
 
 // The Upcoming section's cards, as the forum list.
 async function posterImage() {
-  const games = [...sectionEl("pre").querySelectorAll(".card")].map((c) => app.allGames().find((g) => g.key === c.dataset.key)).filter(Boolean);
-  return { blob: await drawPoster(games), name: "upcoming-games.png" };
+  return { blob: await drawPoster(cardGames(sectionEl("pre"))), name: "upcoming-games.png" };
 }
 
 /**

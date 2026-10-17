@@ -307,7 +307,7 @@ test.describe("images use Eastern time", () => {
     expect(png.readUInt32BE(20)).toBe(2 * (24 + 2 * 34 + 3 * 44 + 34 + 12));  // Saturday, Sunday: two headings, not three
   });
 
-  test("board and section images show Eastern kickoff times, and the page goes back to local time after", async ({ page }) => {
+  test("section images redraw the cards in Eastern time, and the page goes back to local time after", async ({ page }) => {
     // Stand in for the image library: note the times on the cards being captured.
     await page.route("https://cdn.jsdelivr.net/npm/html-to-image@*/+esm", (route) => route.fulfill({ contentType: "text/javascript", body: `
       export async function toCanvas(node) {
@@ -319,9 +319,8 @@ test.describe("images use Eastern time", () => {
     await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:5", "cfb:7"] } });
     const kickoff = card(page, "cfb:5").locator(".clock");
     await expect(kickoff).toContainText("8:30 AM");  // 23:30Z in Tokyo
-    await page.locator("#settings").click();
-    await Promise.all([page.waitForEvent("download"), page.locator("#save-board").click()]);
-    expect(await page.evaluate(() => window.captured)).toContain("7:30 PM");  // Eastern
+    await Promise.all([page.waitForEvent("download"), page.locator('.board-group[data-section="post"] .poster').click()]);
+    expect(await page.evaluate(() => window.captured)).toContain("Final");
     await expect(kickoff).toContainText("8:30 AM");  // back to local
   });
 });
@@ -360,17 +359,22 @@ test.describe("board image", () => {
     expect(state.visitsRequests).toBe(0);
   });
 
-  test("Save board as image downloads a PNG of the whole board at 2x", async ({ page }) => {
-    await open(page, { query: "?admin", storage: { ...admin, selected: [...ALL_CFB, "nfl:101", "nfl:102"] } });
+  test("Save board as image downloads every game on the board as the Upcoming list, one row per game plus a day heading", async ({ page }) => {
+    const selected = [...ALL_CFB, "nfl:101", "nfl:102"];
+    await open(page, { query: "?admin", storage: { ...admin, selected } });
     await expect(card(page, "nfl:102")).toBeAttached();
-    const board = await page.locator("#board").evaluate((b) => ({ width: b.clientWidth, height: b.scrollHeight }));
     await page.locator("#settings").click();
     const [download] = await Promise.all([page.waitForEvent("download"), page.locator("#save-board").click()]);
     expect(download.suggestedFilename()).toBe("game-tracker.png");
     const png = require("fs").readFileSync(await download.path());
     expect(png.subarray(1, 4).toString()).toBe("PNG");
-    expect(png.readUInt32BE(16)).toBe(board.width * 2);
-    expect(png.readUInt32BE(20)).toBe(board.height * 2);
+    // Drawn at 2x: 640 wide, and its height grows by one 44px row per game and 34px per Eastern day.
+    const dates = [...cfbGames().map((e) => ["cfb:" + e.id, e.date]), ...nflGames().map((e) => ["nfl:" + e.id, e.date])]
+      .filter(([key]) => selected.includes(key)).map(([, date]) => date);
+    expect(dates).toHaveLength(selected.length);
+    const days = new Set(dates.map((d) => new Date(d).toLocaleDateString("en-CA", { timeZone: "America/New_York" }))).size;
+    expect(png.readUInt32BE(16)).toBe(1280);
+    expect(png.readUInt32BE(20)).toBe(2 * (24 + days * 34 + selected.length * 44 + 34 + 12));
   });
 });
 
