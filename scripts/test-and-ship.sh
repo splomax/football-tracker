@@ -8,9 +8,13 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 pkill -f "http.server 4173" 2>/dev/null  # a leftover dev server would be reused by Playwright
 for i in $(seq "${RUNS:-1}"); do
-  out=$(npx playwright test 2>&1)
+  out=$(npx playwright test 2>&1); code=$?
   echo "$out" | grep -E "✘|[0-9]+ (passed|failed|flaky)"
-  if echo "$out" | grep -qE "[0-9]+ (failed|flaky)"; then echo "Playwright run $i failed: not committing"; exit 1; fi
+  # A file that doesn't load runs no tests and prints no failures, so require a clean exit and a pass count too.
+  if [ $code -ne 0 ] || ! echo "$out" | grep -qE "[0-9]+ passed" || echo "$out" | grep -qE "[0-9]+ (failed|flaky)"; then
+    echo "$out" | grep -E "Error" | head -5
+    echo "Playwright run $i failed: not committing"; exit 1
+  fi
 done
 if ! npm run test:worker >/dev/null 2>&1; then echo "Worker tests failed: not committing"; exit 1; fi
 echo "All tests passed"

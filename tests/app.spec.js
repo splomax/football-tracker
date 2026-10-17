@@ -200,16 +200,6 @@ test.describe("?game= links", () => {
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem("selected")).sort())).toEqual(["cfb:1", "cfb:3", "nfl:101"]);
   });
 });
-    const share = card(page, "cfb:1").locator(".cover");
-    expect(await style(share, "opacity")).toBe("0");  // shows on hover, like ✕
-    await card(page, "cfb:1").hover();
-    await share.click();
-    await expect(share).toHaveText("✓");
-    await expect(share).toHaveAttribute("title", "Link copied");
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("http://localhost:4173/index.html?game=cfb:1");
-    await expect(share).not.toHaveText("✓");
-  });
-});
 
 test.describe("board image", () => {
   // Opens the gear menu and clicks Save board as image; resolves with the PNG's bytes and the download's name.
