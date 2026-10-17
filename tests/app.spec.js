@@ -181,7 +181,7 @@ test.describe("?league= links", () => {
   });
 });
 
-test.describe("?game= links and the share button", () => {
+test.describe("?game= links", () => {
   test("?game= adds the game to the viewer's own picks, highlights it, and leaves the address bar", async ({ page }) => {
     await open(page, { query: "?game=cfb:2", storage: { selected: ["cfb:1"] } });
     await expect(card(page, "cfb:2")).toHaveClass(/flash/);
@@ -199,25 +199,8 @@ test.describe("?game= links and the share button", () => {
     await expect(page.locator("#board .card")).toHaveCount(3);
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem("selected")).sort())).toEqual(["cfb:1", "cfb:3", "nfl:101"]);
   });
-
-  test("without the admin login, no card has a share button", async ({ page }) => {
-    await open(page, { storage: { selected: ALL_CFB } });
-    await expect(page.locator("#board .live .card").first()).toBeAttached();
-    await expect(page.locator("#board .share")).toHaveCount(0);
-  });
-
-  test("for the admin, only live cards can be shared", async ({ page }) => {
-    await open(page, { query: "?admin", storage: { ...admin, selected: ALL_CFB } });
-    await expect(page.locator("#board .live .card").first()).toBeAttached();
-    expect(await page.locator("#board .live .card .share").count()).toBe(await page.locator("#board .live .card").count());
-    await expect(page.locator("#board .compact .card").first()).toBeAttached();
-    await expect(page.locator("#board .compact .share")).toHaveCount(0);
-  });
-
-  test("with a mouse, the share button copies the game's link and shows a ✓", async ({ page, context }) => {
-    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-    await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:1"] } });
-    const share = card(page, "cfb:1").locator(".share");
+});
+    const share = card(page, "cfb:1").locator(".cover");
     expect(await style(share, "opacity")).toBe("0");  // shows on hover, like ✕
     await card(page, "cfb:1").hover();
     await share.click();
@@ -471,13 +454,13 @@ test.describe("admin login", () => {
     await field.fill(ADMIN_KEY);
     await field.press("Enter");
     await expect(page.locator("#admin-login")).toHaveCount(0);
-    await expect(card(page, "cfb:1").locator(".share")).toBeAttached();
+    await expect(card(page, "cfb:1").locator(".cover")).toBeAttached();
     expect(new URL(page.url()).search).toBe("?admin");  // kept while logged in
     const saved = await page.evaluate(() => JSON.stringify(localStorage));
     expect(saved).toContain(ADMIN_TOKEN);
     expect(saved).not.toContain(ADMIN_KEY);
     await page.goto("/index.html?admin");  // no password needed from now on
-    await expect(card(page, "cfb:1").locator(".share")).toBeAttached();
+    await expect(card(page, "cfb:1").locator(".cover")).toBeAttached();
     await expect(page.locator("#admin-login")).toHaveCount(0);
     await page.waitForTimeout(500);
     expect(state.hits).toBe(0);
@@ -487,7 +470,7 @@ test.describe("admin login", () => {
     const state = await open(page, { storage: { ...admin, selected: ALL_CFB, pickerOpen: true } });
     await expect(card(page, "cfb:1")).toBeAttached();
     await expect.poll(() => state.adminRequests).toBe(1);  // the login is checked
-    await expect(page.locator("#board .share, #list .group-actions")).toHaveCount(0);
+    await expect(page.locator("#board .cover, #list .group-actions")).toHaveCount(0);
     await page.locator("#settings").click();
     await expect(page.locator("#visits")).toHaveCount(0);
     expect(await page.evaluate(() => localStorage.getItem("adminToken"))).toContain("test-token");  // still logged in
@@ -502,7 +485,7 @@ test.describe("admin login", () => {
     await expect(page.locator("#admin-login .error")).toHaveText("Wrong password");
     await page.getByRole("button", { name: "Cancel" }).click();
     await expect(card(page, "cfb:1")).toBeAttached();
-    await expect(page.locator("#board .share")).toHaveCount(0);
+    await expect(page.locator("#board .cover")).toHaveCount(0);
     expect(await page.evaluate(() => localStorage.getItem("adminToken"))).toBeNull();
     await expect.poll(() => new URL(page.url()).search).toBe("");  // not logged in, so ?admin goes
     await expect.poll(() => state.hits).toBe(1);
@@ -511,7 +494,7 @@ test.describe("admin login", () => {
   test("an expired token is forgotten without a fuss", async ({ page }) => {
     const state = await open(page, { storage: { adminToken: "1.expired", selected: ["cfb:1"] } });
     await expect(card(page, "cfb:1")).toBeAttached();
-    await expect(page.locator("#board .share")).toHaveCount(0);
+    await expect(page.locator("#board .cover")).toHaveCount(0);
     await expect(page.locator("#admin-login")).toHaveCount(0);
     expect(await page.evaluate(() => localStorage.getItem("adminToken"))).toBe("null");
     await expect.poll(() => state.hits).toBe(1);
@@ -519,7 +502,7 @@ test.describe("admin login", () => {
 
   test("a password saved by an older version is swapped for a token and forgotten", async ({ page }) => {
     await open(page, { query: "?admin", storage: { adminKey: ADMIN_KEY, selected: ["cfb:1"] } });
-    await expect(card(page, "cfb:1").locator(".share")).toBeAttached();
+    await expect(card(page, "cfb:1").locator(".cover")).toBeAttached();
     const saved = await page.evaluate(() => JSON.stringify(localStorage));
     expect(saved).toContain(ADMIN_TOKEN);
     expect(saved).not.toContain(ADMIN_KEY);
@@ -527,7 +510,7 @@ test.describe("admin login", () => {
 
   test("?admin doesn't ask for the password when this browser is already logged in", async ({ page }) => {
     await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:1"] } });
-    await expect(card(page, "cfb:1").locator(".share")).toBeAttached();
+    await expect(card(page, "cfb:1").locator(".cover")).toBeAttached();
     await expect(page.locator("#admin-login")).toHaveCount(0);
     expect(new URL(page.url()).search).toBe("?admin");
   });
@@ -536,13 +519,13 @@ test.describe("admin login", () => {
     await open(page, { query: "?admin", storage: { adminToken: "1.expired", selected: ["cfb:1"] } });
     await page.locator("#admin-password").fill(ADMIN_KEY);
     await page.locator("#admin-password").press("Enter");
-    await expect(card(page, "cfb:1").locator(".share")).toBeAttached();
+    await expect(card(page, "cfb:1").locator(".cover")).toBeAttached();
   });
 
   test("?admin=off logs out", async ({ page }) => {
     await open(page, { query: "?admin=off", storage: { ...admin, selected: ["cfb:1"] } });
     await expect(card(page, "cfb:1")).toBeAttached();
-    await expect(page.locator("#board .share")).toHaveCount(0);
+    await expect(page.locator("#board .cover")).toHaveCount(0);
     expect(new URL(page.url()).search).toBe("");
   });
 
@@ -551,7 +534,7 @@ test.describe("admin login", () => {
     const sources = await page.evaluate(async () => Promise.all(performance.getEntriesByType("resource")
       .filter((r) => r.name.endsWith(".js")).map(async (r) => (await fetch(r.name)).text())));
     expect(sources.length).toBeGreaterThan(5);
-    for (const src of sources) expect(src).not.toMatch(/data-share|data-bulk/);
+    for (const src of sources) expect(src).not.toMatch(/data-hide|data-bulk/);
   });
 });
 
@@ -1611,17 +1594,6 @@ test.describe("mobile", () => {
     await open(page, { query: "?game=cfb:1", storage: { pickerOpen: true } });
     await expect(page.locator("aside")).toHaveClass(/collapsed/);
     await expect(card(page, "cfb:1")).toBeInViewport();
-  });
-
-  test("the share button opens the phone's share sheet with the game and its link", async ({ page }) => {
-    await page.addInitScript(() => { navigator.share = async (data) => { window.shared = data; }; });
-    await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:1"], pickerOpen: false } });
-    test.skip(await page.evaluate(() => matchMedia("(hover: hover)").matches), "emulated device reports hover");
-    expect(await style(card(page, "cfb:1").locator(".share"), "opacity")).toBe("1");
-    await card(page, "cfb:1").locator(".share").click();
-    const shared = await page.evaluate(() => window.shared);
-    expect(shared.url).toBe("http://localhost:4173/index.html?game=cfb:1");
-    expect(shared.title).toMatch(/^\w+ @ \w+$/);
   });
 
   test("✕ on cards is always visible on touch screens", async ({ page }) => {

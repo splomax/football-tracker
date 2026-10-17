@@ -1,7 +1,6 @@
 // The admin's extra controls, served only to a logged-in admin by the Worker (worker/index.js) and loaded by
 // js/admin.js. It runs from a blob: URL, so it can't import the app's modules; install() is handed what it needs.
 //
-// - A share button on live cards, which links to ?game=league:id (js/config.js's LINKED_GAMES).
 // - A hide button (an eye) on every card, which covers the game without unpicking it: the card keeps its size but shows
 //   only the teams (logos, ranks, abbreviations), for games being watched elsewhere. Remembered in this browser.
 // - "Enable notifications" in the gear menu, which puts a bell on every card. A lit bell gets desktop notifications
@@ -30,8 +29,8 @@ export function install(appApi) {
       app.renderBoard();
       return true;
     },
-    // Left of the ✕ and styled like it: hide, then the bell (with notifications on). Share (live games) is in the footer.
-    cardExtras: (g) => `<span class="tools">${g.state === "in" ? shareButton(g) : ""}</span>${notifying() ? bellButton(g) : ""}${hideButton(g)}`,
+    // Left of the ✕ and styled like it: hide, then the bell (with notifications on).
+    cardExtras: (g) => `${notifying() ? bellButton(g) : ""}${hideButton(g)}`,
     cardClass: (g) => (covered().has(g.key) ? "covered" : ""),
     onPoll,
     onBoardClick(e) {
@@ -39,11 +38,7 @@ export function install(appApi) {
       if (bellKey) { toggleBell(bellKey); return true; }
       const hideKey = e.target.closest("[data-hide]")?.dataset.hide;
       if (hideKey) { toggleCovered(hideKey); return true; }
-      const shareKey = e.target.closest("[data-share]")?.dataset.share;
-      const game = shareKey && app.allGames().find((g) => g.key === shareKey);
-      if (!game) return false;
-      share(game);
-      return true;
+      return false;
     },
   };
 }
@@ -63,41 +58,6 @@ function groupExtras(group) {
 // filters: unpicked games of the section's state to add, picked ones to remove; Selected removes every picked game.
 function bulkGames(group, add) {
   return app.listView().filter((g) => (group === "Selected" || g.state === STATE_OF[group]) && app.state.selected.has(g.key) !== add);
-}
-
-let copied = null;  // { key, at }: the card whose share link was just copied, shown as a ✓ for a moment
-const COPIED_MS = 1500;
-// Box with an arrow out of it, the usual share glyph.
-const SHARE_ICON = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"
-  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 12v8h14v-8"/></svg>`;
-
-function shareButton(g) {
-  const done = copied?.key === g.key && Date.now() - copied.at < COPIED_MS;
-  const label = done ? "Link copied" : "Share this game";
-  return `<button class="share ${done ? "done" : ""}" data-share="${g.key}" aria-label="${label}" title="${label}">${done ? "✓" : SHARE_ICON}</button>`;
-}
-
-/** A link to the site that picks this game on arrival. */
-function gameLink(key) {
-  return `${location.origin}${location.pathname}?game=${key}`;
-}
-
-// Touch screens open the phone's share sheet; with a mouse, or where there's no share sheet, the link is copied.
-async function share(g) {
-  const url = gameLink(g.key), title = `${g.away.abbr} @ ${g.home.abbr}`;
-  if (navigator.share && matchMedia("(hover: none)").matches) {
-    try { await navigator.share({ title, url }); } catch {}  // closing the sheet without sharing throws; nothing to do
-    return;
-  }
-  try {
-    await navigator.clipboard.writeText(url);
-  } catch {
-    prompt("Copy this link:", url);  // no clipboard access (e.g. not https)
-    return;
-  }
-  copied = { key: g.key, at: Date.now() };
-  app.renderBoard();
-  setTimeout(app.renderBoard, COPIED_MS);
 }
 
 // Gear menu: the visit counts, refreshed whenever the menu opens. The gear's click opens the menu before this runs.

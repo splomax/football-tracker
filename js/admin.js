@@ -1,4 +1,4 @@
-// Admin login. The admin's features (share buttons, notifications, visit counts, bulk select) aren't in the public code: the Worker at
+// Admin login. The admin's features (hiding games, notifications, visit counts, bulk select) aren't in the public code: the Worker at
 // ADMIN_URL (worker/) hands them out only to a logged-in admin. ?admin asks for the password and trades it for a
 // token that lasts 30 days, kept in this browser's localStorage (adminToken) in place of the password. With a token
 // that still works, ?admin skips the password. ?admin=off logs out.

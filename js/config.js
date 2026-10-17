@@ -28,7 +28,7 @@ export const MDS_LINK = [...params.keys()].some((k) => k.toLowerCase() === "mds"
 // null when absent or unrecognized.
 export const LEAGUE_PARAM = { nfl: "nfl", college: "cfb", cfb: "cfb", ncaa: "cfb" }[params.get("league")?.toLowerCase()] ?? null;
 
-// ?game=cfb:401234567 picks that game on arrival (repeat it, or comma-separate keys, for several), for links shared
-// from a card's share button. Keys are js/espn.js's "league:eventId".
+// ?game=cfb:401234567 picks that game on arrival (repeat it, or comma-separate keys, for several), so links shared
+// earlier from the admin's old share button keep working. Keys are js/espn.js's "league:eventId".
 export const LINKED_GAMES = params.getAll("game").flatMap((v) => v.split(",")).map((k) => k.trim())
   .filter((k) => /^(cfb|nfl):[\w-]+$/.test(k));
