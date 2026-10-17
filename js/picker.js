@@ -16,9 +16,9 @@ let lastListEmpty = true;  // the last render had no rows (or was still loading)
 let spinner;               // the list's loading spinner from index.html, shown until ESPN has answered for the tab
 
 // Extra controls for a logged-in admin (js/admin.js). Regular visitors never load that code, so these stay empty.
-let admin = { groupExtras: () => "", rowExtras: () => "", onListClick: () => false };
+let admin = { groupExtras: () => "", rowExtras: () => "", isHidden: () => false, onListClick: () => false };
 
-/** @param {{ groupExtras?: (group: string) => string, rowExtras?: (g) => string, onListClick?: (e) => boolean }} hooks */
+/** @param {{ groupExtras?: (group: string) => string, rowExtras?: (g) => string, isHidden?: (g) => boolean, onListClick?: (e) => boolean }} hooks */
 export function setPickerAdmin(hooks) {
   admin = { ...admin, ...hooks };
 }
@@ -50,9 +50,11 @@ export function renderList() {
   renderFilters();
   const f = filters[tab];
   const list = listView();
-  // Selected games go first under their own heading, keeping the same order as the full list.
-  const ordered = [...list.filter((g) => selected.has(g.key)), ...list.filter((g) => !selected.has(g.key))];
-  const groupOf = (g) => (selected.has(g.key) ? "Selected" : GROUPS[g.state]);
+  // Selected games go first under their own heading, keeping the same order as the full list. Games the admin hid go
+  // last, under Hidden (a picked game stays under Selected).
+  const hiddenGame = (g) => !selected.has(g.key) && admin.isHidden(g);
+  const ordered = [...list.filter((g) => selected.has(g.key)), ...list.filter((g) => !selected.has(g.key) && !hiddenGame(g)), ...list.filter(hiddenGame)];
+  const groupOf = (g) => (selected.has(g.key) ? "Selected" : hiddenGame(g) ? "Hidden" : GROUPS[g.state]);
   const counts = {};
   for (const g of ordered) counts[groupOf(g)] = (counts[groupOf(g)] || 0) + 1;
 

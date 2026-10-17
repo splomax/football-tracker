@@ -96,23 +96,16 @@ svg.field { width: 100%; display: block; border-radius: 4px; }
   box-shadow: 0 6px 20px var(--shadow); color: var(--text); font-size: 12px; line-height: 1.45; cursor: pointer; animation: last-in .15s ease-out; }
 @keyframes last-in { from { opacity: 0; transform: translateY(4px); } }
 .bell.on svg { fill: currentColor; }  /* lit: a filled bell */
-.remove, .cover, .bell { flex: none; width: 24px; height: 24px; border: 0; border-radius: 6px; background: var(--remove-bg); color: #000; font-size: 14px; line-height: 1; cursor: pointer; }
-.remove:hover, .remove:focus-visible, .cover:hover, .cover:focus-visible, .bell:hover, .bell:focus-visible { background: var(--remove-hover); }
-.cover, .bell { display: grid; place-items: center; padding: 0; }
+.remove, .bell { flex: none; width: 24px; height: 24px; border: 0; border-radius: 6px; background: var(--remove-bg); color: #000; font-size: 14px; line-height: 1; cursor: pointer; }
+.remove:hover, .remove:focus-visible, .bell:hover, .bell:focus-visible { background: var(--remove-hover); }
+.bell { display: grid; place-items: center; padding: 0; }
 /* With a mouse, float the ✕ in the top-right corner and show it on hover. Touch screens keep it in the footer. */
 @media (hover: hover) {
   .remove { position: absolute; top: 6px; right: 6px; opacity: 0; transition: opacity .15s; }
   .card:hover .remove, .remove:focus-visible { opacity: 1; }
-  .cover, .bell { position: absolute; top: 6px; right: 34px; opacity: 0; transition: opacity .15s; }
-  .bell { right: 62px; }
-  .card:hover :is(.cover, .bell), :is(.cover, .bell):focus-visible { opacity: 1; }
+  .bell { position: absolute; top: 6px; right: 34px; opacity: 0; transition: opacity .15s; }
+  .card:hover .bell, .bell:focus-visible { opacity: 1; }
 }
-/* A hidden game (the admin's eye button): same size, but only the teams show. Everything that could give the score
-   away is blanked in place, red-zone and MDS leader highlighting included. */
-.card.covered { border-color: var(--card-border); animation: none; }
-.card.covered :is(.pts, .clock, .poss, .rec, .dd, .field, .last, .net, .last-full) { visibility: hidden; }
-.mds-blue .card.covered .team:has(.pts.lead) { outline: none; }
-.mds-blue .card.covered .team:has(.pts.lead) .abbr { color: inherit; }
 /* List view (the header's grid/list button, js/view.js): one row per game. Every section shares one grid
    (.line-grid, js/board.js), only as wide as the widest row, so all rows are the same width and their columns line up:
    away, "@", home (the two team columns equal, so the down & distance on the second line centers under the scores),
@@ -139,7 +132,7 @@ svg.field { width: 100%; display: block; border-radius: 4px; }
 .card.line .team .sub { display: none; }
 /* With a mouse the buttons float over the row's right end on hover, centered on it, like the cards' corner ✕. */
 @media (hover: hover) {
-  .card.line :is(.remove, .cover, .bell) { top: 50%; translate: 0 -50%; }
+  .card.line :is(.remove, .bell) { top: 50%; translate: 0 -50%; }
 }
 @container board (max-width: 640px) {
   .line-grid { display: block; width: auto; }

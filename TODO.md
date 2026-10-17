@@ -6,9 +6,8 @@
    that game through the backend, to make notifications easy to test.
 2. **Desktop notification styling.**
 3. **Phone notifications** (Web Push from the backend; on iPhone the site has to be added to the Home Screen).
-4. **Replace "hide" with hiding games from the game list.** Remove the card eye button (cover a game, keep it picked)
-   and its code. Instead, give each game-list row an admin-only eye that works like the row bell (shows on hover, lit
-   when on). Hiding a game moves its row into a new "Hidden" section at the very bottom of the list, for games that
-   will never matter.
-5. **Halloween.** Replace the header's football with a jack-o'-lantern that also spins when clicked. "google me" gets
+4. **Halloween.** Replace the header's football with a jack-o'-lantern that also spins when clicked. "google me" gets
    a 25% chance of showing a ghost.
+5. **A faster clock than ESPN.** ESPN's clock only moves when a play is logged, and some college games run minutes
+   behind (Northwestern showed 11:42 left in the 4th while Google showed 9:43). Try NCAA.com's public scoreboard (and
+   others) as a source, likely as part of the backend in #1.

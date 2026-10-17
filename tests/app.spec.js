@@ -428,35 +428,57 @@ test.describe("notifications", () => {
   });
 });
 
-test.describe("hidden games", () => {
-  test("only the admin can hide a game", async ({ page }) => {
+test.describe("hiding games from the game list", () => {
+  const groupKeys = (page, group) => page.locator(`#list .group-label[data-group="${group}"] + .group-body input`).evaluateAll((is) => is.map((i) => i.dataset.key));
+
+  test("only the admin gets the eye", async ({ page }) => {
     await open(page, { storage: { selected: ["cfb:1"] } });
-    await expect(card(page, "cfb:1")).toBeAttached();
-    await expect(page.locator("#board .cover")).toHaveCount(0);
+    await expect(row(page, "cfb:2")).toBeAttached();
+    await expect(page.locator("#list .row-eye")).toHaveCount(0);
   });
 
-  test("hiding keeps the game picked and the card's size, shows only the teams, and is remembered until shown again", async ({ page }) => {
-    await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:1", "cfb:7"] } });
-    const live = card(page, "cfb:1");
-    await expect(live).toHaveClass(/redzone/);
-    const size = await live.boundingBox();
-    await live.locator(".cover").click();
-    await expect(live).toHaveClass(/covered/);
-    expect(await live.boundingBox()).toEqual(size);
-    for (const sel of [".pts", ".clock", ".poss", ".rec", ".dd", ".field", ".last", ".net"]) {
-      for (const el of await live.locator(sel).all()) await expect(el, sel).toBeHidden();
-    }
-    for (const sel of [".abbr", ".rank", "img"]) await expect(live.locator(sel).first(), sel).toBeVisible();
-    await expect(live).toHaveCSS("border-color", await card(page, "cfb:7").evaluate((c) => getComputedStyle(c).borderColor));  // no red-zone border
-    await expect(live.locator(".cover")).toHaveAttribute("aria-label", "Show this game");
-    await expect(card(page, "cfb:7")).not.toHaveClass(/covered/);
-    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("selected")))).toEqual(["cfb:1", "cfb:7"]);
+  test("the eye moves an unpicked game to Hidden at the bottom, Select all skips it, and it's remembered until shown again", async ({ page }) => {
+    await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:1"] } });
+    await expect(row(page, "cfb:1").locator(".row-eye")).toHaveCount(0);  // picked rows don't get one
+    const eye = row(page, "cfb:2").locator(".row-eye");
+    await expect(eye).toHaveCSS("opacity", "0");  // only on hover
+    await row(page, "cfb:2").hover();
+    await expect(eye).toHaveCSS("opacity", "1");
+    await eye.click();
+    await expect(page.locator("#list .group-label").last()).toHaveAttribute("data-group", "Hidden");
+    expect(await groupKeys(page, "Hidden")).toEqual(["cfb:2"]);
+    expect(await groupKeys(page, "Live")).not.toContain("cfb:2");
+    await expect(row(page, "cfb:2").locator("input")).not.toBeChecked();
+    const lit = row(page, "cfb:2").locator(".row-eye");
+    await expect(lit).toHaveAttribute("aria-label", "Show this game in the list");
+    await page.mouse.move(0, 0);
+    await expect(lit).toHaveCSS("opacity", "1");  // lit: always shows
+
+    await page.locator('#list .group-label[data-group="Live"] + .group-body [data-bulk="add"]').click();
+    await expect(card(page, "cfb:3")).toBeAttached();
+    await expect(card(page, "cfb:2")).toHaveCount(0);  // Select all skipped the hidden game
 
     await page.reload();
-    await expect(card(page, "cfb:1")).toHaveClass(/covered/);
-    await card(page, "cfb:1").locator(".cover").click();
-    await expect(card(page, "cfb:1")).not.toHaveClass(/covered/);
-    await expect(card(page, "cfb:1").locator(".pts").first()).toBeVisible();
+    expect(await groupKeys(page, "Hidden")).toEqual(["cfb:2"]);
+    await row(page, "cfb:2").locator(".row-eye").click();
+    await expect(page.locator('#list .group-label[data-group="Hidden"]')).toHaveCount(0);
+    expect(await groupKeys(page, "Live")).toContain("cfb:2");
+  });
+
+  test("picking a hidden game moves it to Selected, and unpicking it sends it back to Hidden", async ({ page }) => {
+    await open(page, { query: "?admin", storage: { ...admin, selected: [], hiddenFromList: ["cfb:2"] } });
+    await expect(page.locator('#list .group-label[data-group="Hidden"]')).toBeAttached();
+    await row(page, "cfb:2").locator(".pick").click();
+    expect(await groupKeys(page, "Selected")).toEqual(["cfb:2"]);
+    await expect(card(page, "cfb:2")).toBeAttached();
+    await row(page, "cfb:2").locator(".pick").click();
+    expect(await groupKeys(page, "Hidden")).toEqual(["cfb:2"]);
+  });
+
+  test("the old card eye is gone", async ({ page }) => {
+    await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:1"], hiddenGames: ["cfb:1"] } });
+    await expect(card(page, "cfb:1")).toBeAttached();
+    await expect(page.locator("#board .cover, #board .covered")).toHaveCount(0);
   });
 });
 
@@ -520,13 +542,13 @@ test.describe("admin login", () => {
     await field.fill(ADMIN_KEY);
     await field.press("Enter");
     await expect(page.locator("#admin-login")).toHaveCount(0);
-    await expect(card(page, "cfb:1").locator(".cover")).toBeAttached();
+    await expect(page.locator("#list .group-actions").first()).toBeAttached();
     expect(new URL(page.url()).search).toBe("?admin");  // kept while logged in
     const saved = await page.evaluate(() => JSON.stringify(localStorage));
     expect(saved).toContain(ADMIN_TOKEN);
     expect(saved).not.toContain(ADMIN_KEY);
     await page.goto("/index.html?admin");  // no password needed from now on
-    await expect(card(page, "cfb:1").locator(".cover")).toBeAttached();
+    await expect(page.locator("#list .group-actions").first()).toBeAttached();
     await expect(page.locator("#admin-login")).toHaveCount(0);
     await page.waitForTimeout(500);
     expect(state.hits).toBe(0);
@@ -536,7 +558,7 @@ test.describe("admin login", () => {
     const state = await open(page, { storage: { ...admin, selected: ALL_CFB, pickerOpen: true } });
     await expect(card(page, "cfb:1")).toBeAttached();
     await expect.poll(() => state.adminRequests).toBe(1);  // the login is checked
-    await expect(page.locator("#board .cover, #list .group-actions")).toHaveCount(0);
+    await expect(page.locator("#list .group-actions")).toHaveCount(0);
     await page.locator("#settings").click();
     await expect(page.locator("#visits")).toHaveCount(0);
     expect(await page.evaluate(() => localStorage.getItem("adminToken"))).toContain("test-token");  // still logged in
@@ -551,7 +573,7 @@ test.describe("admin login", () => {
     await expect(page.locator("#admin-login .error")).toHaveText("Wrong password");
     await page.getByRole("button", { name: "Cancel" }).click();
     await expect(card(page, "cfb:1")).toBeAttached();
-    await expect(page.locator("#board .cover")).toHaveCount(0);
+    await expect(page.locator("#list .group-actions")).toHaveCount(0);
     expect(await page.evaluate(() => localStorage.getItem("adminToken"))).toBeNull();
     await expect.poll(() => new URL(page.url()).search).toBe("");  // not logged in, so ?admin goes
     await expect.poll(() => state.hits).toBe(1);
@@ -560,7 +582,7 @@ test.describe("admin login", () => {
   test("an expired token is forgotten without a fuss", async ({ page }) => {
     const state = await open(page, { storage: { adminToken: "1.expired", selected: ["cfb:1"] } });
     await expect(card(page, "cfb:1")).toBeAttached();
-    await expect(page.locator("#board .cover")).toHaveCount(0);
+    await expect(page.locator("#list .group-actions")).toHaveCount(0);
     await expect(page.locator("#admin-login")).toHaveCount(0);
     expect(await page.evaluate(() => localStorage.getItem("adminToken"))).toBe("null");
     await expect.poll(() => state.hits).toBe(1);
@@ -568,7 +590,7 @@ test.describe("admin login", () => {
 
   test("a password saved by an older version is swapped for a token and forgotten", async ({ page }) => {
     await open(page, { query: "?admin", storage: { adminKey: ADMIN_KEY, selected: ["cfb:1"] } });
-    await expect(card(page, "cfb:1").locator(".cover")).toBeAttached();
+    await expect(page.locator("#list .group-actions").first()).toBeAttached();
     const saved = await page.evaluate(() => JSON.stringify(localStorage));
     expect(saved).toContain(ADMIN_TOKEN);
     expect(saved).not.toContain(ADMIN_KEY);
@@ -576,7 +598,7 @@ test.describe("admin login", () => {
 
   test("?admin doesn't ask for the password when this browser is already logged in", async ({ page }) => {
     await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:1"] } });
-    await expect(card(page, "cfb:1").locator(".cover")).toBeAttached();
+    await expect(page.locator("#list .group-actions").first()).toBeAttached();
     await expect(page.locator("#admin-login")).toHaveCount(0);
     expect(new URL(page.url()).search).toBe("?admin");
   });
@@ -585,13 +607,13 @@ test.describe("admin login", () => {
     await open(page, { query: "?admin", storage: { adminToken: "1.expired", selected: ["cfb:1"] } });
     await page.locator("#admin-password").fill(ADMIN_KEY);
     await page.locator("#admin-password").press("Enter");
-    await expect(card(page, "cfb:1").locator(".cover")).toBeAttached();
+    await expect(page.locator("#list .group-actions").first()).toBeAttached();
   });
 
   test("?admin=off logs out", async ({ page }) => {
     await open(page, { query: "?admin=off", storage: { ...admin, selected: ["cfb:1"] } });
     await expect(card(page, "cfb:1")).toBeAttached();
-    await expect(page.locator("#board .cover")).toHaveCount(0);
+    await expect(page.locator("#list .group-actions")).toHaveCount(0);
     expect(new URL(page.url()).search).toBe("");
   });
 

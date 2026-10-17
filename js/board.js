@@ -14,9 +14,9 @@ const glowStart = new Map();     // game key -> when its one-time glow began
 let flash = null;                // { key, at }: the card most recently highlighted from the picker
 let openPlay = null;             // game key whose full last-play text is showing; survives board refreshes
 // Extra controls for a logged-in admin (js/admin.js). Regular visitors never load that code, so these stay empty.
-let admin = { cardExtras: () => "", cardClass: () => "", onBoardClick: () => false };
+let admin = { cardExtras: () => "", onBoardClick: () => false };
 
-/** @param {{ cardExtras?: (g) => string, cardClass?: (g) => string, onBoardClick?: (e) => boolean }} hooks */
+/** @param {{ cardExtras?: (g) => string, onBoardClick?: (e) => boolean }} hooks */
 export function setAdmin(hooks) {
   admin = { ...admin, ...hooks };
 }
@@ -74,8 +74,7 @@ function animateSectionChanges(before) {
   }
 }
 
-// A card's opening tag, the same in both views: red zone (with its one-time glow), the picker's highlight flash, and
-// the admin's classes.
+// A card's opening tag, the same in both views: red zone (with its one-time glow) and the picker's highlight flash.
 function cardOpen(g, kind = "") {
   const inRedZone = g.state === "in" && g.redZone;
   if (inRedZone && !redZoneShown.has(g.key)) glowStart.set(g.key, Date.now());  // just entered the red zone
@@ -86,7 +85,7 @@ function cardOpen(g, kind = "") {
   // Same trick for the picker's "highlight this game" flash, which must survive a board refresh mid-animation.
   const flashAge = flash?.key === g.key ? Date.now() - flash.at : Infinity;
   const flashing = flashAge < FLASH_MS;
-  return `<div class="card ${kind} ${inRedZone ? "redzone" : ""} ${glowing ? "glow" : ""} ${flashing ? "flash" : ""} ${admin.cardClass(g)}" data-key="${g.key}"
+  return `<div class="card ${kind} ${inRedZone ? "redzone" : ""} ${glowing ? "glow" : ""} ${flashing ? "flash" : ""}" data-key="${g.key}"
     style="${glowing ? `animation-delay: -${glowAge}ms;` : ""}${flashing ? `--flash-delay: -${flashAge}ms;` : ""}">`;
 }
 
@@ -109,7 +108,7 @@ function card(g) {
   </div>`;
 }
 
-// List view: one row per game. The same parts as a card (so highlighting, hidden games and the buttons all work),
+// List view: one row per game. The same parts as a card (so highlighting and the buttons all work),
 // minus the field and last play: away and home around an "@" with the down & distance centered under the scores, then
 // the clock, and the network (with the recap link, once there is one).
 function lineCard(g) {
