@@ -13,3 +13,6 @@
    others) as a source, likely as part of the backend in #1.
 6. **Narrower list view on desktop.** Rows are too wide: move the network to the lower left of each row (the second
    line, under the away team) and bring the width down.
+7. **Desktop vs. mobile analysis.** A complete analysis of every feature's disparity between desktop and mobile (how
+   each one looks and works on a phone vs. a computer, and what's missing, broken or awkward on either), leaving out
+   notifications (TODO #2 and #3) for now.
