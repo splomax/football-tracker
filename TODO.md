@@ -13,3 +13,5 @@
    others) as a source, likely as part of the backend in #1.
 6. **Narrower list view on desktop.** Rows are too wide: move the network to the lower left of each row (the second
    line, under the away team) and bring the width down.
+7. **Leader underline only with MDS.** The blue underline under the leading team's score looks like that team has the
+   ball. Show it (and any other leader highlighting) only when MDS is on in the gear menu.
