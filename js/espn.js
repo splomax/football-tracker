@@ -20,6 +20,22 @@ const nflDivisionOf = Object.fromEntries(
 // Independents (Notre Dame etc.) never play a "conference game", so seed that one.
 export const confNames = { 18: "Independent" };
 
+// How far the team with the ball is from the goal it's attacking, or null if nobody has it. The spot ESPN writes out
+// ("1st & 10 at OSU 20") wins: its yardLine is sometimes stale right after a change of possession, which once put a
+// team at its own 20 in the red zone. yardLine (yards from the home goal line, which the away team attacks) is the
+// fallback when the text doesn't name either team (midfield, or missing).
+function yardsToGoal(s, possession, home, away) {
+  const offense = possession === home.id ? home : possession === away.id ? away : null;
+  if (!offense) return null;
+  const defense = offense === home ? away : home;
+  const [, side, yards] = /\bat (\S+) (\d+)$/.exec(s.downDistanceText ?? s.possessionText ?? "") ??
+    /^(\S+) (\d+)$/.exec(s.possessionText ?? "") ?? [];
+  if (side === offense.abbr) return 100 - Number(yards);
+  if (side === defense.abbr) return Number(yards);
+  if (s.yardLine == null) return null;
+  return offense === away ? s.yardLine : 100 - s.yardLine;
+}
+
 export async function fetchGames(league) {
   const data = await (await fetch(LEAGUES[league])).json();
   return data.events.map((e) => parseEvent(league, e));
@@ -45,10 +61,9 @@ function parseEvent(league, e) {
     (s.downDistanceText && !/timeout|end period|end of/i.test(lp?.type?.text || "") ? lp?.end?.team?.id : undefined);
   const home = side("home"), away = side("away");
   // ESPN's isRedZone can be stale (still true during a timeout after the ball has moved), so work it out from
-  // the ball instead: the team with the ball is within 20 yards of the goal it's attacking. The away team
-  // attacks the home goal, and yardLine counts from the home goal line.
-  const toGoal = possession === away.id ? s.yardLine : possession === home.id ? 100 - s.yardLine : null;
-  const redZone = s.yardLine != null && toGoal != null && toGoal <= 20;
+  // the ball instead: the team with the ball is within 20 yards of the goal it's attacking.
+  const toGoal = yardsToGoal(s, possession, home, away);
+  const redZone = toGoal != null && toGoal <= 20;
   return {
     key: `${league}:${e.id}`, date: new Date(e.date),
     state: e.status.type.state, detail: e.status.type.shortDetail,

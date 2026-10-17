@@ -346,8 +346,19 @@ test.describe("notifications", () => {
     await expect(page.locator("#list .row-bell")).toHaveCount(2);  // picked games only
     const rowBell = row(page, "cfb:2").locator(".row-bell");
     await expect(rowBell).toHaveAttribute("aria-pressed", "false");
+    await expect(rowBell).toHaveCSS("opacity", "0");  // off: only on hover
+    await row(page, "cfb:2").hover();
+    await expect(rowBell).toHaveCSS("opacity", "1");
     await rowBell.click();
     await expect(row(page, "cfb:2").locator(".row-bell")).toHaveAttribute("aria-pressed", "true");
+    await page.mouse.move(0, 0);
+    const lit = row(page, "cfb:2").locator(".row-bell");
+    await expect(lit).toHaveCSS("opacity", "1");  // on: always, in yellow
+    expect(await lit.evaluate((b) => getComputedStyle(b).color)).toBe(await page.evaluate(() => {
+      const probe = Object.assign(document.createElement("span"), { style: "color: var(--poss)" });
+      document.body.append(probe);
+      return getComputedStyle(probe).color;
+    }));
     await expect(card(page, "cfb:2").locator(".bell")).toHaveAttribute("aria-pressed", "true");
     await expect(row(page, "cfb:2").locator("input")).toBeChecked();  // still picked
     await card(page, "cfb:2").locator(".bell").click({ force: true });  // and the card's bell turns the row's off
@@ -1003,6 +1014,15 @@ test.describe("game cards", () => {
     await expect(card(page, "cfb:3")).not.toHaveClass(/redzone/);  // ESPN says red zone, but nobody has the ball
     await expect(card(page, "cfb:2")).not.toHaveClass(/redzone/);  // own 25
     await expect(card(page, "nfl:101")).not.toHaveClass(/redzone/);  // own 40
+  });
+
+  test("the written spot wins over a stale yardLine: a team at its own 20 isn't in the red zone", async ({ page }) => {
+    // Seen live right after a punt: ESPN's yardLine still put OSU 12 yards from the goal while the spot read OSU 20.
+    const cfb = cfbGames().map((e) => e.id !== "1" ? e : { ...e, competitions: [{ ...e.competitions[0],
+      situation: { ...e.competitions[0].situation, downDistanceText: "1st & 10 at OSU 20", isRedZone: false } }] });
+    await open(page, { cfb, storage: { selected: ["cfb:1"] } });
+    await expect(card(page, "cfb:1")).toBeAttached();
+    await expect(card(page, "cfb:1")).not.toHaveClass(/redzone/);
   });
 
   test("possession falls back to the last play after a kickoff, but not after a timeout", async ({ page }) => {
