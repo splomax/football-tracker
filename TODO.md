@@ -9,8 +9,9 @@
 4. **Halloween.** Replace the header's football with a jack-o'-lantern that also spins when clicked. "google me" gets
    a 25% chance of showing a ghost.
 5. **Faster game data than ESPN.** ESPN's clock, possession and field position only move when a play is logged, and
-   some college games run minutes behind (Alabama's possession dot lagged too) (Northwestern showed 11:42 left in the 4th while Google showed 9:43). Try NCAA.com's public scoreboard (and
-   others) as a source, likely as part of the backend in #1.
+   some college games run minutes behind: Northwestern showed 11:42 left in the 4th while Google showed 9:43, and
+   Alabama's possession dot lagged too. Try NCAA.com's public scoreboard (and others) as a source, likely as part of
+   the backend in #1.
 6. **Narrower list view on desktop.** Rows are too wide: move the network to the lower left of each row (the second
    line, under the away team) and bring the width down.
 7. **Desktop vs. mobile analysis.** A complete analysis of every feature's disparity between desktop and mobile (how
