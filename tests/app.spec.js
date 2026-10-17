@@ -18,7 +18,7 @@ async function open(page, opts = {}) {
   // recaps: event ids whose summary has a written recap. summaryRequests counts summary fetches per event id.
   const state = { cfb: opts.cfb ?? cfbGames(), nfl: opts.nfl ?? nflGames(), hits: 0, espnRequests: 0, adminRequests: 0, gate: opts.gate,
     visits: { weekly: 12, monthly: 345, total: 6789 }, visitsRequests: 0,
-    recaps: new Set(opts.recaps ?? ["7", "8"]), summaryRequests: {} };
+    recaps: new Set(opts.recaps ?? ["7", "8"]), summaryRequests: {}, failScoreboards: opts.failScoreboards ?? 0 };
   await page.route("https://site.api.espn.com/**", async (route) => {
     const id = route.request().url().match(/summary\?event=(\w+)/)?.[1];
     if (id) {
@@ -26,6 +26,7 @@ async function open(page, opts = {}) {
       return route.fulfill({ json: summary(id, state.recaps.has(id)), headers: CORS });
     }
     state.espnRequests++;
+    if (state.failScoreboards > 0) { state.failScoreboards--; return route.abort(); }  // opts.failScoreboards: the first n fail
     if (state.gate) await state.gate;
     const games = route.request().url().includes("college-football") ? state.cfb : state.nfl;
     await route.fulfill({ json: scoreboard(games), headers: CORS });
@@ -77,6 +78,15 @@ const style = (locator, prop) => locator.evaluate((el, p) => getComputedStyle(el
 const ALL_CFB = ["cfb:1", "cfb:2", "cfb:3", "cfb:4", "cfb:5", "cfb:6", "cfb:7", "cfb:8"];
 
 test.describe("loading and layout", () => {
+  test("a failed first answer from ESPN keeps the list's spinner, and the next poll fills it without waiting for the 30s refresh", async ({ page }) => {
+    await page.clock.install({ time: new Date("2026-10-03T20:00:00Z") });
+    await open(page, { failScoreboards: 2, gate: Promise.resolve() });  // both leagues' first answers fail; gate: don't wait for rows
+    await expect(page.locator("#list .spinner")).toBeVisible();
+    await expect(page.locator("#list")).not.toContainText("No games this week");
+    await page.clock.runFor(10_000);  // the next poll, well inside the list's 30s refresh
+    await expect(page.locator("#list label.game").first()).toBeAttached();
+  });
+
   test("shows spinners until the first data arrives", async ({ page }) => {
     let release;
     const gate = new Promise((r) => (release = r));

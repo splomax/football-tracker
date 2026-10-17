@@ -27,6 +27,7 @@ async function poll() {
       // failed poll and keep what's showing rather than blanking the list and the board.
       if (!games.length && state.games[league].length) throw new Error("ESPN sent no games; keeping the last ones");
       state.games[league] = [...games, ...extraGames(league)];
+      state.loaded[league] = true;
       lastUpdated = Date.now();
     } catch (err) {
       console.error(league, err);

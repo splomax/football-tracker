@@ -5,6 +5,7 @@ import { LEAGUE_PARAM, LINKED_GAMES } from "./config.js";
 
 export const state = {
   games: { nfl: [], cfb: [] },                             // latest parsed games per league
+  loaded: { nfl: false, cfb: false },                      // whether ESPN has answered for the league yet
   selected: new Set(store.get("selected", [])),            // picked game keys, "league:eventId"
   // Picker tab: cfb or nfl. Anything else saved (e.g. an old "all") falls back to College.
   tab: ["cfb", "nfl"].includes(store.get("tab")) ? store.get("tab") : "cfb",

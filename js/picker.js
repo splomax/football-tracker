@@ -12,6 +12,8 @@ const GROUPS = { in: "Live", pre: "Upcoming", post: "Final" };
 const CHEVRON = `<svg class="chev" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>`;
 
 let lastListRender = -Infinity;
+let lastListEmpty = true;  // the last render had no rows (or was still loading)
+let spinner;               // the list's loading spinner from index.html, shown until ESPN has answered for the tab
 
 // Extra controls for a logged-in admin (js/admin.js). Regular visitors never load that code, so these stay empty.
 let admin = { groupExtras: () => "", rowExtras: () => "", onListClick: () => false };
@@ -21,8 +23,12 @@ export function setPickerAdmin(hooks) {
   admin = { ...admin, ...hooks };
 }
 
-/** True once the list has gone LIST_REFRESH_MS without a render (polls refresh it no more often than that). */
-export const listIsStale = () => Date.now() - lastListRender >= LIST_REFRESH_MS;
+/**
+ * True once the list has gone LIST_REFRESH_MS without a render (polls refresh it no more often than that), and always
+ * while it shows no games: rows arriving can't shift anything under your finger, and a failed or empty first answer
+ * from ESPN shouldn't leave the list blank for half a minute.
+ */
+export const listIsStale = () => lastListEmpty || Date.now() - lastListRender >= LIST_REFRESH_MS;
 
 /** The current tab's games that pass its filters, as they stand now: Live, then Upcoming, then Final. */
 export function listView() {
@@ -64,7 +70,8 @@ export function renderList() {
   }
   if (lastGroup) html += `</div></div>`;
   const filtered = f.confs.length || f.top25;
-  $("list").innerHTML = html || `<div class="empty">${filtered ? "No matching games." : "No games this week."}</div>`;
+  lastListEmpty = !html;
+  $("list").innerHTML = html || (state.loaded[tab] ? `<div class="empty">${filtered ? "No matching games." : "No games this week."}</div>` : spinner);
 }
 
 // One picker row, styled like a TV score bug: two stacked team lines, then the game status.
@@ -151,6 +158,7 @@ function renderListAnimated(movedKey) {
  * @param {(key: string) => void} hooks.onHighlight  an already-picked row was clicked
  */
 export function initPicker({ onSelectionChanged, onHighlight }) {
+  spinner = $("list").innerHTML;
   const saveFiltersAndRender = () => { store.set("filters", state.filters); renderList(); };
 
   $("conf").addEventListener("click", () => setConfMenu($("conf-menu").hidden));
