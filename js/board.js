@@ -34,12 +34,15 @@ export function renderBoard() {
     return;
   }
   const before = cardSpots();
-  // Live, then Final, then Upcoming; a section only shows when it has games.
-  $("board").innerHTML = SECTIONS.map(([st, label]) => {
+  // Live, then Final, then Upcoming; a section only shows when it has games. List view puts every section in one grid,
+  // so all rows share one width and their columns line up (css/board.css .line-grid).
+  const list = isListView();
+  const sections = SECTIONS.map(([st, label]) => {
     const games = picked.filter((g) => g.state === st);
     return games.length ? `<section class="board-group ${st === "in" ? "live" : "compact"}" data-section="${st}">
-      <h2 class="board-section">${label}</h2><div class="cards">${games.map(isListView() ? lineCard : card).join("")}</div></section>` : "";
+      <h2 class="board-section">${label}</h2><div class="cards">${games.map(list ? lineCard : card).join("")}</div></section>` : "";
   }).join("");
+  $("board").innerHTML = list ? `<div class="line-grid">${sections}</div>` : sections;
   animateSectionChanges(before);
 }
 
@@ -107,19 +110,17 @@ function card(g) {
 }
 
 // List view: one row per game. The same parts as a card (so highlighting, hidden games and the buttons all work),
-// minus the field: away and home around an "@", then the clock, down & distance, last play (or recap) and network.
+// minus the field and last play: away and home around an "@" with the down & distance centered under the scores, then
+// the clock, and the network (with the recap link, once there is one).
 function lineCard(g) {
-  const live = g.state === "in", recap = g.state === "post" && recapUrl(g.key);
+  const recap = g.state === "post" && recapUrl(g.key);
   return `${cardOpen(g, "line")}
     ${team(g, g.away, "away", g.home)}<span class="at">@</span>${team(g, g.home, "home", g.away)}
     <div class="clock">${statusLines(g).replace("<br>", " ")}</div>
-    <div class="dd">${live && g.ddText ? g.ddText : ""}</div>
-    ${live && g.lastPlay
-      ? `<div class="last" data-play="${g.key}" title="${escapeAttr(g.lastPlay)}">${g.lastPlay}</div>`
-      : `<div class="last">${recap ? `<a class="recap" href="${escapeAttr(recap)}" target="_blank" rel="noopener">Recap ↗</a>` : ""}</div>`}
-    <span class="net" ${g.network ? `title="Broadcast on ${escapeAttr(g.network)}"` : ""}>${g.network}</span>
+    <span class="net" ${g.network ? `title="Broadcast on ${escapeAttr(g.network)}"` : ""}>${g.network}${recap
+      ? ` <a class="recap" href="${escapeAttr(recap)}" target="_blank" rel="noopener">Recap ↗</a>` : ""}</span>
     <span class="line-tools">${admin.cardExtras(g)}<button class="remove" data-remove="${g.key}" aria-label="Remove game" title="Remove game">✕</button></span>
-    ${live && g.lastPlay && openPlay === g.key ? `<div class="last-full" data-play="${g.key}">${g.lastPlay}</div>` : ""}
+    <div class="dd">${g.state === "in" && g.ddText ? g.ddText : ""}</div>
   </div>`;
 }
 

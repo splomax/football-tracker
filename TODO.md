@@ -10,3 +10,5 @@
    and its code. Instead, give each game-list row an admin-only eye that works like the row bell (shows on hover, lit
    when on). Hiding a game moves its row into a new "Hidden" section at the very bottom of the list, for games that
    will never matter.
+5. **Halloween.** Replace the header's football with a jack-o'-lantern that also spins when clicked. "google me" gets
+   a 25% chance of showing a ghost.

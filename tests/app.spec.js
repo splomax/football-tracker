@@ -220,7 +220,7 @@ test.describe("grid and list views", () => {
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-label", "Switch to grid view");
     await expect(page.locator("#board .card.line")).toHaveCount(4);
-    // One column, each row the board's full width, sections kept.
+    // One column, every row the same width (only as wide as needed, not the board's), sections kept.
     const boxes = await page.locator("#board .card").evaluateAll((cs) => cs.map((c) => c.getBoundingClientRect()).map(({ left, width }) => ({ left, width })));
     expect(new Set(boxes.map((b) => b.left)).size).toBe(1);
     expect(new Set(boxes.map((b) => Math.round(b.width))).size).toBe(1);
@@ -228,6 +228,12 @@ test.describe("grid and list views", () => {
     const live = card(page, "cfb:1");
     await expect(live).toHaveClass(/redzone/);
     await expect(live.locator(".dd")).toHaveText("3rd & 6 at IOWA 12");
+    await expect(page.locator("#board .last")).toHaveCount(0);  // no last play
+    expect(boxes[0].width).toBeLessThan(await page.locator("#board").evaluate((b) => b.clientWidth - 32));
+    // The down & distance is centered under the scores (the "@").
+    const center = (el) => el.evaluate((e) => { const r = e.getBoundingClientRect(); return r.left + r.width / 2; });
+    expect(Math.abs(await center(live.locator(".dd")) - await center(live.locator(".at")))).toBeLessThan(2);
+    await expect(card(page, "cfb:7").locator(".net")).toContainText("CBS / Paramount+");
     await expect(card(page, "cfb:7").locator(".recap")).toBeAttached();
     await page.reload();
     await expect(page.locator("#board .card.line")).toHaveCount(4);
