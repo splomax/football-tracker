@@ -6,3 +6,7 @@
    that game through the backend, to make notifications easy to test.
 2. **Desktop notification styling.**
 3. **Phone notifications** (Web Push from the backend; on iPhone the site has to be added to the Home Screen).
+4. **Replace "hide" with hiding games from the game list.** Remove the card eye button (cover a game, keep it picked)
+   and its code. Instead, give each game-list row an admin-only eye that works like the row bell (shows on hover, lit
+   when on). Hiding a game moves its row into a new "Hidden" section at the very bottom of the list, for games that
+   will never matter.
