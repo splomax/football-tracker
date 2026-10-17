@@ -379,6 +379,38 @@ test.describe("notifications", () => {
   });
 });
 
+test.describe("hidden games", () => {
+  test("only the admin can hide a game", async ({ page }) => {
+    await open(page, { storage: { selected: ["cfb:1"] } });
+    await expect(card(page, "cfb:1")).toBeAttached();
+    await expect(page.locator("#board .cover")).toHaveCount(0);
+  });
+
+  test("hiding keeps the game picked and the card's size, shows only the teams, and is remembered until shown again", async ({ page }) => {
+    await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:1", "cfb:7"] } });
+    const live = card(page, "cfb:1");
+    await expect(live).toHaveClass(/redzone/);
+    const size = await live.boundingBox();
+    await live.locator(".cover").click();
+    await expect(live).toHaveClass(/covered/);
+    expect(await live.boundingBox()).toEqual(size);
+    for (const sel of [".pts", ".clock", ".poss", ".rec", ".dd", ".field", ".last", ".net"]) {
+      for (const el of await live.locator(sel).all()) await expect(el, sel).toBeHidden();
+    }
+    for (const sel of [".abbr", ".rank", "img"]) await expect(live.locator(sel).first(), sel).toBeVisible();
+    await expect(live).toHaveCSS("border-color", await card(page, "cfb:7").evaluate((c) => getComputedStyle(c).borderColor));  // no red-zone border
+    await expect(live.locator(".cover")).toHaveAttribute("aria-label", "Show this game");
+    await expect(card(page, "cfb:7")).not.toHaveClass(/covered/);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("selected")))).toEqual(["cfb:1", "cfb:7"]);
+
+    await page.reload();
+    await expect(card(page, "cfb:1")).toHaveClass(/covered/);
+    await card(page, "cfb:1").locator(".cover").click();
+    await expect(card(page, "cfb:1")).not.toHaveClass(/covered/);
+    await expect(card(page, "cfb:1").locator(".pts").first()).toBeVisible();
+  });
+});
+
 test.describe("bulk select in the game list", () => {
   test("Remove all also catches a game that ended after the list was last drawn", async ({ page }) => {
     await page.clock.install({ time: new Date("2026-10-03T20:00:00Z") });

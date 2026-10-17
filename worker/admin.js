@@ -2,6 +2,8 @@
 // js/admin.js. It runs from a blob: URL, so it can't import the app's modules; install() is handed what it needs.
 //
 // - A share button on live cards, which links to ?game=league:id (js/config.js's LINKED_GAMES).
+// - A hide button (an eye) on every card, which covers the game without unpicking it: the card keeps its size but shows
+//   only the teams (logos, ranks, abbreviations), for games being watched elsewhere. Remembered in this browser.
 // - "Enable notifications" in the gear menu, which puts a bell on every card. A lit bell gets desktop notifications
 //   for that game (js/alerts.js says what's news), while this page is open.
 // - The visit counter's weekly, monthly and total counts atop the gear menu, fetched each time it opens.
@@ -28,11 +30,15 @@ export function install(appApi) {
       app.renderBoard();
       return true;
     },
-    cardExtras: (g) => (g.state === "in" ? shareButton(g) : "") + (notifying() ? bellButton(g) : ""),
+    // Right to left from the ✕: share (live games), bell (with notifications on), hide.
+    cardExtras: (g) => `<span class="tools">${hideButton(g)}${notifying() ? bellButton(g) : ""}${g.state === "in" ? shareButton(g) : ""}</span>`,
+    cardClass: (g) => (covered().has(g.key) ? "covered" : ""),
     onPoll,
     onBoardClick(e) {
       const bellKey = e.target.closest("[data-bell]")?.dataset.bell;
       if (bellKey) { toggleBell(bellKey); return true; }
+      const hideKey = e.target.closest("[data-hide]")?.dataset.hide;
+      if (hideKey) { toggleCovered(hideKey); return true; }
       const shareKey = e.target.closest("[data-share]")?.dataset.share;
       const game = shareKey && app.allGames().find((g) => g.key === shareKey);
       if (!game) return false;
@@ -183,3 +189,23 @@ function show({ title, body, tag, silent = false }, key) {
     n.close();
   };
 }
+
+// Hidden games. Only picked games stay in the list, so one removed from the board doesn't linger.
+const EYE = `<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12"/><circle cx="12" cy="12" r="3"/>`;
+const eyeIcon = (shut) => `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"
+  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${EYE}${shut ? `<path d="M4 4l16 16"/>` : ""}</svg>`;
+const covered = () => new Set(app.store.get("hiddenGames", []));
+
+function hideButton(g) {
+  const on = covered().has(g.key);
+  const label = on ? "Show this game" : "Hide this game";
+  return `<button class="cover ${on ? "on" : ""}" data-hide="${g.key}" aria-pressed="${on}" aria-label="${label}" title="${label}">${eyeIcon(on)}</button>`;
+}
+
+function toggleCovered(key) {
+  const keys = covered();
+  keys.has(key) ? keys.delete(key) : keys.add(key);
+  app.store.set("hiddenGames", [...keys].filter((k) => app.state.selected.has(k)));
+  app.renderBoard();
+}
+

@@ -95,9 +95,10 @@ svg.field { width: 100%; display: block; border-radius: 4px; }
 .last-full { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 2; padding: 8px 10px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
   box-shadow: 0 6px 20px var(--shadow); color: var(--text); font-size: 12px; line-height: 1.45; cursor: pointer; animation: last-in .15s ease-out; }
 @keyframes last-in { from { opacity: 0; transform: translateY(4px); } }
-.share, .bell { flex: none; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer; }
-.share:hover, .share:focus-visible, .bell:hover, .bell:focus-visible { color: #000; background: var(--remove-bg); }
-.share.done, .bell.on { color: var(--accent); }
+.tools { display: flex; gap: 4px; }
+.share, .bell, .cover { flex: none; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer; }
+.share:hover, .share:focus-visible, .bell:hover, .bell:focus-visible, .cover:hover, .cover:focus-visible { color: #000; background: var(--remove-bg); }
+.share.done, .bell.on, .cover.on { color: var(--accent); }
 .bell.on svg { fill: currentColor; }
 .remove { flex: none; width: 24px; height: 24px; border: 0; border-radius: 6px; background: var(--remove-bg); color: #000; font-size: 14px; line-height: 1; cursor: pointer; }
 .remove:hover, .remove:focus-visible { background: var(--remove-hover); }
@@ -105,10 +106,14 @@ svg.field { width: 100%; display: block; border-radius: 4px; }
 @media (hover: hover) {
   .remove { position: absolute; top: 6px; right: 6px; opacity: 0; transition: opacity .15s; }
   .card:hover .remove, .remove:focus-visible { opacity: 1; }
-  .share { position: absolute; top: 6px; right: 34px; opacity: 0; transition: opacity .15s; }
-  .card:hover .share, .share:focus-visible, .share.done { opacity: 1; }
-  /* The bell sits left of the share button where there is one; a lit bell always shows. */
-  .bell { position: absolute; top: 6px; right: 34px; opacity: 0; transition: opacity .15s; }
-  .share ~ .bell { right: 62px; }
-  .card:hover .bell, .bell:focus-visible, .bell.on { opacity: 1; }
+  /* The admin's buttons stay in the footer (floating them up by the ✕ would cover the home team's name), showing on
+     hover. A lit bell and a hidden game's eye always show. */
+  .share, .bell, .cover { opacity: 0; transition: opacity .15s; }
+  .card:hover :is(.share, .bell, .cover), :is(.share, .bell, .cover):focus-visible, .share.done, .bell.on, .cover.on { opacity: 1; }
 }
+/* A hidden game (the admin's eye button): same size, but only the teams show. Everything that could give the score
+   away is blanked in place, red-zone and MDS leader highlighting included. */
+.card.covered { border-color: var(--card-border); animation: none; }
+.card.covered :is(.pts, .clock, .poss, .rec, .dd, .field, .last, .net, .last-full) { visibility: hidden; }
+.mds-blue .card.covered .team:has(.pts.lead) { outline: none; }
+.mds-blue .card.covered .team:has(.pts.lead) .abbr { color: inherit; }

@@ -13,9 +13,9 @@ const glowStart = new Map();     // game key -> when its one-time glow began
 let flash = null;                // { key, at }: the card most recently highlighted from the picker
 let openPlay = null;             // game key whose full last-play text is showing; survives board refreshes
 // Extra controls for a logged-in admin (js/admin.js). Regular visitors never load that code, so these stay empty.
-let admin = { cardExtras: () => "", onBoardClick: () => false };
+let admin = { cardExtras: () => "", cardClass: () => "", onBoardClick: () => false };
 
-/** @param {{ cardExtras?: (g) => string, onBoardClick?: (e) => boolean }} hooks */
+/** @param {{ cardExtras?: (g) => string, cardClass?: (g) => string, onBoardClick?: (e) => boolean }} hooks */
 export function setAdmin(hooks) {
   admin = { ...admin, ...hooks };
 }
@@ -81,7 +81,7 @@ function card(g) {
   // Same trick for the picker's "highlight this game" flash, which must survive a board refresh mid-animation.
   const flashAge = flash?.key === g.key ? Date.now() - flash.at : Infinity;
   const flashing = flashAge < FLASH_MS;
-  return `<div class="card ${inRedZone ? "redzone" : ""} ${glowing ? "glow" : ""} ${flashing ? "flash" : ""}" data-key="${g.key}"
+  return `<div class="card ${inRedZone ? "redzone" : ""} ${glowing ? "glow" : ""} ${flashing ? "flash" : ""} ${admin.cardClass(g)}" data-key="${g.key}"
     style="${glowing ? `animation-delay: -${glowAge}ms;` : ""}${flashing ? `--flash-delay: -${flashAge}ms;` : ""}">
     <div class="score">${team(g, g.away, "away", g.home)}<div class="clock">${statusLines(g)}</div>${team(g, g.home, "home", g.away)}</div>
     ${live ? `<div class="dd">${g.ddText || "&nbsp;"}</div>${field(g)}` : ""}
