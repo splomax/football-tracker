@@ -60,7 +60,6 @@ images/               coach photos for "google me", favicon, link-preview image
 scripts/
   share-images.js     regenerates the link-preview image and touch icon
   preview-images.js   renders Save board as image from the test fixtures, to check its look by eye
-  screenshot-corner.js  screenshots the gear menu and coach on desktop and phone, to check their layout by eye
   test-and-ship.sh    runs every test and commits and pushes only if they all pass
   check-local-admin.js  logs in against the Worker running locally (wrangler dev), to check the admin login path
   check-live-site.sh  checks the deployed site: pages load, private files are 404, www. redirects, the admin API refuses
