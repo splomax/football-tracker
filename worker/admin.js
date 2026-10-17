@@ -2,16 +2,19 @@
 // js/admin.js. It runs from a blob: URL, so it can't import the app's modules; install() is handed what it needs.
 //
 // - A share button on live cards, which links to ?game=league:id (js/config.js's LINKED_GAMES).
+// - "Enable notifications" in the gear menu, which puts a bell on every card. A lit bell gets desktop notifications
+//   for that game (js/alerts.js says what's news), while this page is open.
 // - The visit counter's weekly, monthly and total counts atop the gear menu, fetched each time it opens.
 // - In the game list, a row of bulk buttons atop each section: Live, Upcoming and Final get "Select all" (every game
 //   the section shows) and "Remove all" (that state's picked games, which sit under Selected); Selected gets
 //   "Remove all" (every picked game in the current tab and filters).
 
-let app;  // { renderBoard, renderList, listView, allGames, state, saveSelected, visits } from js/admin.js
+let app;  // { renderBoard, renderList, listView, allGames, state, saveSelected, visits, store, highlightCard, gameAlerts } from js/admin.js
 
 /** Returns the hooks for js/board.js's setAdmin. */
 export function install(appApi) {
   app = appApi;
+  addNotifyToggle();
   addVisits();
   return {
     groupExtras,
@@ -25,8 +28,11 @@ export function install(appApi) {
       app.renderBoard();
       return true;
     },
-    cardExtras: (g) => (g.state === "in" ? shareButton(g) : ""),
+    cardExtras: (g) => (g.state === "in" ? shareButton(g) : "") + (notifying() ? bellButton(g) : ""),
+    onPoll,
     onBoardClick(e) {
+      const bellKey = e.target.closest("[data-bell]")?.dataset.bell;
+      if (bellKey) { toggleBell(bellKey); return true; }
       const shareKey = e.target.closest("[data-share]")?.dataset.share;
       const game = shareKey && app.allGames().find((g) => g.key === shareKey);
       if (!game) return false;
@@ -103,4 +109,77 @@ function addVisits() {
   refresh();
   const gear = document.getElementById("settings");
   gear.addEventListener("click", () => { if (gear.getAttribute("aria-expanded") === "true") refresh(); });
+}
+
+// Notifications. "Enable notifications" asks the browser's permission and, once given, sends a test notification:
+// if that one doesn't show up, the browser allowed it but the system blocked it (on a Mac: System Settings >
+// Notifications > Google Chrome, or a Focus mode). They only come while this page is open; a background tab polls
+// less often, so they can be up to a minute late there.
+const BELL_ICON = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"
+  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9M10 20a2 2 0 0 0 4 0"/></svg>`;
+const lastSeen = new Map();  // game key -> the game at the last poll
+const memos = new Map();     // game key -> js/alerts.js's memo
+
+const notifying = () => app.store.get("notify", false) && window.Notification?.permission === "granted";
+const belled = () => new Set(app.store.get("notifyGames", []));
+
+function addNotifyToggle() {
+  const menu = document.getElementById("settings-menu");
+  if (!menu || document.getElementById("notify")) return;
+  const button = document.createElement("button");
+  button.id = "notify";
+  const label = (text) => { button.innerHTML = `<span class="check">✓</span>${text}`; };
+  label("Enable notifications");
+  button.setAttribute("aria-pressed", notifying());
+  button.addEventListener("click", async () => {
+    if (notifying()) {
+      app.store.set("notify", false);
+    } else if (!window.Notification) {
+      return label("Notifications unsupported");
+    } else if (await Notification.requestPermission() !== "granted") {
+      return label("Notifications blocked");  // the browser's site settings can unblock them
+    } else {
+      app.store.set("notify", true);
+      show({ title: "Notifications are on", body: "Click a game's bell to get its scores, red-zone trips, two-minute warnings and quarters." });
+    }
+    button.setAttribute("aria-pressed", notifying());
+    app.renderBoard();
+  });
+  document.getElementById("google-me").before(button);
+}
+
+function bellButton(g) {
+  const on = belled().has(g.key);
+  const label = on ? "Stop notifications for this game" : "Notify me about this game";
+  return `<button class="bell ${on ? "on" : ""}" data-bell="${g.key}" aria-pressed="${on}" aria-label="${label}" title="${label}">${BELL_ICON}</button>`;
+}
+
+// Only picked games keep a bell, so one that's been removed from the board doesn't linger in the list.
+function toggleBell(key) {
+  const keys = belled();
+  keys.has(key) ? keys.delete(key) : keys.add(key);
+  app.store.set("notifyGames", [...keys].filter((k) => app.state.selected.has(k)));
+  app.renderBoard();
+}
+
+// Every game is followed, bell or not, so lighting a bell mid-game doesn't bring old news.
+function onPoll(games) {
+  const on = notifying(), keys = belled();
+  for (const g of games) {
+    if (!memos.has(g.key)) memos.set(g.key, {});
+    const alerts = app.gameAlerts(lastSeen.get(g.key), g, memos.get(g.key));
+    lastSeen.set(g.key, g);
+    if (on && keys.has(g.key) && app.state.selected.has(g.key)) alerts.forEach((a) => show(a, g.key));
+  }
+}
+
+// Clicking one brings this tab forward with the game's card highlighted. A tag replaces the earlier notification with
+// that tag (a touchdown's, by its extra point); renotify alerts again unless it's meant to be silent.
+function show({ title, body, tag, silent = false }, key) {
+  const n = new Notification(title, { body, icon: "images/apple-touch-icon.png", silent, ...(tag && { tag, renotify: !silent }) });
+  n.onclick = () => {
+    window.focus();
+    if (key) app.highlightCard(key);
+    n.close();
+  };
 }

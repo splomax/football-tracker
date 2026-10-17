@@ -10,7 +10,7 @@ import { setPicker, initDrawer } from "./drawer.js";
 import { initSettings } from "./settings.js";
 import { initTheme } from "./theme.js";
 import { countVisit } from "./counter.js";
-import { loadAdmin } from "./admin.js";
+import { loadAdmin, adminPolled } from "./admin.js";
 import { initLogo } from "./logo.js";
 
 let lastUpdated = null;
@@ -37,6 +37,7 @@ async function poll() {
   // First load renders right away; after that the list waits out LIST_REFRESH_MS so it doesn't shift under your finger.
   if (listIsStale()) renderList();
   renderBoard();
+  adminPolled(allGames());
   const linked = linkPending && LINKED_GAMES.find((k) => document.querySelector(`.card[data-key="${k}"]`));
   if (linked) { linkPending = false; highlightCard(linked); }
   if (await checkRecaps(allGames().filter((g) => state.selected.has(g.key)))) renderBoard();

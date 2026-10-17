@@ -314,6 +314,71 @@ test.describe("board image", () => {
   });
 });
 
+test.describe("notifications", () => {
+  // A stand-in for the browser's Notification: records what's sent (window.sent), starts at `permission` and answers
+  // the permission prompt with `answer`.
+  const fakeNotifications = (page, answer = "granted", permission = "default") => page.addInitScript(([answer, permission]) => {
+    window.sent = [];
+    window.Notification = class {
+      static permission = permission;
+      static async requestPermission() { return (Notification.permission = answer); }
+      constructor(title, options) { window.sent.push({ title, ...options }); }
+      close() {}
+    };
+  }, [answer, permission]);
+  const sent = (page) => page.evaluate(() => window.sent.map(({ title, body }) => ({ title, body })));
+  // cfb:2 with UNLV's score raised to `score`.
+  const unlvScores = (score, lastPlay) => cfbGames().map((e) => e.id !== "2" ? e : { ...e, competitions: [{ ...e.competitions[0],
+    competitors: e.competitions[0].competitors.map((c) => (c.homeAway === "home" ? { ...c, score } : c)),
+    situation: { ...e.competitions[0].situation, lastPlay: { ...e.competitions[0].situation.lastPlay, text: lastPlay } } }] });
+
+  test("only the admin gets Enable notifications; turning it on sends a test notification and puts a bell on every card", async ({ page }) => {
+    await fakeNotifications(page);
+    await open(page, { storage: { ...admin, selected: ["cfb:2", "cfb:5"] } });  // logged in, but no ?admin
+    await page.locator("#settings").click();
+    await expect(page.locator("#google-me")).toBeVisible();
+    await expect(page.locator("#notify")).toHaveCount(0);
+    await page.goto("/index.html?admin");
+    await expect(card(page, "cfb:5")).toBeAttached();
+    await page.locator("#settings").click();
+    const toggle = page.locator("#notify");
+    await expect(toggle).toHaveText("✓Enable notifications");
+    await expect(page.locator("#board .bell")).toHaveCount(0);
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    expect((await sent(page))[0].title).toBe("Notifications are on");
+    await expect(page.locator("#board .bell")).toHaveCount(2);  // live and upcoming alike
+    await expect(page.locator("#board .bell.on")).toHaveCount(0);
+    await toggle.click();
+    await expect(page.locator("#board .bell")).toHaveCount(0);
+  });
+
+  test("a lit bell's game sends its news with the score; an unlit one's doesn't", async ({ page }) => {
+    await page.clock.install({ time: new Date("2026-10-03T20:00:00Z") });
+    await fakeNotifications(page, "granted", "granted");
+    const state = await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:1", "cfb:2"], notify: true } });
+    await page.locator('.card[data-key="cfb:2"] .bell').click();
+    await expect(page.locator('.card[data-key="cfb:2"] .bell')).toHaveAttribute("aria-pressed", "true");
+    await page.clock.runFor(10_000);  // a poll with nothing new
+    expect(await sent(page)).toEqual([]);
+    state.cfb = unlvScores("31", "J.Smith 40 yd pass to K.Jones for a TD").map((e) => e.id !== "1" ? e : { ...e, competitions: [{ ...e.competitions[0],
+      competitors: e.competitions[0].competitors.map((c) => (c.homeAway === "away" ? { ...c, score: "31" } : c)) }] });  // OSU scores too, unbelled
+    await page.clock.runFor(10_000);
+    await expect.poll(() => sent(page)).toEqual([{ title: "UNLV touchdown", body: "CAL 7, UNLV 31 · 6:06 - 3rd\nJ.Smith 40 yd pass to K.Jones for a TD" }]);
+  });
+
+  test("a refused permission says so and stays off", async ({ page }) => {
+    await fakeNotifications(page, "denied");
+    await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:2"] } });
+    await page.locator("#settings").click();
+    await page.locator("#notify").click();
+    await expect(page.locator("#notify")).toHaveText("✓Notifications blocked");
+    await expect(page.locator("#notify")).toHaveAttribute("aria-pressed", "false");
+    await expect(page.locator("#board .bell")).toHaveCount(0);
+    expect(await sent(page)).toEqual([]);
+  });
+});
+
 test.describe("bulk select in the game list", () => {
   test("Remove all also catches a game that ended after the list was last drawn", async ({ page }) => {
     await page.clock.install({ time: new Date("2026-10-03T20:00:00Z") });
