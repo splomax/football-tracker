@@ -3,8 +3,9 @@
 //
 // - A hide button (an eye) on every card, which covers the game without unpicking it: the card keeps its size but shows
 //   only the teams (logos, ranks, abbreviations), for games being watched elsewhere. Remembered in this browser.
-// - "Enable notifications" in the gear menu, which puts a bell on every card. A lit bell gets desktop notifications
-//   for that game (js/alerts.js says what's news), while this page is open.
+// - "Enable notifications" in the gear menu, which puts a bell on every card and on each picked game's row in the game
+//   list, where a lit one shows at a glance. A lit bell gets desktop notifications for that game (js/alerts.js says
+//   what's news), while this page is open.
 // - The visit counter's weekly, monthly and total counts atop the gear menu, fetched each time it opens.
 // - In the game list, a row of bulk buttons atop each section: Live, Upcoming and Final get "Select all" (every game
 //   the section shows) and "Remove all" (that state's picked games, which sit under Selected); Selected gets
@@ -19,7 +20,10 @@ export function install(appApi) {
   addVisits();
   return {
     groupExtras,
+    rowExtras: (g) => (notifying() && app.state.selected.has(g.key) ? bellButton(g, "row-bell") : ""),
     onListClick(e) {
+      const bellKey = e.target.closest("[data-bell]")?.dataset.bell;
+      if (bellKey) { e.preventDefault(); toggleBell(bellKey); return true; }  // preventDefault: the row's label stays put
       const button = e.target.closest("[data-bulk]");
       if (!button) return false;
       const add = button.dataset.bulk === "add";
@@ -110,14 +114,15 @@ function addNotifyToggle() {
     }
     button.setAttribute("aria-pressed", notifying());
     app.renderBoard();
+    app.renderList();
   });
   document.getElementById("google-me").before(button);
 }
 
-function bellButton(g) {
+function bellButton(g, kind = "bell") {
   const on = belled().has(g.key);
   const label = on ? "Stop notifications for this game" : "Notify me about this game";
-  return `<button class="bell ${on ? "on" : ""}" data-bell="${g.key}" aria-pressed="${on}" aria-label="${label}" title="${label}">${BELL_ICON}</button>`;
+  return `<button type="button" class="${kind} ${on ? "on" : ""}" data-bell="${g.key}" aria-pressed="${on}" aria-label="${label}" title="${label}">${BELL_ICON}</button>`;
 }
 
 // Only picked games keep a bell, so one that's been removed from the board doesn't linger in the list.
@@ -126,6 +131,7 @@ function toggleBell(key) {
   keys.has(key) ? keys.delete(key) : keys.add(key);
   app.store.set("notifyGames", [...keys].filter((k) => app.state.selected.has(k)));
   app.renderBoard();
+  app.renderList();
 }
 
 // Every game is followed, bell or not, so lighting a bell mid-game doesn't bring old news.

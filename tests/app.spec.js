@@ -340,6 +340,20 @@ test.describe("notifications", () => {
     await expect.poll(() => sent(page)).toEqual([{ title: "UNLV touchdown", body: "CAL 7, UNLV 31 · 6:06 - 3rd\nJ.Smith 40 yd pass to K.Jones for a TD" }]);
   });
 
+  test("each picked game's row in the game list gets a bell that shows and toggles its notifications", async ({ page }) => {
+    await fakeNotifications(page, "granted", "granted");
+    await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:1", "cfb:2"], notify: true, pickerOpen: true } });
+    await expect(page.locator("#list .row-bell")).toHaveCount(2);  // picked games only
+    const rowBell = row(page, "cfb:2").locator(".row-bell");
+    await expect(rowBell).toHaveAttribute("aria-pressed", "false");
+    await rowBell.click();
+    await expect(row(page, "cfb:2").locator(".row-bell")).toHaveAttribute("aria-pressed", "true");
+    await expect(card(page, "cfb:2").locator(".bell")).toHaveAttribute("aria-pressed", "true");
+    await expect(row(page, "cfb:2").locator("input")).toBeChecked();  // still picked
+    await card(page, "cfb:2").locator(".bell").click({ force: true });  // and the card's bell turns the row's off
+    await expect(row(page, "cfb:2").locator(".row-bell")).toHaveAttribute("aria-pressed", "false");
+  });
+
   test("a refused permission says so and stays off", async ({ page }) => {
     await fakeNotifications(page, "denied");
     await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:2"] } });

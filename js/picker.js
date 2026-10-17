@@ -14,9 +14,9 @@ const CHEVRON = `<svg class="chev" viewBox="0 0 10 6" aria-hidden="true"><path d
 let lastListRender = -Infinity;
 
 // Extra controls for a logged-in admin (js/admin.js). Regular visitors never load that code, so these stay empty.
-let admin = { groupExtras: () => "", onListClick: () => false };
+let admin = { groupExtras: () => "", rowExtras: () => "", onListClick: () => false };
 
-/** @param {{ groupExtras?: (group: string) => string, onListClick?: (e) => boolean }} hooks */
+/** @param {{ groupExtras?: (group: string) => string, rowExtras?: (g) => string, onListClick?: (e) => boolean }} hooks */
 export function setPickerAdmin(hooks) {
   admin = { ...admin, ...hooks };
 }
@@ -76,7 +76,7 @@ function row(g) {
       <span class="pts ${leads(g, t, other) ? "lead" : ""}">${g.state === "pre" ? "" : t.score}</span></span>`;
   return `<label class="game ${live ? "live" : ""}"><input type="checkbox" data-key="${g.key}" ${state.selected.has(g.key) ? "checked" : ""}>
     <span class="bug">${line(g.away, g.home)}${line(g.home, g.away)}</span>
-    <span class="bug-status">${statusLines(g)}</span>
+    <span class="bug-status">${statusLines(g)}</span>${admin.rowExtras(g)}
     <span class="pick" title="${state.selected.has(g.key) ? "Remove" : "Add"}" aria-hidden="true"></span></label>`;
 }
 
