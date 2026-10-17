@@ -30,8 +30,8 @@ export function install(appApi) {
       app.renderBoard();
       return true;
     },
-    // Right to left from the ✕: share (live games), bell (with notifications on), hide.
-    cardExtras: (g) => `<span class="tools">${hideButton(g)}${notifying() ? bellButton(g) : ""}${g.state === "in" ? shareButton(g) : ""}</span>`,
+    // Left of the ✕ and styled like it: hide, then the bell (with notifications on). Share (live games) is in the footer.
+    cardExtras: (g) => `<span class="tools">${g.state === "in" ? shareButton(g) : ""}</span>${notifying() ? bellButton(g) : ""}${hideButton(g)}`,
     cardClass: (g) => (covered().has(g.key) ? "covered" : ""),
     onPoll,
     onBoardClick(e) {

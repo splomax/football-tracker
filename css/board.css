@@ -96,20 +96,23 @@ svg.field { width: 100%; display: block; border-radius: 4px; }
   box-shadow: 0 6px 20px var(--shadow); color: var(--text); font-size: 12px; line-height: 1.45; cursor: pointer; animation: last-in .15s ease-out; }
 @keyframes last-in { from { opacity: 0; transform: translateY(4px); } }
 .tools { display: flex; gap: 4px; }
-.share, .bell, .cover { flex: none; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer; }
-.share:hover, .share:focus-visible, .bell:hover, .bell:focus-visible, .cover:hover, .cover:focus-visible { color: #000; background: var(--remove-bg); }
-.share.done, .bell.on, .cover.on { color: var(--accent); }
-.bell.on svg { fill: currentColor; }
-.remove { flex: none; width: 24px; height: 24px; border: 0; border-radius: 6px; background: var(--remove-bg); color: #000; font-size: 14px; line-height: 1; cursor: pointer; }
-.remove:hover, .remove:focus-visible { background: var(--remove-hover); }
+.share { flex: none; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer; }
+.share:hover, .share:focus-visible { color: #000; background: var(--remove-bg); }
+.share.done { color: var(--accent); }
+.bell.on svg { fill: currentColor; }  /* lit: a filled bell */
+.remove, .cover, .bell { flex: none; width: 24px; height: 24px; border: 0; border-radius: 6px; background: var(--remove-bg); color: #000; font-size: 14px; line-height: 1; cursor: pointer; }
+.remove:hover, .remove:focus-visible, .cover:hover, .cover:focus-visible, .bell:hover, .bell:focus-visible { background: var(--remove-hover); }
+.cover, .bell { display: grid; place-items: center; padding: 0; }
 /* With a mouse, float the ✕ in the top-right corner and show it on hover. Touch screens keep it in the footer. */
 @media (hover: hover) {
   .remove { position: absolute; top: 6px; right: 6px; opacity: 0; transition: opacity .15s; }
   .card:hover .remove, .remove:focus-visible { opacity: 1; }
-  /* The admin's buttons stay in the footer (floating them up by the ✕ would cover the home team's name), showing on
-     hover. A lit bell and a hidden game's eye always show. */
-  .share, .bell, .cover { opacity: 0; transition: opacity .15s; }
-  .card:hover :is(.share, .bell, .cover), :is(.share, .bell, .cover):focus-visible, .share.done, .bell.on, .cover.on { opacity: 1; }
+  .cover, .bell { position: absolute; top: 6px; right: 34px; opacity: 0; transition: opacity .15s; }
+  .bell { right: 62px; }
+  .card:hover :is(.cover, .bell), :is(.cover, .bell):focus-visible { opacity: 1; }
+  /* The admin's share button stays in the footer, showing on hover. */
+  .share { opacity: 0; transition: opacity .15s; }
+  .card:hover .share, .share:focus-visible, .share.done { opacity: 1; }
 }
 /* A hidden game (the admin's eye button): same size, but only the teams show. Everything that could give the score
    away is blanked in place, red-zone and MDS leader highlighting included. */
