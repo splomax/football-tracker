@@ -890,7 +890,7 @@ test.describe("game picker", () => {
     await page.clock.runFor(40_000);  // several polls, past the list's 30-second refresh
     await expect(card(page, "cfb:2")).toBeVisible();
     await expect(row(page, "cfb:7")).toBeVisible();
-    expect(errors.join()).toContain("ESPN sent no games");
+    await expect.poll(() => errors.join()).toContain("ESPN sent no games");  // the poll's answer can land after runFor returns
   });
 
   test("the list refreshes every 30 seconds while cards refresh every 10", async ({ page }) => {
