@@ -11,7 +11,7 @@
 //   the section shows) and "Remove all" (that state's picked games, which sit under Selected); Selected gets
 //   "Remove all" (every picked game in the current tab and filters).
 
-let app;  // { renderBoard, renderList, listView, allGames, state, saveSelected, visits, store, highlightCard, gameAlerts } from js/admin.js
+let app;  // { renderBoard, renderList, listView, allGames, state, saveSelected, visits, store, highlightCard, gameAlerts, mergeAlerts } from js/admin.js
 
 /** Returns the hooks for js/board.js's setAdmin. */
 export function install(appApi) {
@@ -141,7 +141,7 @@ function onPoll(games) {
     if (!memos.has(g.key)) memos.set(g.key, {});
     const alerts = app.gameAlerts(lastSeen.get(g.key), g, memos.get(g.key));
     lastSeen.set(g.key, g);
-    if (on && keys.has(g.key) && app.state.selected.has(g.key)) alerts.forEach((a) => show(a, g.key));
+    if (on && alerts.length && keys.has(g.key) && app.state.selected.has(g.key)) show(app.mergeAlerts(alerts), g.key);
   }
 }
 

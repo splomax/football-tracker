@@ -44,8 +44,11 @@ export function gameAlerts(prev, g, memo, now = Date.now()) {
     add(period === 2 ? "Halftime" : `End of the ${periodName(period)}`);
   };
 
-  // A quarter that ended between polls without us seeing its "End of" status still gets its notification first.
-  if (g.state === "in" && g.period > memo.started && !between(g)) {
+  // A new quarter counts once two polls in a row show it under way: ESPN sometimes reports the next period for a
+  // single poll before the quarter has ended, then goes back to "End of 1st". A quarter that ended between polls
+  // without us seeing its "End of" status still gets its notification first.
+  const underWay = (x) => x.state === "in" && x.period === g.period && !between(x);
+  if (underWay(g) && underWay(prev) && g.period > memo.started) {
     if (g.period > 1 && memo.ended < g.period - 1) endOf(g.period - 1);
     memo.started = g.period;
     add(g.period === 1 ? "Kickoff" : `Start of the ${periodName(g.period)}`);
@@ -83,3 +86,19 @@ export function gameAlerts(prev, g, memo, now = Date.now()) {
   }
   return alerts;
 }
+
+/**
+ * One poll's notifications for a game, as one: shown together they'd stack, and the system often shows only the last.
+ * Titles are joined; the body is the score line once, then each one's extra line.
+ */
+export function mergeAlerts(alerts) {
+  if (alerts.length < 2) return alerts[0];
+  const [line] = alerts[0].body.split("\n");
+  const scored = alerts.find((a) => a.tag);
+  return {
+    title: alerts.map((a) => a.title).join(" · "),
+    body: [line, ...alerts.flatMap((a) => a.body.split("\n").slice(1))].join("\n"),
+    ...(scored && { tag: scored.tag, silent: alerts.every((a) => a.silent) }),
+  };
+}
+

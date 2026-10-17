@@ -1,5 +1,7 @@
 # football-tracker
 
+Open work is in `TODO.md`.
+
 Scripts to use instead of redoing the work by hand (details in each file's header comment and README's file list):
 
 - `scripts/test-and-ship.sh "message" files…`: runs all tests (`RUNS=2` for two Playwright runs) and commits and

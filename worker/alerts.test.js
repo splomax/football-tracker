@@ -1,7 +1,7 @@
 // Run with: npm run test:worker
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { gameAlerts, periodName } from "../js/alerts.js";
+import { gameAlerts, mergeAlerts, periodName } from "../js/alerts.js";
 
 // A live game as js/espn.js normalizes it; override what each step changes.
 const game = (over = {}) => ({
@@ -68,27 +68,54 @@ test("the two-minute warning, in the 2nd and 4th quarters only", () => {
   assert.deepEqual(run(game({ period: 4, clock: "3:05" }), game({ period: 4, clock: "1:12" })), [[], ["Two-minute warning"]]);
 });
 
-test("kickoff, the end and start of each quarter, halftime, overtime and the final", () => {
+test("kickoff, the end and start of each quarter (once two polls show it), halftime, overtime and the final", () => {
   assert.deepEqual(run(
     game({ state: "pre", period: 0, detail: "Sun 1:00 PM", clock: "0:00" }),
     game({ period: 1, clock: "15:00", detail: "15:00 - 1st" }),
+    game({ period: 1, clock: "14:40", detail: "14:40 - 1st" }),
     game({ period: 1, clock: "0:00", detail: "End of 1st Quarter" }),
     game({ period: 2, clock: "15:00", detail: "15:00 - 2nd" }),
+    game({ period: 2, clock: "14:30", detail: "14:30 - 2nd" }),
     game({ period: 2, clock: "0:00", detail: "Halftime" }),
     game({ period: 3, clock: "15:00", detail: "15:00 - 3rd" }),
+    game({ period: 3, clock: "14:55", detail: "14:55 - 3rd" }),
     game({ period: 4, clock: "14:20", detail: "14:20 - 4th" }),  // missed the end of the 3rd
+    game({ period: 4, clock: "14:00", detail: "14:00 - 4th" }),
     game({ period: 4, clock: "0:00", detail: "End of 4th Quarter" }),
     game({ period: 5, clock: "10:00", detail: "10:00 - OT" }),
+    game({ period: 5, clock: "9:30", detail: "9:30 - OT" }),
     game({ state: "post", period: 5, clock: "0:00", detail: "Final/OT" }),
     game({ state: "post", period: 5, clock: "0:00", detail: "Final/OT" }),
-  ), [[], ["Kickoff"], ["End of the 1st quarter"], ["Start of the 2nd quarter"], ["Halftime"], ["Start of the 3rd quarter"],
-    ["End of the 3rd quarter", "Start of the 4th quarter"], ["End of the 4th quarter"], ["Start of the overtime"], ["Final"], []]);
+  ), [[], [], ["Kickoff"], ["End of the 1st quarter"], [], ["Start of the 2nd quarter"], ["Halftime"], [], ["Start of the 3rd quarter"],
+    [], ["End of the 3rd quarter", "Start of the 4th quarter"], ["End of the 4th quarter"], [], ["Start of the overtime"], ["Final"], []]);
+});
+
+test("ESPN showing the next quarter for one poll before the end of this one doesn't swallow the end", () => {
+  // Seen live: period 2 for a single poll in the last seconds of the 1st, then "End of 1st" for minutes.
+  assert.deepEqual(run(
+    game({ period: 1, clock: "0:08", detail: "0:08 - 1st" }),
+    game({ period: 2, clock: "15:00", detail: "15:00 - 2nd" }),
+    game({ period: 1, clock: "0:00", detail: "End of 1st" }),
+    game({ period: 1, clock: "0:00", detail: "End of 1st" }),
+    game({ period: 2, clock: "15:00", detail: "15:00 - 2nd" }),
+    game({ period: 2, clock: "14:51", detail: "14:51 - 2nd" }),
+  ), [[], [], ["End of the 1st quarter"], [], [], ["Start of the 2nd quarter"]]);
 });
 
 test("a game first seen at halftime or over doesn't announce anything old", () => {
-  assert.deepEqual(run(game({ period: 2, detail: "Halftime", clock: "0:00" }), game({ period: 3, detail: "15:00 - 3rd", clock: "15:00" })),
-    [[], ["Start of the 3rd quarter"]]);
+  assert.deepEqual(run(game({ period: 2, detail: "Halftime", clock: "0:00" }), game({ period: 3, detail: "15:00 - 3rd", clock: "15:00" }),
+    game({ period: 3, detail: "14:50 - 3rd", clock: "14:50" })), [[], [], ["Start of the 3rd quarter"]]);
   assert.deepEqual(run(game({ state: "post", period: 4, detail: "Final" }), game({ state: "post", period: 4, detail: "Final" })), [[], []]);
+});
+
+test("one poll's notifications for a game merge into one, with the score line once", () => {
+  const memo = {};
+  const before = game({ period: 4, clock: "0:00", detail: "0:00 - 4th", home: { score: "20" } });
+  gameAlerts(undefined, before, memo);
+  const after = game({ state: "post", period: 4, clock: "0:00", detail: "Final", home: { score: "23" }, lastPlay: "Kick is good" });
+  assert.deepEqual(mergeAlerts(gameAlerts(before, after, memo, 1)),
+    { title: "NE field goal · Final", body: "BUF 0, NE 23 · Final\nKick is good", tag: "nfl:1:score:2", silent: false });
+  assert.equal(mergeAlerts([{ title: "Halftime", body: "x" }]).title, "Halftime");
 });
 
 test("period names", () => {
