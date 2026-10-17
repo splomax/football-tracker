@@ -753,7 +753,7 @@ test.describe("game picker", () => {
     await expect(row(page, "cfb:1").locator(".rec")).toHaveText(["5-0", "3-2"]);  // team records
   });
 
-  test("the leading team's score is underlined on cards and rows; a tie or a game not started underlines neither", async ({ page }) => {
+  test("the leading team is marked on cards and rows (a tie or a game not started marks neither), but underlined only with MDS on", async ({ page }) => {
     const cfb = cfbGames();
     cfb.find((e) => e.id === "4").competitions[0].competitors.forEach((c) => { c.score = "14"; });  // BYU–TCU tied
     await open(page, { cfb, storage: { selected: ["cfb:1", "cfb:2", "cfb:4", "cfb:5", "cfb:7"] } });
@@ -765,6 +765,10 @@ test.describe("game picker", () => {
       expect(await leaders(at("cfb:4"))).toEqual([false, false]);  // tied
       expect(await leaders(at("cfb:5"))).toEqual([false, false]);  // not started
     }
+    await expect(card(page, "cfb:1").locator(".pts.lead")).toHaveCSS("text-decoration-line", "none");
+    await expect(row(page, "cfb:1").locator(".pts.lead")).toHaveCSS("text-decoration-line", "none");
+    await page.locator("#settings").click();
+    await page.locator("#mds-blue").click();
     await expect(card(page, "cfb:1").locator(".pts.lead")).toHaveCSS("text-decoration-line", "underline");
     await expect(row(page, "cfb:1").locator(".pts.lead")).toHaveCSS("text-decoration-line", "underline");
   });

@@ -85,8 +85,9 @@ label.game input:focus-visible ~ .pick { outline: 2px solid var(--accent); outli
 .bug-team .rec { flex: none; color: var(--muted); font-size: 10px; font-weight: 400; }
 .bug-team .poss { color: var(--poss); font-size: 9px; }
 .bug-team .pts { margin-left: auto; font-variant-numeric: tabular-nums; }
-.bug-team .pts.lead { text-decoration: underline 2px var(--accent); text-underline-offset: 3px; }
-/* "MDS" (js/settings.js): the leading team's line in blue, boxed in grey. */
+/* "MDS" (js/settings.js), the only leader highlighting: the leading score underlined, the team's line in blue, boxed
+   in grey. */
+.mds-blue .bug-team .pts.lead { text-decoration: underline 2px var(--accent); text-underline-offset: 3px; }
 .mds-blue .bug-team:has(.pts.lead) .abbr, .mds-blue .bug-team .pts.lead { color: var(--leader); }
 .mds-blue .bug-team:has(.pts.lead) { outline: 1.5px solid var(--muted); outline-offset: 1px; border-radius: 4px; }
 .bug-team.lost { color: var(--muted); font-weight: 400; }
