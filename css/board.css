@@ -113,3 +113,40 @@ svg.field { width: 100%; display: block; border-radius: 4px; }
 .card.covered :is(.pts, .clock, .poss, .rec, .dd, .field, .last, .net, .last-full) { visibility: hidden; }
 .mds-blue .card.covered .team:has(.pts.lead) { outline: none; }
 .mds-blue .card.covered .team:has(.pts.lead) .abbr { color: inherit; }
+/* List view (the header's grid/list button, js/view.js): one full-width row per game, in a single column. Wide
+   sections fit it on one line; narrower ones put the down & distance, last play and network on a second; phones stack
+   away over home, like the game list. */
+.list-view .board-group .cards { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+.card.line { display: grid; grid-template-columns: minmax(0, 13rem) auto minmax(0, 13rem) 6.5rem minmax(0, 11rem) minmax(0, 1fr) auto auto;
+  grid-template-areas: "away at home clock dd last net tools"; align-items: center; column-gap: 12px; padding: 6px 12px; }
+.card.line .team.away { grid-area: away; }
+.card.line .team.home { grid-area: home; }
+.card.line .at { grid-area: at; color: var(--muted); font-size: 12px; }
+.card.line .team img { width: 22px; height: 22px; }
+.card.line .team .pts { font-size: 18px; line-height: 24px; }
+.card.line .team .sub { display: none; }
+.card.line .clock { grid-area: clock; height: auto; }
+.card.line .dd { grid-area: dd; height: auto; margin: 0; font-size: 13px; line-height: 17px; text-align: left; }
+.card.line .last { grid-area: last; }
+.card.line .net { grid-area: net; max-width: 9rem; }
+.card.line .line-tools { grid-area: tools; display: flex; gap: 4px; }
+/* With a mouse the buttons float over the row's right end on hover, centered on it, like the cards' corner ✕. */
+@media (hover: hover) {
+  .card.line :is(.remove, .cover, .bell) { top: 50%; translate: 0 -50%; }
+}
+@container section (max-width: 900px) {
+  .card.line { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) 5.5rem auto;
+    grid-template-areas: "away at home clock tools" "dd dd last last net"; row-gap: 2px; }
+}
+@container section (max-width: 560px) {
+  .card.line { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 4.5rem auto;
+    grid-template-areas: "away away clock tools" "home home clock tools" "dd last net net"; row-gap: 4px; }
+  .card.line .clock { white-space: normal; }
+  .card.line .net { max-width: none; text-align: right; }
+  .card.line .at { display: none; }
+  .card.line .team.home { flex-direction: row-reverse; }  /* its markup is mirrored (score, name, logo) */
+  .card.line .team.home .name { text-align: left; }
+  .card.line .team.home .top { justify-content: flex-start; }
+  .card.line .team.home .pts { margin-left: auto; margin-right: 0; text-align: right; }
+  .card.line .tools, .card.line .line-tools { align-self: start; }
+}

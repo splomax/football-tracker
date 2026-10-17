@@ -5,6 +5,7 @@ import { state, saveSelected, allGames } from "./state.js";
 import { logoImg, rankBadge, statusLines, escapeAttr, leads } from "./format.js";
 import { field } from "./field.js";
 import { recapUrl } from "./recap.js";
+import { isListView } from "./view.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -37,7 +38,7 @@ export function renderBoard() {
   $("board").innerHTML = SECTIONS.map(([st, label]) => {
     const games = picked.filter((g) => g.state === st);
     return games.length ? `<section class="board-group ${st === "in" ? "live" : "compact"}" data-section="${st}">
-      <h2 class="board-section">${label}</h2><div class="cards">${games.map(card).join("")}</div></section>` : "";
+      <h2 class="board-section">${label}</h2><div class="cards">${games.map(isListView() ? lineCard : card).join("")}</div></section>` : "";
   }).join("");
   animateSectionChanges(before);
 }
@@ -70,9 +71,10 @@ function animateSectionChanges(before) {
   }
 }
 
-function card(g) {
-  const live = g.state === "in", recap = g.state === "post" && recapUrl(g.key);
-  const inRedZone = live && g.redZone;
+// A card's opening tag, the same in both views: red zone (with its one-time glow), the picker's highlight flash, and
+// the admin's classes.
+function cardOpen(g, kind = "") {
+  const inRedZone = g.state === "in" && g.redZone;
   if (inRedZone && !redZoneShown.has(g.key)) glowStart.set(g.key, Date.now());  // just entered the red zone
   inRedZone ? redZoneShown.add(g.key) : redZoneShown.delete(g.key);
   // The board re-renders every poll; a negative delay resumes a glow already in progress instead of restarting it.
@@ -81,8 +83,13 @@ function card(g) {
   // Same trick for the picker's "highlight this game" flash, which must survive a board refresh mid-animation.
   const flashAge = flash?.key === g.key ? Date.now() - flash.at : Infinity;
   const flashing = flashAge < FLASH_MS;
-  return `<div class="card ${inRedZone ? "redzone" : ""} ${glowing ? "glow" : ""} ${flashing ? "flash" : ""} ${admin.cardClass(g)}" data-key="${g.key}"
-    style="${glowing ? `animation-delay: -${glowAge}ms;` : ""}${flashing ? `--flash-delay: -${flashAge}ms;` : ""}">
+  return `<div class="card ${kind} ${inRedZone ? "redzone" : ""} ${glowing ? "glow" : ""} ${flashing ? "flash" : ""} ${admin.cardClass(g)}" data-key="${g.key}"
+    style="${glowing ? `animation-delay: -${glowAge}ms;` : ""}${flashing ? `--flash-delay: -${flashAge}ms;` : ""}">`;
+}
+
+function card(g) {
+  const live = g.state === "in", recap = g.state === "post" && recapUrl(g.key);
+  return `${cardOpen(g)}
     <div class="score">${team(g, g.away, "away", g.home)}<div class="clock">${statusLines(g)}</div>${team(g, g.home, "home", g.away)}</div>
     ${live ? `<div class="dd">${g.ddText || "&nbsp;"}</div>${field(g)}` : ""}
     <div class="card-foot">
@@ -95,6 +102,23 @@ function card(g) {
       ${admin.cardExtras(g)}
       <button class="remove" data-remove="${g.key}" aria-label="Remove game" title="Remove game">✕</button>
     </div>
+    ${live && g.lastPlay && openPlay === g.key ? `<div class="last-full" data-play="${g.key}">${g.lastPlay}</div>` : ""}
+  </div>`;
+}
+
+// List view: one row per game. The same parts as a card (so highlighting, hidden games and the buttons all work),
+// minus the field: away and home around an "@", then the clock, down & distance, last play (or recap) and network.
+function lineCard(g) {
+  const live = g.state === "in", recap = g.state === "post" && recapUrl(g.key);
+  return `${cardOpen(g, "line")}
+    ${team(g, g.away, "away", g.home)}<span class="at">@</span>${team(g, g.home, "home", g.away)}
+    <div class="clock">${statusLines(g).replace("<br>", " ")}</div>
+    <div class="dd">${live && g.ddText ? g.ddText : ""}</div>
+    ${live && g.lastPlay
+      ? `<div class="last" data-play="${g.key}" title="${escapeAttr(g.lastPlay)}">${g.lastPlay}</div>`
+      : `<div class="last">${recap ? `<a class="recap" href="${escapeAttr(recap)}" target="_blank" rel="noopener">Recap ↗</a>` : ""}</div>`}
+    <span class="net" ${g.network ? `title="Broadcast on ${escapeAttr(g.network)}"` : ""}>${g.network}</span>
+    <span class="line-tools">${admin.cardExtras(g)}<button class="remove" data-remove="${g.key}" aria-label="Remove game" title="Remove game">✕</button></span>
     ${live && g.lastPlay && openPlay === g.key ? `<div class="last-full" data-play="${g.key}">${g.lastPlay}</div>` : ""}
   </div>`;
 }

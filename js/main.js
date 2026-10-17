@@ -9,6 +9,7 @@ import { renderBoard, highlightCard, initBoard, animateBoardLayout } from "./boa
 import { setPicker, initDrawer } from "./drawer.js";
 import { initSettings } from "./settings.js";
 import { initTheme } from "./theme.js";
+import { initView } from "./view.js";
 import { countVisit } from "./counter.js";
 import { loadAdmin, adminPolled } from "./admin.js";
 import { initLogo } from "./logo.js";
@@ -66,6 +67,7 @@ initDrawer({ animateLayout: animateBoardLayout });
 initSettings({ mds: { state, renderBoard, renderList, setExtraGames, firstPoll } });
 initLogo();
 initTheme({ onChange: () => { renderList(); renderBoard(); } });  // logos differ per theme
+initView({ onChange: renderBoard });
 
 // Poll now and every POLL_MS after. Background tabs get their timers slowed down by the browser, so coming
 // back to the tab fetches right away and restarts the timer from there.

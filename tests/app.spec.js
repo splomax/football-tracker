@@ -211,6 +211,40 @@ test.describe("?game= links", () => {
   });
 });
 
+test.describe("grid and list views", () => {
+  test("the header button switches everyone's board to one row per game and back, and remembers the choice", async ({ page }) => {
+    await open(page, { storage: { selected: ["cfb:1", "cfb:2", "cfb:7", "cfb:5"] } });
+    const toggle = page.locator("#view-toggle");
+    await expect(toggle).toHaveAttribute("aria-label", "Switch to list view");
+    await expect(page.locator("#board .card.line")).toHaveCount(0);
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-label", "Switch to grid view");
+    await expect(page.locator("#board .card.line")).toHaveCount(4);
+    // One column, each row the board's full width, sections kept.
+    const boxes = await page.locator("#board .card").evaluateAll((cs) => cs.map((c) => c.getBoundingClientRect()).map(({ left, width }) => ({ left, width })));
+    expect(new Set(boxes.map((b) => b.left)).size).toBe(1);
+    expect(new Set(boxes.map((b) => Math.round(b.width))).size).toBe(1);
+    await expect(page.locator("#board .board-section")).toHaveText(["Live", "Final", "Upcoming"]);
+    const live = card(page, "cfb:1");
+    await expect(live).toHaveClass(/redzone/);
+    await expect(live.locator(".dd")).toHaveText("3rd & 6 at IOWA 12");
+    await expect(card(page, "cfb:7").locator(".recap")).toBeAttached();
+    await page.reload();
+    await expect(page.locator("#board .card.line")).toHaveCount(4);
+    await page.locator("#view-toggle").click();
+    await expect(page.locator("#board .card.line")).toHaveCount(0);
+    await expect(page.locator("#board .field")).toHaveCount(2);
+  });
+
+  test("a list row's ✕ removes the game", async ({ page }) => {
+    await open(page, { storage: { selected: ["cfb:1", "cfb:2"], view: "list" } });
+    await card(page, "cfb:2").hover();
+    await card(page, "cfb:2").locator(".remove").click();
+    await expect(card(page, "cfb:2")).toHaveCount(0);
+    await expect(row(page, "cfb:2").locator("input")).not.toBeChecked();
+  });
+});
+
 test.describe("board image", () => {
   // Opens the gear menu and clicks Save board as image; resolves with the PNG's bytes and the download's name.
   const saveBoard = async (page) => {
@@ -1515,6 +1549,14 @@ test.describe("mobile", () => {
     await open(page, { storage: { pickerOpen: false } });
     await expect(page.locator("#board .empty .mobile-only")).toHaveText("Tap ☰ Games at the top to pick a few games, and they'll show up here.");
     await expect(page.locator("#board .empty .desktop-only")).toBeHidden();
+  });
+
+  test("list view has no horizontal scrolling, and stacks away over home", async ({ page }) => {
+    await open(page, { storage: { selected: ALL_CFB, pickerOpen: false, view: "list" } });
+    await expect(page.locator("#board .card.line").first()).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const [away, home] = await card(page, "cfb:1").locator(".team").evaluateAll((ts) => ts.map((t) => t.getBoundingClientRect().top));
+    expect(home).toBeGreaterThan(away);
   });
 
   test("no horizontal scrolling and team names fit on cards", async ({ page }) => {

@@ -42,8 +42,9 @@ header h1 .hash { height: 4px; margin-top: 3px; background: repeating-linear-gra
 #logo.spiral .laces { animation: spiral-once .7s linear; }
 #panel-toggle { margin: -2px 0; padding: 2px 8px; background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-size: 15px; line-height: 1.3; cursor: pointer; }
 #panel-toggle:hover { color: var(--text); }
-#theme-toggle { margin: -2px 0; padding: 2px 8px; background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-size: 14px; line-height: 1.3; cursor: pointer; }
-#theme-toggle:hover { color: var(--text); }
+#view-toggle, #theme-toggle { margin: -2px 0; padding: 2px 8px; background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-size: 14px; line-height: 1.3; cursor: pointer; }
+#view-toggle:hover, #theme-toggle:hover { color: var(--text); }
+#view-toggle { display: grid; place-items: center; height: 26px; color: var(--muted); }
 #updated { color: var(--muted); font-size: 12px; margin-left: auto; }
 main { display: grid; grid-template-columns: 300px minmax(0, 1fr); height: calc(100vh - 49px); transition: grid-template-columns .25s ease; }
 aside { width: 300px; background: var(--bg); border-right: 1px solid var(--border); overflow-y: auto; transition: transform .25s ease, visibility 0s; }
