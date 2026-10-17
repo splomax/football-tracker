@@ -213,6 +213,7 @@ test.describe("?game= links", () => {
 
 test.describe("grid and list views", () => {
   test("the header button switches everyone's board to one row per game and back, and remembers the choice", async ({ page }) => {
+    // (Desktop starts in grid; phones start in list, in the mobile tests.)
     await open(page, { storage: { selected: ["cfb:1", "cfb:2", "cfb:7", "cfb:5"] } });
     const toggle = page.locator("#view-toggle");
     await expect(toggle).toHaveAttribute("aria-label", "Switch to list view");
@@ -1557,6 +1558,15 @@ test.describe("mobile", () => {
     await expect(page.locator("#board .empty .desktop-only")).toBeHidden();
   });
 
+  test("phones start in list view until the viewer picks grid", async ({ page }) => {
+    await open(page, { storage: { selected: ["cfb:1"], pickerOpen: false } });
+    await expect(card(page, "cfb:1")).toHaveClass(/line/);
+    await page.locator("#view-toggle").click();
+    await expect(card(page, "cfb:1")).not.toHaveClass(/line/);
+    await page.reload();
+    await expect(card(page, "cfb:1")).not.toHaveClass(/line/);  // the choice sticks
+  });
+
   test("list view has no horizontal scrolling, and stacks away over home", async ({ page }) => {
     await open(page, { storage: { selected: ALL_CFB, pickerOpen: false, view: "list" } });
     await expect(page.locator("#board .card.line").first()).toBeVisible();
@@ -1575,7 +1585,7 @@ test.describe("mobile", () => {
 
   test("phones around 500px wide fit two stacked Final/Upcoming cards to a row, with even margins", async ({ page }) => {
     await page.setViewportSize({ width: 500, height: 900 });
-    await open(page, { storage: { selected: ["cfb:7", "cfb:5", "cfb:6"], pickerOpen: false } });
+    await open(page, { storage: { selected: ["cfb:7", "cfb:5", "cfb:6"], pickerOpen: false, view: "grid" } });
     const box = (key) => card(page, key).boundingBox();
     const [fin, up1, up2] = [await box("cfb:7"), await box("cfb:5"), await box("cfb:6")];
     expect(Math.abs(up1.y - up2.y)).toBeLessThan(1);                // side by side

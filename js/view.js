@@ -1,7 +1,9 @@
 // Grid or list view for the board, switched by the header button and remembered in this browser. Grid is the cards;
-// list is one full-width row per game (js/board.js lineCard, css/board.css .card.line).
+// list is one row per game (js/board.js lineCard, css/board.css .card.line). Until the viewer picks, phones get list
+// and everything else grid.
 
 import { store } from "./store.js";
+import { MOBILE_QUERY } from "./config.js";
 
 const $ = (id) => document.getElementById(id);
 const ICONS = {  // each shows the view the button switches to
@@ -23,7 +25,7 @@ function apply(view) {
 
 /** @param {{ onChange: () => void }} hooks  redraw the board in the new view */
 export function initView({ onChange }) {
-  apply(store.get("view", "grid"));
+  apply(store.get("view") ?? (matchMedia(MOBILE_QUERY).matches ? "list" : "grid"));
   $("view-toggle").addEventListener("click", () => {
     const view = isListView() ? "grid" : "list";
     store.set("view", view);
