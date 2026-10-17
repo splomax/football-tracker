@@ -428,60 +428,6 @@ test.describe("notifications", () => {
   });
 });
 
-test.describe("hiding games from the game list", () => {
-  const groupKeys = (page, group) => page.locator(`#list .group-label[data-group="${group}"] + .group-body input`).evaluateAll((is) => is.map((i) => i.dataset.key));
-
-  test("only the admin gets the eye", async ({ page }) => {
-    await open(page, { storage: { selected: ["cfb:1"] } });
-    await expect(row(page, "cfb:2")).toBeAttached();
-    await expect(page.locator("#list .row-eye")).toHaveCount(0);
-  });
-
-  test("the eye moves an unpicked game to Hidden at the bottom, Select all skips it, and it's remembered until shown again", async ({ page }) => {
-    await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:1"] } });
-    await expect(row(page, "cfb:1").locator(".row-eye")).toHaveCount(0);  // picked rows don't get one
-    const eye = row(page, "cfb:2").locator(".row-eye");
-    await expect(eye).toHaveCSS("opacity", "0");  // only on hover
-    await row(page, "cfb:2").hover();
-    await expect(eye).toHaveCSS("opacity", "1");
-    await eye.click();
-    await expect(page.locator("#list .group-label").last()).toHaveAttribute("data-group", "Hidden");
-    expect(await groupKeys(page, "Hidden")).toEqual(["cfb:2"]);
-    expect(await groupKeys(page, "Live")).not.toContain("cfb:2");
-    await expect(row(page, "cfb:2").locator("input")).not.toBeChecked();
-    const lit = row(page, "cfb:2").locator(".row-eye");
-    await expect(lit).toHaveAttribute("aria-label", "Show this game in the list");
-    await page.mouse.move(0, 0);
-    await expect(lit).toHaveCSS("opacity", "1");  // lit: always shows
-
-    await page.locator('#list .group-label[data-group="Live"] + .group-body [data-bulk="add"]').click();
-    await expect(card(page, "cfb:3")).toBeAttached();
-    await expect(card(page, "cfb:2")).toHaveCount(0);  // Select all skipped the hidden game
-
-    await page.reload();
-    expect(await groupKeys(page, "Hidden")).toEqual(["cfb:2"]);
-    await row(page, "cfb:2").locator(".row-eye").click();
-    await expect(page.locator('#list .group-label[data-group="Hidden"]')).toHaveCount(0);
-    expect(await groupKeys(page, "Live")).toContain("cfb:2");
-  });
-
-  test("picking a hidden game moves it to Selected, and unpicking it sends it back to Hidden", async ({ page }) => {
-    await open(page, { query: "?admin", storage: { ...admin, selected: [], hiddenFromList: ["cfb:2"] } });
-    await expect(page.locator('#list .group-label[data-group="Hidden"]')).toBeAttached();
-    await row(page, "cfb:2").locator(".pick").click();
-    expect(await groupKeys(page, "Selected")).toEqual(["cfb:2"]);
-    await expect(card(page, "cfb:2")).toBeAttached();
-    await row(page, "cfb:2").locator(".pick").click();
-    expect(await groupKeys(page, "Hidden")).toEqual(["cfb:2"]);
-  });
-
-  test("the old card eye is gone", async ({ page }) => {
-    await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:1"], hiddenGames: ["cfb:1"] } });
-    await expect(card(page, "cfb:1")).toBeAttached();
-    await expect(page.locator("#board .cover, #board .covered")).toHaveCount(0);
-  });
-});
-
 test.describe("bulk select in the game list", () => {
   test("Remove all also catches a game that ended after the list was last drawn", async ({ page }) => {
     await page.clock.install({ time: new Date("2026-10-03T20:00:00Z") });
@@ -622,7 +568,7 @@ test.describe("admin login", () => {
     const sources = await page.evaluate(async () => Promise.all(performance.getEntriesByType("resource")
       .filter((r) => r.name.endsWith(".js")).map(async (r) => (await fetch(r.name)).text())));
     expect(sources.length).toBeGreaterThan(5);
-    for (const src of sources) expect(src).not.toMatch(/data-hide|data-bulk/);
+    for (const src of sources) expect(src).not.toMatch(/data-bell|data-bulk/);
   });
 });
 

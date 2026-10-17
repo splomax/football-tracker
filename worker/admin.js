@@ -1,8 +1,6 @@
 // The admin's extra controls, served only to a logged-in admin by the Worker (worker/index.js) and loaded by
 // js/admin.js. It runs from a blob: URL, so it can't import the app's modules; install() is handed what it needs.
 //
-// - An eye on each unpicked game's row in the game list (shown on hover, like the bell), which hides the game: its row
-//   moves to a "Hidden" section at the bottom of the list, for games that will never matter. Remembered in this browser.
 // - "Enable notifications" in the gear menu, which puts a bell on every card and on each picked game's row in the game
 //   list, where a lit one shows at a glance. A lit bell gets desktop notifications for that game (js/alerts.js says
 //   what's news), while this page is open.
@@ -16,19 +14,16 @@ let app;  // { renderBoard, renderList, listView, allGames, state, saveSelected,
 /** Returns the hooks for js/board.js's setAdmin. */
 export function install(appApi) {
   app = appApi;
-  app.store.set("hiddenGames", null);  // the old hide (covered cards) is gone
+  app.store.set("hiddenGames", null);  // left behind by two hide features since removed
+  app.store.set("hiddenFromList", null);
   addNotifyToggle();
   addVisits();
   return {
     groupExtras,
-    // Picked games' rows get the bell (with notifications on), the rest the eye.
-    rowExtras: (g) => (app.state.selected.has(g.key) ? (notifying() ? bellButton(g, "row-bell") : "") : eyeButton(g)),
-    isHidden: (g) => hidden().has(g.key),
+    rowExtras: (g) => (notifying() && app.state.selected.has(g.key) ? bellButton(g, "row-bell") : ""),
     onListClick(e) {
       const bellKey = e.target.closest("[data-bell]")?.dataset.bell;
       if (bellKey) { e.preventDefault(); toggleBell(bellKey); return true; }  // preventDefault: the row's label stays put
-      const hideKey = e.target.closest("[data-hide]")?.dataset.hide;
-      if (hideKey) { e.preventDefault(); toggleHidden(hideKey); return true; }
       const button = e.target.closest("[data-bulk]");
       if (!button) return false;
       const add = button.dataset.bulk === "add";
@@ -54,7 +49,6 @@ const STATE_OF = { Live: "in", Upcoming: "pre", Final: "post" };
 // The bulk buttons atop one game-list section. A state's "Remove all" only shows while some of its games are picked
 // (they sit under Selected).
 function groupExtras(group) {
-  if (group === "Hidden") return "";
   const button = (action, label) => `<button type="button" data-bulk="${action}" data-group="${group}">${label}</button>`;
   if (group === "Selected") return `<div class="group-actions">${button("remove", "Remove all")}</div>`;
   return `<div class="group-actions">${button("add", "Select all")}${bulkGames(group, false).length ? button("remove", "Remove all") : ""}</div>`;
@@ -62,11 +56,9 @@ function groupExtras(group) {
 
 // The games a bulk button acts on, worked out from the games as they are now rather than when the list was drawn
 // (it redraws only every LIST_REFRESH_MS, and a game can kick off or end in between). Within the current tab and
-// filters: unpicked games of the section's state to add (not hidden ones), picked ones to remove; Selected removes
-// every picked game.
+// filters: unpicked games of the section's state to add, picked ones to remove; Selected removes every picked game.
 function bulkGames(group, add) {
-  const skip = add ? hidden() : new Set();
-  return app.listView().filter((g) => (group === "Selected" || g.state === STATE_OF[group]) && app.state.selected.has(g.key) !== add && !skip.has(g.key));
+  return app.listView().filter((g) => (group === "Selected" || g.state === STATE_OF[group]) && app.state.selected.has(g.key) !== add);
 }
 
 // Gear menu: the visit counts, refreshed whenever the menu opens. The gear's click opens the menu before this runs.
@@ -159,25 +151,4 @@ function show({ title, body, tag, silent = false }, key) {
     if (key) app.highlightCard(key);
     n.close();
   };
-}
-
-// Hidden games: out of the way in the game list's "Hidden" section. Only this week's games are kept, so the list
-// doesn't grow forever.
-const EYE = `<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12"/><circle cx="12" cy="12" r="3"/>`;
-const eyeIcon = (shut) => `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"
-  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${EYE}${shut ? `<path d="M4 4l16 16"/>` : ""}</svg>`;
-const hidden = () => new Set(app.store.get("hiddenFromList", []));
-
-function eyeButton(g) {
-  const on = hidden().has(g.key);
-  const label = on ? "Show this game in the list" : "Hide this game";
-  return `<button type="button" class="row-eye ${on ? "on" : ""}" data-hide="${g.key}" aria-pressed="${on}" aria-label="${label}" title="${label}">${eyeIcon(on)}</button>`;
-}
-
-function toggleHidden(key) {
-  const keys = hidden();
-  keys.has(key) ? keys.delete(key) : keys.add(key);
-  const thisWeek = new Set(app.allGames().map((g) => g.key));
-  app.store.set("hiddenFromList", [...keys].filter((k) => thisWeek.has(k)));
-  app.renderList();
 }
