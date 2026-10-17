@@ -20,20 +20,20 @@ const nflDivisionOf = Object.fromEntries(
 // Independents (Notre Dame etc.) never play a "conference game", so seed that one.
 export const confNames = { 18: "Independent" };
 
-// How far the team with the ball is from the goal it's attacking, or null if nobody has it. The spot ESPN writes out
-// ("1st & 10 at OSU 20") wins: its yardLine is sometimes stale right after a change of possession, which once put a
-// team at its own 20 in the red zone. yardLine (yards from the home goal line, which the away team attacks) is the
-// fallback when the text doesn't name either team (midfield, or missing).
+// How far the team with the ball is from the goal it's attacking, or null if nobody has it or ESPN hasn't written the
+// spot out. Only the written spot ("1st & 10 at OSU 20", or "at 50" for midfield) is trusted: ESPN's yardLine is
+// sometimes stale right after a change of possession (once putting a team at its own 20 in the red zone) and sometimes
+// plain junk with no written spot at all (Alabama on Tennessee's goal line, yardLine 0, right after a sack).
 function yardsToGoal(s, possession, home, away) {
   const offense = possession === home.id ? home : possession === away.id ? away : null;
-  if (!offense) return null;
+  const spot = s.downDistanceText ?? s.possessionText;
+  if (!offense || !spot) return null;
   const defense = offense === home ? away : home;
-  const [, side, yards] = /\bat (\S+) (\d+)$/.exec(s.downDistanceText ?? s.possessionText ?? "") ??
-    /^(\S+) (\d+)$/.exec(s.possessionText ?? "") ?? [];
+  const [, side, yards] = /\bat (?:(\S+) )?(\d+)$/.exec(s.downDistanceText ?? "") ?? /^(?:(\S+) )?(\d+)$/.exec(s.possessionText ?? "") ?? [];
+  if (yards == null) return null;
   if (side === offense.abbr) return 100 - Number(yards);
-  if (side === defense.abbr) return Number(yards);
-  if (s.yardLine == null) return null;
-  return offense === away ? s.yardLine : 100 - s.yardLine;
+  if (side === defense.abbr || side == null) return Number(yards);  // no team named: midfield, 50 either way
+  return null;  // a team name ESPN spells differently from its abbreviation: don't guess
 }
 
 export async function fetchGames(league) {

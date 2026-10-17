@@ -1039,6 +1039,15 @@ test.describe("game cards", () => {
     await expect(card(page, "nfl:101")).not.toHaveClass(/redzone/);  // own 40
   });
 
+  test("no written spot, no red zone, whatever yardLine and ESPN's flag say", async ({ page }) => {
+    // Seen live right after a sack: Alabama "on the goal line", yardLine 0 and isRedZone true, but no down & distance.
+    const cfb = cfbGames().map((e) => e.id !== "1" ? e : { ...e, competitions: [{ ...e.competitions[0],
+      situation: { ...e.competitions[0].situation, yardLine: 0, downDistanceText: undefined, possessionText: undefined, isRedZone: true } }] });
+    await open(page, { cfb, storage: { selected: ["cfb:1"] } });
+    await expect(card(page, "cfb:1")).toBeAttached();
+    await expect(card(page, "cfb:1")).not.toHaveClass(/redzone/);
+  });
+
   test("the written spot wins over a stale yardLine: a team at its own 20 isn't in the red zone", async ({ page }) => {
     // Seen live right after a punt: ESPN's yardLine still put OSU 12 yards from the goal while the spot read OSU 20.
     const cfb = cfbGames().map((e) => e.id !== "1" ? e : { ...e, competitions: [{ ...e.competitions[0],
