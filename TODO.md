@@ -21,3 +21,10 @@
    distance, instead of in its own column.
 9. **Bell click makes the card's buttons blink.** Clicking the hover bell on a card flickers the buttons around it.
 
+10. **Disable zoom on mobile.** Stop pinch and double-tap zooming on phones.
+11. **List view and Upcoming games should match.** Make the list view's rows and the Upcoming games look alike (one
+    styled after the other).
+12. **Test notifications only to admins.** Make sure test notifications (the paper plane and its samples) only ever
+    reach admin devices, once phones other than admins' can subscribe.
+13. **Notification settings.** Let people choose which events notify them (scores, red zone, two-minute warning,
+    quarters, halftime, final).
