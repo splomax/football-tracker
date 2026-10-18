@@ -66,10 +66,14 @@ export function gameAlerts(prev, g, memo, now = Date.now()) {
     const t = g[side];
     const quiet = now - (memo.scoredAt?.[t.id] ?? -Infinity) < SCORE_MERGE_MS;
     memo.scoredAt = { ...memo.scoredAt, [t.id]: now };
+    // Each score gets its own tag, so it shows as a new notification: a repeated tag only replaces the earlier one,
+    // silently, out of sight in the notification center. The one exception is a quick follow-up (the extra point after
+    // a touchdown), which reuses its touchdown's tag to update it quietly.
+    if (!quiet) memo.scoreTags = { ...memo.scoreTags, [t.id]: `${g.key}:score:${t.id}:${now}` };
     // The scoring play: looked up by the score when the scoreboard's last play isn't it yet (worker/scorekeeper.js), else
     // the last play if it scored, else nothing rather than the wrong play.
     const play = g.scoringPlay ?? (g.lastPlayScored ? g.lastPlay : undefined);
-    const tag = `${g.key}:score:${t.id}`;
+    const tag = memo.scoreTags[t.id];
     if (SCORE_KINDS[gained] === "touchdown") {
       // Styled: the game, then what happened, then the new score ("CHI @ ATL" / "TD CHI" / "CHI 7, ATL 0").
       const headline = `TD ${t.abbr}`;
@@ -188,5 +192,8 @@ export function sampleAlert(g, kind) {
       return null;
   }
   const alerts = gameAlerts(prev, now, memo);
-  return alerts.length ? mergeAlerts(alerts) : null;
+  if (!alerts.length) return null;
+  const sample = mergeAlerts(alerts);
+  // Every sample is a new notification, however quickly they're sent.
+  return sample.tag ? { ...sample, tag: `${sample.tag}:${Math.random().toString(36).slice(2)}` } : sample;
 }

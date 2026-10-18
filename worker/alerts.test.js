@@ -31,8 +31,8 @@ test("the first look is never news", () => {
 test("every notification carries the score and where the game is", () => {
   const memo = {};
   gameAlerts(undefined, game(), memo);
-  const [alert] = gameAlerts(game(), game({ away: { score: "3" }, lastPlay: "J.Bass 40 yd field goal", lastPlayScored: true }), memo);
-  assert.deepEqual(alert, { title: "BUF field goal", body: "BUF 3, NE 0 · 10:00 - 1st\nJ.Bass 40 yd field goal", tag: "nfl:1:score:1", silent: false });
+  const [alert] = gameAlerts(game(), game({ away: { score: "3" }, lastPlay: "J.Bass 40 yd field goal", lastPlayScored: true }), memo, 5000);
+  assert.deepEqual(alert, { title: "BUF field goal", body: "BUF 3, NE 0 · 10:00 - 1st\nJ.Bass 40 yd field goal", tag: "nfl:1:score:1:5000", silent: false });
 });
 
 test("scores are named by points, and a touchdown's extra point updates it quietly", () => {
@@ -114,7 +114,7 @@ test("one poll's notifications for a game merge into one, with the score line on
   gameAlerts(undefined, before, memo);
   const after = game({ state: "post", period: 4, clock: "0:00", detail: "Final", home: { score: "23" }, lastPlay: "Kick is good", lastPlayScored: true });
   assert.deepEqual(mergeAlerts(gameAlerts(before, after, memo, 1)),
-    { title: "NE field goal · Final", body: "BUF 0, NE 23 · Final\nKick is good", tag: "nfl:1:score:2", silent: false });
+    { title: "NE field goal · Final", body: "BUF 0, NE 23 · Final\nKick is good", tag: "nfl:1:score:2:1", silent: false });
   assert.equal(mergeAlerts([{ title: "Halftime", body: "x" }]).title, "Halftime");
 });
 
@@ -159,4 +159,22 @@ test("each sample kind reads exactly like a real notification of that kind, and 
   });
   assert.equal(sampleAlert(g, "touchdown").body, "TD HOU\nHOU 38, JAX 28");
   assert.equal(sampleAlert(g, "nonsense"), null);
+});
+
+test("each score is a new notification (its own tag); only a touchdown's quick extra point updates it, quietly", () => {
+  const memo = {};
+  const polls = [game(), game({ home: { score: "6" } }), game({ home: { score: "7" } }), game({ home: { score: "10" } })];
+  gameAlerts(undefined, polls[0], memo);
+  const [td] = gameAlerts(polls[0], polls[1], memo, 10_000);
+  const [xp] = gameAlerts(polls[1], polls[2], memo, 40_000);
+  const [fg] = gameAlerts(polls[2], polls[3], memo, 400_000);
+  assert.equal(xp.tag, td.tag);  // replaces the touchdown's notification
+  assert.equal(xp.silent, true);
+  assert.notEqual(fg.tag, td.tag);  // a later score pops up as its own notification
+  assert.equal(fg.silent, false);
+  // Seen live: a second test field goal only replaced the first, out of sight. Each sample is its own notification.
+  const g = game({ away: { id: "1", abbr: "HOU", score: "3" } });
+  const first = sampleAlert(g, "field-goal");
+  const second = sampleAlert(g, "field-goal");
+  assert.notEqual(first.tag, second.tag);
 });
