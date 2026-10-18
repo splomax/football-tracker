@@ -20,4 +20,6 @@ if ! npm run test:worker >/dev/null 2>&1; then echo "Worker tests failed: not co
 echo "All tests passed"
 [ "${1:-}" = "--test-only" ] && exit 0
 msg="$1"; shift
-git add -- "$@" && git commit -qm "$msg" && git push -q && git log --oneline -1
+# A file deleted with git rm is already staged and no longer matches a path, so only add what's still there or tracked.
+for f in "$@"; do if [ -e "$f" ] || git ls-files --error-unmatch -- "$f" >/dev/null 2>&1; then git add -A -- "$f"; fi; done
+git commit -qm "$msg" && git push -q && git log --oneline -1
