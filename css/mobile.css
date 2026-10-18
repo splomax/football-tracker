@@ -1,6 +1,7 @@
-/* Phones (≤700px): picker becomes a slide-in drawer, Games bar pins to the top, cards tighten. */
+/* Phones (≤700px wide, or ≤500px tall, i.e. on their side): picker becomes a slide-in drawer, Games bar pins to the top,
+   cards tighten. */
 #picker-toggle, .drawer-head, #picker-backdrop { display: none; }
-@media (max-width: 700px) {
+@media (max-width: 700px), (max-height: 500px) {
   main, body.panel-collapsed main { grid-template-columns: minmax(0, 1fr); height: auto; }
   /* Phones use the drawer instead of the desktop hide/show panel. */
   #panel-toggle { display: none; }

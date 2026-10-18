@@ -11,7 +11,9 @@ export const GLOW_MS = 2400;           // matches the redzone-glow animation len
 export const RECAP_CHECK_MS = 2 * 60_000;     // how often a final game without a recap is checked again (js/recap.js)
 export const RECAP_GIVE_UP_MS = 60 * 60_000;  // stop checking after an hour
 export const FLASH_MS = 1600;          // matches the card-flash animation length (css/board.css)
-export const MOBILE_QUERY = "(max-width: 700px)";  // matches css/mobile.css
+// Phones: narrow, or short (a phone on its side is wide, but too short for the side-by-side list and board). Matches
+// css/mobile.css.
+export const MOBILE_QUERY = "(max-width: 700px), (max-height: 500px)";
 
 const params = new URLSearchParams(location.search);
 

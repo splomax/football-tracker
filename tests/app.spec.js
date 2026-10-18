@@ -236,7 +236,7 @@ test.describe("Safari keeps the scroll position through refreshes @webkit", () =
   });
 
   test("the desktop board scrolled to the bottom stays there", async ({ page }) => {
-    await page.setViewportSize({ width: 1100, height: 500 });
+    await page.setViewportSize({ width: 1100, height: 560 });  // over 500px tall, or it gets the phone layout
     await page.clock.install({ time: new Date("2026-10-03T20:00:00Z") });
     await open(page, { storage: { selected: picks, view: "grid" } });
     const y = await page.locator("#board").evaluate((b) => { b.scrollTop = b.scrollHeight; return b.scrollTop; });
@@ -1548,6 +1548,15 @@ test.describe("desktop game list panel", () => {
 
 test.describe("mobile", () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+
+  test("a phone on its side (wide but short) gets the phone layout too", async ({ page }) => {
+    await page.setViewportSize({ width: 750, height: 342 });
+    await open(page, { storage: { selected: ["cfb:1", "cfb:2"], pickerOpen: false } });
+    await expect(page.locator("#picker-toggle")).toBeVisible();  // the Games bar, not the side panel
+    await expect(page.locator("aside")).toHaveClass(/collapsed/);
+    await expect(card(page, "cfb:1")).toHaveClass(/line/);  // phones start in list view
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
 
   test("with no picks, the board says to tap the Games bar", async ({ page }) => {
     await open(page, { storage: { pickerOpen: false } });
