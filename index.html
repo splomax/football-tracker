@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- No zooming: the layout is made for the screen. iPhone Safari ignores user-scalable, so js/main.js also blocks its
+     pinch gesture, and css/base.css turns off double-tap zoom. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Game Tracker Live</title>
 <script>
   // Set the theme before the stylesheets paint (js/theme.js takes over once loaded).

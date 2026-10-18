@@ -1788,6 +1788,18 @@ test.describe("mobile", () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
 
+  test("pages can't be zoomed: the viewport says so, double-tap zoom is off, and Safari's pinch gesture is cancelled", async ({ page }) => {
+    await open(page, { storage: { selected: ["cfb:1"], pickerOpen: false } });
+    expect(await page.locator('meta[name="viewport"]').getAttribute("content")).toContain("user-scalable=no");
+    expect(await page.evaluate(() => getComputedStyle(document.documentElement).touchAction)).toBe("manipulation");
+    const cancelled = await page.evaluate(() => {
+      const e = new Event("gesturestart", { cancelable: true });
+      document.dispatchEvent(e);
+      return e.defaultPrevented;
+    });
+    expect(cancelled).toBe(true);
+  });
+
   test("with no picks, the board says to tap the Games bar", async ({ page }) => {
     await open(page, { storage: { pickerOpen: false } });
     await expect(page.locator("#board .empty .mobile-only")).toHaveText("Tap ☰ Games at the top to pick a few games, and they'll show up here.");

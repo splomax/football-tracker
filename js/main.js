@@ -108,6 +108,9 @@ initLogo();
 initTheme({ onChange: () => { renderList(); renderBoard(); } });  // logos differ per theme
 initView({ onChange: renderBoard });
 
+// No pinch zoom: iPhone Safari ignores the viewport's user-scalable=no (index.html), but stops if its gesture is cancelled.
+document.addEventListener("gesturestart", (e) => e.preventDefault());
+
 // Poll now and every POLL_MS after. Background tabs get their timers slowed down by the browser, so coming
 // back to the tab fetches right away and restarts the timer from there.
 let pollTimer;
