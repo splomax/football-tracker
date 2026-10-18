@@ -37,6 +37,18 @@ function yardsToGoal(s, possession, home, away) {
   return null;  // a team name ESPN spells differently from its abbreviation: don't guess
 }
 
+/**
+ * The text of the scoring play that left the game at this score ("Travis Hunter 7 Yd pass from Trevor Lawrence (Cam
+ * Little Kick)"), from ESPN's game detail, or null if it isn't listed yet. For score notifications, when the last play
+ * the scoreboard reports isn't the scoring one (worker/scorekeeper.js).
+ */
+export async function fetchScoringPlay(g) {
+  const [league, id] = g.key.split(":");
+  const { scoringPlays = [] } = await (await fetch(LEAGUES[league].replace(/scoreboard.*$/, `summary?event=${id}`))).json();
+  const play = scoringPlays.findLast((p) => String(p.awayScore) === String(g.away.score) && String(p.homeScore) === String(g.home.score));
+  return play?.text ?? null;
+}
+
 export async function fetchGames(league) {
   const data = await (await fetch(LEAGUES[league])).json();
   return data.events.map((e) => parseEvent(league, e));
@@ -75,6 +87,9 @@ function parseEvent(league, e) {
     ddText: s.downDistanceText, redZone,
     // No timeouts: ESPN's college counts don't reset at halftime (scripts/check-timeouts.js), so they're often wrong.
     lastPlay: lp?.text,
+    // Whether that last play scored. ESPN often updates the score a moment before the last play, so a score
+    // notification only quotes the last play when it's the scoring one (js/alerts.js).
+    lastPlayScored: (lp?.scoreValue ?? 0) > 0,
     // Where to watch, e.g. "ABC" or "CBS / Paramount+".
     network: [...new Set((comp.broadcasts || []).flatMap((b) => b.names || []))].join(" / "),
     // Link to ESPN's written recap, once the game is over. js/recap.js checks that the story actually exists.

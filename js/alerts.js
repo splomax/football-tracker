@@ -60,7 +60,10 @@ export function gameAlerts(prev, g, memo, now = Date.now()) {
     const t = g[side];
     const quiet = now - (memo.scoredAt?.[t.id] ?? -Infinity) < SCORE_MERGE_MS;
     memo.scoredAt = { ...memo.scoredAt, [t.id]: now };
-    add(`${t.abbr} ${SCORE_KINDS[gained] ?? `+${gained}`}`, g.lastPlay, { tag: `${g.key}:score:${t.id}`, silent: quiet });
+    // The scoring play: looked up by the score when the scoreboard's last play isn't it yet (worker/scorekeeper.js), else
+    // the last play if it scored, else nothing rather than the wrong play.
+    const play = g.scoringPlay ?? (g.lastPlayScored ? g.lastPlay : undefined);
+    add(`${t.abbr} ${SCORE_KINDS[gained] ?? `+${gained}`}`, play, { tag: `${g.key}:score:${t.id}`, silent: quiet });
   }
 
   // One per trip: it resets only once the other team has the ball (possession can drop out between plays).

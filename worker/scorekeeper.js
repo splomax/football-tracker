@@ -8,7 +8,7 @@
 // an admin page has asked within IDLE_MS, or while a phone has a lit bell on a game that's live or starts within
 // SOON_MS; every IDLE_CHECK_MS while phones have bells on later games (to notice kickoffs); otherwise not at all.
 
-import { fetchGames, confNames } from "../js/espn.js";
+import { fetchGames, fetchScoringPlay, confNames } from "../js/espn.js";
 import { gameAlerts, mergeAlerts, scoreLine } from "../js/alerts.js";
 
 export const POLL_MS = 10_000;
@@ -18,9 +18,10 @@ export const IDLE_CHECK_MS = 15 * 60_000;
 const KEEP_ALERTS = 200;  // the most recent notifications kept for pages to catch up on
 
 export class ScoreKeeper {
-  /** @param {{ fetchGames?: typeof fetchGames, now?: () => number }} [deps]  stand-ins for tests */
+  /** @param {{ fetchGames?: typeof fetchGames, fetchScoringPlay?: typeof fetchScoringPlay, now?: () => number }} [deps]  stand-ins for tests */
   constructor(deps = {}) {
     this.fetch = deps.fetchGames ?? fetchGames;
+    this.fetchScoringPlay = deps.fetchScoringPlay ?? fetchScoringPlay;
     this.now = deps.now ?? Date.now;
     this.games = { cfb: [], nfl: [] };
     this.last = new Map();   // game key -> the game at the last update
@@ -50,11 +51,24 @@ export class ScoreKeeper {
       this.games[league] = games;
       for (const g of games) {
         if (!this.memos.has(g.key)) this.memos.set(g.key, {});
+        await this.findScoringPlay(this.last.get(g.key), g);
         const news = gameAlerts(this.last.get(g.key), g, this.memos.get(g.key), now);
         this.last.set(g.key, g);
         if (news.length) this.add({ key: g.key, ...mergeAlerts(news) });  // one notification per game per update
       }
     }));
+  }
+
+  // When the score changed but the scoreboard's last play isn't the scoring one (ESPN updates the score first), look
+  // the scoring play up by the new score, for the notification's description (js/alerts.js).
+  async findScoringPlay(prev, g) {
+    if (!prev || g.lastPlayScored) return;
+    if (g.away.score === prev.away.score && g.home.score === prev.home.score) return;
+    try {
+      g.scoringPlay = (await this.fetchScoringPlay(g)) ?? undefined;
+    } catch (err) {
+      console.error("scoring play", g.key, err);
+    }
   }
 
   add(alert) {

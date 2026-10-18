@@ -8,13 +8,14 @@ const game = (key) => ({ key, state: "in", date: new Date(0), away: { abbr: "BUF
 // A keeper whose ESPN is `espn` (league -> games, or an Error to throw) and whose clock moves only when told.
 function keeperWith(espn) {
   let t = 1_000_000, fetches = 0;
-  const keeper = new ScoreKeeper({ now: () => t, fetchGames: async (league) => {
+  const scoring = { text: null };  // what ESPN's game detail lists for the latest score
+  const keeper = new ScoreKeeper({ now: () => t, fetchScoringPlay: async () => scoring.text, fetchGames: async (league) => {
     fetches++;
     const v = espn[league];
     if (v instanceof Error) throw v;
     return v ?? [];
   } });
-  return { keeper, espn, tick: (ms) => (t += ms), fetches: () => fetches };
+  return { keeper, espn, scoring, tick: (ms) => (t += ms), fetches: () => fetches };
 }
 
 test("a page asking gets both leagues' games, fetched first when they're stale", async () => {
@@ -76,7 +77,7 @@ test("a page just opening gets the newest notification's number, but none of the
 test("a page gets the notifications after the last one it saw, each with its game and the score", async () => {
   const { keeper, espn, tick } = keeperWith({ nfl: [live("nfl:1"), live("nfl:2")] });
   const { cursor } = await keeper.ask(null);
-  espn.nfl = [live("nfl:1", { home: { id: "2", abbr: "NE", score: "3" }, lastPlay: "FG good" }), live("nfl:2")];
+  espn.nfl = [live("nfl:1", { home: { id: "2", abbr: "NE", score: "3" }, lastPlay: "FG good", lastPlayScored: true }), live("nfl:2")];
   tick(POLL_MS);
   const next = await keeper.ask(cursor);
   assert.deepEqual(next.alerts.map(({ key, title, body }) => ({ key, title, body })),
@@ -133,4 +134,14 @@ test("since(id) lists the notifications after id, for sending to phones", async 
   await keeper.poll();
   assert.deepEqual(keeper.since(0).map((a) => a.title), ["NE touchdown"]);
   assert.deepEqual(keeper.since(1), []);
+});
+
+test("when the scoreboard's last play isn't the scoring one, the score notification quotes the scoring play looked up by the score", async () => {
+  const { keeper, espn, scoring, tick } = keeperWith({ nfl: [live("nfl:1")] });
+  const { cursor } = await keeper.ask(null);
+  espn.nfl = [live("nfl:1", { home: { id: "2", abbr: "NE", score: "7" }, lastPlay: "Pass incomplete", lastPlayScored: false })];
+  scoring.text = "R.Stevenson 4 Yd Run (A.Borregales Kick)";
+  tick(POLL_MS);
+  const [alert] = (await keeper.ask(cursor)).alerts;
+  assert.equal(alert.body, "BUF 0, NE 7 · 10:00 - 1st\nR.Stevenson 4 Yd Run (A.Borregales Kick)");
 });

@@ -31,7 +31,7 @@ test("the first look is never news", () => {
 test("every notification carries the score and where the game is", () => {
   const memo = {};
   gameAlerts(undefined, game(), memo);
-  const [alert] = gameAlerts(game(), game({ away: { score: "3" }, lastPlay: "J.Bass 40 yd field goal" }), memo);
+  const [alert] = gameAlerts(game(), game({ away: { score: "3" }, lastPlay: "J.Bass 40 yd field goal", lastPlayScored: true }), memo);
   assert.deepEqual(alert, { title: "BUF field goal", body: "BUF 3, NE 0 · 10:00 - 1st\nJ.Bass 40 yd field goal", tag: "nfl:1:score:1", silent: false });
 });
 
@@ -112,7 +112,7 @@ test("one poll's notifications for a game merge into one, with the score line on
   const memo = {};
   const before = game({ period: 4, clock: "0:00", detail: "0:00 - 4th", home: { score: "20" } });
   gameAlerts(undefined, before, memo);
-  const after = game({ state: "post", period: 4, clock: "0:00", detail: "Final", home: { score: "23" }, lastPlay: "Kick is good" });
+  const after = game({ state: "post", period: 4, clock: "0:00", detail: "Final", home: { score: "23" }, lastPlay: "Kick is good", lastPlayScored: true });
   assert.deepEqual(mergeAlerts(gameAlerts(before, after, memo, 1)),
     { title: "NE field goal · Final", body: "BUF 0, NE 23 · Final\nKick is good", tag: "nfl:1:score:2", silent: false });
   assert.equal(mergeAlerts([{ title: "Halftime", body: "x" }]).title, "Halftime");
@@ -121,4 +121,18 @@ test("one poll's notifications for a game merge into one, with the score line on
 test("period names", () => {
   assert.deepEqual([1, 2, 3, 4, 5, 6, 7].map(periodName),
     ["1st quarter", "2nd quarter", "3rd quarter", "4th quarter", "overtime", "2nd overtime", "3rd overtime"]);
+});
+
+test("a score notification quotes the scoring play: the one looked up by the score, else the last play only if it scored", () => {
+  const body = (over) => {
+    const memo = {};
+    gameAlerts(undefined, game(), memo);
+    return gameAlerts(game(), game({ home: { score: "7" }, ...over }), memo)[0].body;
+  };
+  // Seen live: ESPN had JAX's new score while its last play was still the incompletion before the touchdown.
+  assert.equal(body({ lastPlay: "T.Lawrence pass incomplete short left", lastPlayScored: false }), "BUF 0, NE 7 · 10:00 - 1st");
+  assert.equal(body({ lastPlay: "T.Lawrence pass incomplete short left", lastPlayScored: false, scoringPlay: "Travis Hunter 7 Yd pass from Trevor Lawrence (Cam Little Kick)" }),
+    "BUF 0, NE 7 · 10:00 - 1st\nTravis Hunter 7 Yd pass from Trevor Lawrence (Cam Little Kick)");
+  assert.equal(body({ lastPlay: "T.Lawrence pass to T.Hunter for 7 yards, TOUCHDOWN", lastPlayScored: true }),
+    "BUF 0, NE 7 · 10:00 - 1st\nT.Lawrence pass to T.Hunter for 7 yards, TOUCHDOWN");
 });
