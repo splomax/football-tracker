@@ -142,7 +142,7 @@ test.describe("loading and layout", () => {
   test("has a favicon and link-preview tags whose images exist", async ({ page, request }) => {
     await open(page);
     const attr = (sel, a) => page.locator(sel).getAttribute(a);
-    expect(await attr('meta[property="og:title"]', "content")).toBe("Game Tracker");
+    expect(await attr('meta[property="og:title"]', "content")).toBe("Game Tracker Live");
     expect(await attr('meta[property="og:description"]', "content")).toBeTruthy();
     expect(await attr('meta[name="twitter:card"]', "content")).toBe("summary_large_image");
     const live = "https://gametrackerlive.com/";
@@ -295,7 +295,7 @@ test.describe("board image", () => {
     await open(page, { storage: { selected } });
     await expect(card(page, "nfl:102")).toBeAttached();
     const { png, name } = await saveBoard(page);
-    expect(name).toBe("game-tracker.png");
+    expect(name).toBe("game-tracker-live.png");
     expect(png.subarray(1, 4).toString()).toBe("PNG");
     // Drawn at 2x: 640 wide, and its height grows by one 44px row per game and 34px per Eastern day.
     const dates = [...cfbGames().map((e) => ["cfb:" + e.id, e.date]), ...nflGames().map((e) => ["nfl:" + e.id, e.date])]
@@ -1265,7 +1265,7 @@ test.describe("wordmark", () => {
   test("GAME over TRACKER in the self-hosted condensed face, read as one name", async ({ page }) => {
     await open(page);
     const h1 = page.locator("header h1");
-    await expect(h1).toHaveText(/^Game Tracker$/);
+    await expect(h1).toHaveText(/^Game Tracker Live$/);
     const game = await h1.locator(".l1").boundingBox(), tracker = await h1.locator(".l2").boundingBox();
     expect(game.y + game.height).toBeLessThanOrEqual(tracker.y + 1);  // stacked
     expect(await page.evaluate(() => document.fonts.check('700 18px "Barlow Condensed"'))).toBe(true);

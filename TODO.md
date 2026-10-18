@@ -17,5 +17,3 @@
 7. **Desktop vs. mobile analysis.** A complete analysis of every feature's disparity between desktop and mobile (how
    each one looks and works on a phone vs. a computer, and what's missing, broken or awkward on either), leaving out
    notifications (TODO #2 and #3) for now.
-8. **Rebrand to "Game Tracker Live".** Update the name everywhere it shows (header wordmark, page title, link
-   previews, images, README).

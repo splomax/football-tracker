@@ -44,7 +44,8 @@ async function screenshotApp(browser) {
   return png;
 }
 
-// The preview is the header's logo, blown up (the football, then GAME over TRACKER over yard-line hash marks), on
+// The preview is the header's logo, blown up (the football, then GAME over TRACKER with its red LIVE badge, over
+// yard-line hash marks), on
 // the app's dark background, with a screenshot of the app tilted away on the right. Same font, colors and proportions
 // as the header (css/base.css).
 async function renderPreview(browser) {
@@ -56,19 +57,20 @@ async function renderPreview(browser) {
     body { margin: 0; height: 630px; overflow: hidden; position: relative; display: flex; align-items: center; gap: 32px;
       padding-left: 56px; background: #0f1115; }
     /* The app, as a window tilted away to the right and running off the edge. */
-    .shot { position: absolute; left: 730px; top: 70px; width: 900px; border-radius: 12px; border: 1px solid #2a2f3a;
+    .shot { position: absolute; left: 900px; top: 70px; width: 900px; border-radius: 12px; border: 1px solid #2a2f3a;
       box-shadow: 0 30px 80px rgba(0, 0, 0, .6); transform: perspective(1400px) rotateY(-24deg) rotateX(8deg) rotateZ(2deg);
       transform-origin: left center; opacity: .9; }
     .mark { position: relative; display: flex; align-items: center; gap: 32px; }
     .mark img { width: 190px; height: 190px; }
     h1 { display: grid; margin: 0; font-family: "Barlow Condensed", sans-serif; font-weight: 700; text-transform: uppercase; line-height: .92; }
     .l1 { font-size: 92px; letter-spacing: .16em; color: #8b93a1; }
-    .l2 { font-size: 110px; letter-spacing: .05em; color: #e8eaed; }
+    .l2 { display: flex; align-items: center; gap: 36px; font-size: 110px; letter-spacing: .05em; color: #e8eaed; }
+    .live { padding: 10px 26px 6px; border-radius: 20px; background: #e53935; color: #fff; font-size: 66px; letter-spacing: .08em; line-height: 1; }
     .hash { height: 22px; margin-top: 16px; background: repeating-linear-gradient(90deg, #8b93a1 0 5px, transparent 5px 34px); opacity: .7; }
   </style>
   <img class="shot" src="data:image/png;base64,${shot}" alt="">
   <div class="mark"><img src="${SITE}/images/favicon.svg" alt="">
-  <h1><span class="l1">Game</span><span class="l2">Tracker</span><span class="hash"></span></h1></div>`;
+  <h1><span class="l1">Game</span><span class="l2">Tracker<span class="live">Live</span></span><span class="hash"></span></h1></div>`;
   await page.route(`${SITE}/preview`, (route) => route.fulfill({ body: html, contentType: "text/html" }));
   await page.goto(`${SITE}/preview`);
   await page.evaluate(async () => { await document.fonts.ready; await Promise.all([...document.images].map((i) => i.decode())); });

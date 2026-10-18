@@ -1,7 +1,7 @@
 // "Save board as image" in the gear menu: every game on the board as a list made for posting on a forum, grouped
 // by day, one row per game (kickoff time, away @ home with logos, ranks and records, network), by kickoff. Live and
 // final games are listed by their kickoff too. The image is in the current theme, gives kickoff times in Eastern time
-// whatever the viewer's own time zone, and carries a small, muted Game Tracker logo in the bottom-right corner.
+// whatever the viewer's own time zone, and carries a small, muted Game Tracker Live logo in the bottom-right corner.
 // Loaded by js/settings.js the first time it's used.
 
 import { allGames } from "./state.js";
@@ -26,11 +26,11 @@ async function boardImage() {
   const games = [...document.querySelectorAll("#board .card")].map((c) => allGames().find((g) => g.key === c.dataset.key))
     .filter(Boolean).toSorted((a, b) => a.date - b.date);
   if (!games.length) return null;
-  return { blob: await drawList(games), name: "game-tracker.png" };
+  return { blob: await drawList(games), name: "game-tracker-live.png" };
 }
 
-// The logo on every image: the header's football, GAME TRACKER in its wordmark font, and the site's address, small
-// and muted, right-aligned on (right, mid).
+// The logo on every image: the header's football, GAME TRACKER in its wordmark font with its red LIVE badge, and the
+// site's address, small and muted, right-aligned on (right, mid).
 async function drawMark(ctx, right, mid) {
   const [ball] = await Promise.all([loadImage("images/favicon.svg"), document.fonts.load(`700 13px "Barlow Condensed"`)]);
   ctx.save();
@@ -38,12 +38,23 @@ async function drawMark(ctx, right, mid) {
   ctx.fillStyle = cssColor("--muted");
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
-  // Right to left: the site's address, a dot, the wordmark, the football.
+  // Right to left: the site's address, a dot, the LIVE badge, the wordmark, the football.
   ctx.font = `12px ${FONT}`;
   ctx.fillText(SITE, right, mid);
   let x = right - ctx.measureText(SITE).width - 8;
   ctx.fillText("·", x, mid);
   x -= ctx.measureText("·").width + 8;
+  ctx.font = `700 10px "Barlow Condensed", "Arial Narrow", sans-serif`;
+  ctx.letterSpacing = "1px";
+  const badge = ctx.measureText("LIVE").width + 8;
+  ctx.fillStyle = cssColor("--live-badge");
+  ctx.beginPath();
+  ctx.roundRect(x - badge, mid - 6, badge, 13, 3);
+  ctx.fill();
+  ctx.fillStyle = "#fff";
+  ctx.fillText("LIVE", x - 4, mid + 1);
+  x -= badge + 5;
+  ctx.fillStyle = cssColor("--muted");
   ctx.font = `700 13px "Barlow Condensed", "Arial Narrow", sans-serif`;
   ctx.letterSpacing = "1.5px";
   ctx.fillText("GAME TRACKER", x, mid + 1);
