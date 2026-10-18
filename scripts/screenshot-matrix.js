@@ -4,6 +4,7 @@
 //
 // Usage: start the local server (npm start), then run: node scripts/screenshot-matrix.js [state ...]
 // With state names, only those are shot (see STATES below). Needs WebKit once: npx playwright install webkit.
+// scripts/forum-changelog.js reuses STATES and shoot() for the changelog's screenshots.
 
 const fs = require("fs");
 const path = require("path");
@@ -46,9 +47,10 @@ const STATES = {
     run: async (page) => { await page.click("#settings"); await settle(page, 300); } },
   "admin-login": { query: "?admin", storage: { selected: PICKS, view: "grid", pickerOpen: false }, loggedOut: true },
   "halloween": { storage: { selected: PICKS, view: "grid", pickerOpen: false, halloween: true } },
+  "mds-blue": { storage: { selected: PICKS, view: "grid", pickerOpen: false, mdsBlue: true } },
 };
 
-async function shoot(device, name, state) {
+async function shoot(device, name, state, file = path.join(OUT, `${name}-${device}.png`)) {
   const browser = await DEVICES[device].launch();
   try {
     const context = await browser.newContext({ ...DEVICES[device].context, colorScheme: "dark" });
@@ -75,7 +77,6 @@ async function shoot(device, name, state) {
     await page.waitForSelector(state.loggedOut ? "#admin-login" : "#list label.game, #list .empty", { state: "attached" });
     await settle(page, 1500);  // team logos
     if (state.run) await state.run(page);
-    const file = path.join(OUT, `${name}-${device}.png`);
     await page.screenshot({ path: file, fullPage: device === "phone" });
     return true;
   } catch (err) {
@@ -86,7 +87,9 @@ async function shoot(device, name, state) {
   }
 }
 
-(async () => {
+module.exports = { STATES, DEVICES, shoot };
+
+if (require.main === module) (async () => {
   fs.mkdirSync(OUT, { recursive: true });
   const names = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(STATES);
   for (const name of names) {

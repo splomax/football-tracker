@@ -1,0 +1,29 @@
+{
+  "title": "Game Tracker Live: what's new (Oct 10 - Oct 18)",
+  "since": "2026-10-10",
+  "through": "da1d4cb",
+  "features": [
+    { "title": "New name: Game Tracker Live", "text": "a red LIVE badge in the logo, page title and link previews.",
+      "shots": ["board-grid"] },
+    { "title": "List view", "text": "a header button switches the board between cards and one compact row per game, with down & distance under the scores. Phones start in list view.",
+      "shots": ["board-list", "board-list:phone"] },
+    { "title": "Better on phones", "text": "a floating gear that's always in reach, with the view and theme switches in its menu; the last-updated time sits in the pinned Games bar; the layout also works with the phone on its side.",
+      "shots": ["gear-menu:phone"] },
+    { "title": "Save board as image", "text": "now in the gear menu for everyone: every game on your board in one picture, ready to share.",
+      "shots": ["board-image"] },
+    { "title": "MDS", "text": "a gear menu switch that colors the leading team blue and underlines its score.",
+      "shots": ["mds-blue"] },
+    { "title": "Halloween", "text": "all October: a jack-o'-lantern logo that turns around its stem, jack-o'-lantern loading spinners, and the odd ghost.",
+      "shots": ["halloween"] }
+  ],
+  "fixes": [
+    "Red zone now comes from ESPN's written ball spot, so a stale or junk yard line (e.g. after a sack) no longer lights it up.",
+    "Safari keeps your scroll position when the board refreshes instead of jumping to the top.",
+    "An empty answer from ESPN no longer blanks the board; the games already showing stay put.",
+    "The timeout indicator is gone: ESPN's college timeout counts don't reset at halftime, so it was often wrong."
+  ],
+  "comingSoon": [
+    { "title": "Game notifications", "text": "a bell on each game for alerts on scores, red zone, the two-minute warning and new quarters, including push notifications on iPhone with Game Tracker Live installed to the Home Screen. Scores are moving to a server of our own to drive this. All of it is still being tested and isn't available yet.",
+      "shots": ["admin-board:phone"] }
+  ]
+}

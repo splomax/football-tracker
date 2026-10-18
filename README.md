@@ -71,6 +71,7 @@ scripts/
   preview-images.js   renders Save board as image from the test fixtures, to check its look by eye
   test-and-ship.sh    runs every test and commits and pushes only if they all pass
   find-unused.js      lists code that looks unused, for review by hand
+  forum-changelog.js  the forum's BB code changelog: commits to write notes from, then screenshots and BB code from changelogs/*.json
   screenshot-matrix.js  shoots every feature state on desktop and iPhone, side by side, for comparing them
   check-local-admin.js  logs in against the Worker running locally (wrangler dev), to check the admin login path
   check-live-site.sh  checks the deployed site: pages load, private files are 404, www. redirects, the admin API refuses

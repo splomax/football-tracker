@@ -1,0 +1,104 @@
+// Builds the BB code changelog posted to the forum, in two steps.
+//
+//   node scripts/forum-changelog.js commits [--since YYYY-MM-DD]
+//     Lists the commits to write notes from, minus housekeeping (only TODO, tests, scripts, CI or docs touched) and
+//     reverted pairs. [UI] marks a commit that touched the page (css/, index.html, js/); [soon] marks notification
+//     work, which goes under "Coming soon" until it's out of testing. Without --since, starts after the "through"
+//     commit of the newest changelogs/*.json.
+//
+//   node scripts/forum-changelog.js render changelogs/<date>.json
+//     Shoots the screenshots the notes name and prints the BB code (also saved next to the screenshots, in a temp
+//     dir printed at the end) for uploading the images to imgur by hand. Needs npm start (and webkit for :phone).
+//
+// The notes file is written by hand from the commits list, as high-level features, not commit messages:
+//   { "title": "...", "since": "2026-10-10", "through": "<commit>",
+//     "features": [{ "title": "...", "text": "...", "shots": ["board-list", "board-list:phone", "board-image"] }],
+//     "fixes": ["..."], "comingSoon": [{ "title": "...", "text": "...", "shots": [...] }] }
+// A shot is a state from scripts/screenshot-matrix.js (desktop unless :phone), or board-image for Save board as image.
+
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const { execFileSync } = require("child_process");
+
+const ROOT = path.join(__dirname, "..");
+const NOTES_DIR = path.join(ROOT, "changelogs");
+const git = (...args) => execFileSync("git", args, { cwd: ROOT, encoding: "utf8" });
+
+const HOUSEKEEPING = /^(TODO\.md|CLAUDE\.md|README\.md|scripts\/|tests\/|\.github\/|changelogs\/|playwright\.config\.js|package(-lock)?\.json)/;
+const UI = /^(css\/|index\.html|js\/)/;
+const SOON_FILES = /^(js\/alerts\.js|js\/push\.js|sw\.js|manifest\.webmanifest|worker\/(alerts|phones|webpush|scorekeeper))/;
+const SOON_WORDS = /notif|bell|web push|scorekeeper|durable object/i;
+
+function commits(since) {
+  const range = since ? ["--since", `${since} 00:00`] : [`${lastThrough()}..HEAD`];
+  const log = git("log", "--reverse", "--no-merges", "--format=%x00%h%x09%ad%x09%s", "--date=format:%a %m-%d", "--name-only", ...range);
+  const all = log.split("\0").filter(Boolean).map((block) => {
+    const [head, ...files] = block.trim().split("\n");
+    const [hash, date, subject] = head.split("\t");
+    return { hash, date, subject, files: files.filter(Boolean) };
+  });
+  const reverted = new Set(all.map((c) => c.subject.match(/^Revert "(.*)"$/)?.[1]).filter(Boolean));
+  let dropped = 0;
+  for (const c of all) {
+    if (reverted.has(c.subject) || /^Revert "/.test(c.subject) || c.files.every((f) => HOUSEKEEPING.test(f))) { dropped++; continue; }
+    const tags = [c.files.some((f) => UI.test(f)) && "[UI]",
+      (SOON_WORDS.test(c.subject) || c.files.some((f) => SOON_FILES.test(f))) && "[soon]"].filter(Boolean).join("");
+    console.log(`${c.hash} ${c.date} ${tags.padEnd(10)} ${c.subject}`);
+  }
+  console.log(`\n(${dropped} housekeeping or reverted commits left out; HEAD is ${git("rev-parse", "--short", "HEAD").trim()})`);
+}
+
+function lastThrough() {
+  const files = fs.existsSync(NOTES_DIR) ? fs.readdirSync(NOTES_DIR).filter((f) => f.endsWith(".json")).sort() : [];
+  if (!files.length) throw new Error("no earlier changelog in changelogs/; pass --since YYYY-MM-DD");
+  return JSON.parse(fs.readFileSync(path.join(NOTES_DIR, files.at(-1)), "utf8")).through;
+}
+
+async function render(notesFile) {
+  const notes = JSON.parse(fs.readFileSync(notesFile, "utf8"));
+  const out = path.join(os.tmpdir(), `forum-changelog-${path.basename(notesFile, ".json")}`);
+  fs.rmSync(out, { recursive: true, force: true });
+  fs.mkdirSync(out, { recursive: true });
+  const { STATES, shoot } = require("./screenshot-matrix");
+  let n = 0;
+
+  async function images(shots = []) {
+    const tags = [];
+    for (const shot of shots) {
+      const [name, device = "desktop"] = shot.split(":");
+      const file = `${String(++n).padStart(2, "0")}-${name}${device === "phone" ? "-phone" : ""}.png`;
+      if (name === "board-image") {
+        const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "board-image-"));
+        execFileSync("node", [path.join(__dirname, "preview-images.js"), tmp], { stdio: "inherit" });
+        fs.renameSync(path.join(tmp, "board.png"), path.join(out, file));
+      } else if (!STATES[name]) {
+        throw new Error(`unknown shot ${name}; add it to STATES in scripts/screenshot-matrix.js`);
+      } else if (!(await shoot(device, name, STATES[name], path.join(out, file)))) {
+        throw new Error(`couldn't shoot ${shot}`);
+      }
+      tags.push(`[img]${file}[/img]`);
+    }
+    return tags.length ? "\n" + tags.join("\n") : "";
+  }
+  async function items(list) {
+    let s = "";
+    for (const f of list) s += `[*][b]${f.title}[/b]: ${f.text}${await images(f.shots)}\n`;
+    return s;
+  }
+
+  let bb = `[size=5][b]${notes.title}[/b][/size]\n\n`;
+  if (notes.features?.length) bb += `[b]New[/b]\n[list]\n${await items(notes.features)}[/list]\n\n`;
+  if (notes.fixes?.length) bb += `[b]Fixes[/b]\n[list]\n${notes.fixes.map((f) => `[*]${f}\n`).join("")}[/list]\n\n`;
+  if (notes.comingSoon?.length) {
+    bb += `[b]Coming soon[/b] [i](still being tested; not part of the site yet)[/i]\n[list]\n${await items(notes.comingSoon)}[/list]\n`;
+  }
+  fs.writeFileSync(path.join(out, "changelog.bbcode"), bb);
+  console.log(bb);
+  console.log(`Screenshots and changelog.bbcode in ${out}\nReplace each [img]file[/img] with its imgur link.`);
+}
+
+const [cmd, arg, value] = process.argv.slice(2);
+if (cmd === "commits") commits(arg === "--since" ? value : undefined);
+else if (cmd === "render" && arg) render(arg).catch((e) => { console.error(e.message); process.exit(1); });
+else console.error("usage: forum-changelog.js commits [--since YYYY-MM-DD] | render changelogs/<date>.json");
