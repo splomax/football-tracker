@@ -9,6 +9,8 @@
   /* The Games bar stays pinned to the top while the board scrolls. */
   aside { position: sticky; top: 0; z-index: 10; overflow: visible; border-right: 0; border-bottom: 1px solid var(--border); }
   #picker-toggle { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 16px; background: var(--panel); border: 0; color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
+  /* Test notifications are sent from a computer to see them arrive on the phone, so phones don't show the button. */
+  .test-alert { display: none; }
   #picker-toggle .count { color: var(--muted); font-weight: 400; margin-left: auto; }
   /* The last update's time, which the header shows too but scrolls away with it. */
   #picker-toggle .bar-updated { color: var(--muted); font-size: 12px; font-weight: 400; font-variant-numeric: tabular-nums; }

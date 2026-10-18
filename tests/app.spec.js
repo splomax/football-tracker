@@ -498,6 +498,13 @@ test.describe("installing on a phone", () => {
 test.describe("iPhone notifications", () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
+  test("phones don't show the test-notification button (tests are sent from a computer)", async ({ page, context }) => {
+    await context.grantPermissions(["notifications"]);
+    await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:1"], notify: true, pickerOpen: false } });
+    await expect(card(page, "cfb:1").locator(".bell")).toBeAttached();
+    await expect(card(page, "cfb:1").locator(".test-alert")).toBeHidden();
+  });
+
   test("in Safari on an iPhone, Enable notifications explains how to add the app first, and stays off", async ({ page }) => {
     await page.addInitScript(() => Object.defineProperty(Navigator.prototype, "userAgent", { get: () => "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari/604.1" }));
     await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:1"], pickerOpen: false } });
