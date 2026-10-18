@@ -109,9 +109,10 @@ svg.field { width: 100%; display: block; border-radius: 4px; }
 /* List view (the header's grid/list button, js/view.js): one row per game. Every section shares one grid
    (.line-grid, js/board.js), only as wide as the widest row, so all rows are the same width and their columns line up:
    away, "@", home (the two team columns equal, so the down & distance on the second line centers under the scores),
-   clock, network, buttons. Narrow boards (phones) stack away over home instead. */
+   clock, buttons. The network sits at the second line's left, under the away team. Narrow boards (phones) stack away
+   over home instead. */
 .list-view #board { container: board / inline-size; }
-.line-grid { display: grid; width: max-content; max-width: 100%; grid-template-columns: 1fr auto 1fr auto auto auto; column-gap: 12px; }
+.line-grid { display: grid; width: max-content; max-width: 100%; grid-template-columns: 1fr auto 1fr auto auto; column-gap: 12px; }
 .line-grid .board-group, .line-grid .cards { display: contents; }
 .line-grid .board-section { grid-column: 1 / -1; }
 .line-grid .board-group + .board-group .board-section { margin-top: 18px; }
@@ -122,9 +123,10 @@ svg.field { width: 100%; display: block; border-radius: 4px; }
 .card.line .at { grid-column: 2; color: var(--muted); font-size: 12px; }
 .card.line .team.home { grid-column: 3; }
 .card.line .clock { grid-column: 4; height: auto; }
-.card.line .net { grid-column: 5; max-width: none; }
+.card.line .net { grid-row: 2; grid-column: 1; justify-self: start; max-width: 8rem; padding-left: 12px; font-size: 10px; line-height: 16px; }
+.card.line .net:empty { display: none; }
 .card.line .net .recap { margin-left: 6px; color: var(--muted); font-weight: 400; }
-.card.line .line-tools { grid-column: 6; display: flex; gap: 4px; }
+.card.line .line-tools { grid-column: 5; display: flex; gap: 4px; }
 .card.line .dd { grid-row: 2; grid-column: 1 / 4; height: auto; margin: 0; font-size: 12px; line-height: 16px; }
 .card.line .dd:empty { display: none; }
 .card.line .team img { width: 22px; height: 22px; }
@@ -149,7 +151,7 @@ svg.field { width: 100%; display: block; border-radius: 4px; }
   .card.line .team.home .pts { margin-left: auto; margin-right: 0; text-align: right; }
   .card.line .at { display: none; }
   .card.line .clock { grid-area: clock; white-space: normal; }
-  .card.line .net { grid-area: net; text-align: right; }
+  .card.line .net { grid-area: net; justify-self: end; max-width: none; padding-left: 0; text-align: right; }
   .card.line .line-tools { grid-area: tools; align-self: start; }
   .card.line .dd { grid-area: dd; text-align: left; }
 }

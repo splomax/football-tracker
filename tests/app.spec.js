@@ -238,6 +238,10 @@ test.describe("grid and list views", () => {
     const center = (el) => el.evaluate((e) => { const r = e.getBoundingClientRect(); return r.left + r.width / 2; });
     expect(Math.abs(await center(live.locator(".dd")) - await center(live.locator(".at")))).toBeLessThan(2);
     await expect(card(page, "cfb:7").locator(".net")).toContainText("CBS / Paramount+");
+    // The network sits on the second line, at the left under the away team.
+    const [net, away] = await Promise.all([card(page, "cfb:7").locator(".net").boundingBox(), card(page, "cfb:7").locator(".team.away").boundingBox()]);
+    expect(net.y).toBeGreaterThan(away.y + away.height - 2);
+    expect(Math.abs(net.x - away.x)).toBeLessThan(2);  // same left edge (both pad 12px in from the row's edge)
     await expect(card(page, "cfb:7").locator(".recap")).toBeAttached();
     await page.reload();
     await expect(page.locator("#board .card.line")).toHaveCount(4);
