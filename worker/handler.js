@@ -4,8 +4,9 @@
 //   POST /api/login     Authorization: Bearer <password>  ->  { token }, good for TOKEN_DAYS
 //   GET  /api/admin.js  Authorization: Bearer <token>     ->  the admin module
 //   GET  /api/visits    Authorization: Bearer <token>     ->  { weekly, monthly, total } from the visit counter
-//   GET  /api/games     Authorization: Bearer <token>     ->  { games: { cfb, nfl }, confNames } from the program on
-//                       Cloudflare that fetches the scores (scorekeeper.js)
+//   GET  /api/games?since=<n>  Authorization: Bearer <token>  ->  { games: { cfb, nfl }, confNames, alerts, cursor } from
+//                       the program on Cloudflare (scorekeeper.js): the notifications after number n (none without it)
+//   POST /api/test-alert  Authorization: Bearer <token>, { key }  ->  a test notification for that game
 //   anything else       the site's files; www. redirects to the bare domain
 //
 // The admin code is only ever served by /api/admin.js, so regular visitors never get it, and only the token, never
@@ -55,10 +56,18 @@ export async function handle(request, env, code, now = Date.now()) {
     const { weekly, monthly, total } = await res.json();
     return reply(JSON.stringify({ weekly, monthly, total }), 200, { "Content-Type": "application/json" });
   }
+  const keeper = () => env.SCORES.get(env.SCORES.idFromName("scores"));  // one, found by name
   if (route === "GET /api/games") {
     if (!(await validToken(given, env.ADMIN_PASSWORD, now))) return reply("Log in again", 401);
-    const keeper = env.SCORES.get(env.SCORES.idFromName("scores"));  // one, found by name
-    const res = await keeper.fetch("https://scorekeeper/");
+    const since = url.searchParams.get("since");
+    const res = await keeper().fetch(`https://scorekeeper/${since ? `?since=${encodeURIComponent(since)}` : ""}`);
+    return reply(await res.text(), res.status, { "Content-Type": "application/json" });
+  }
+  if (route === "POST /api/test-alert") {
+    if (!(await validToken(given, env.ADMIN_PASSWORD, now))) return reply("Log in again", 401);
+    const { key } = await request.json().catch(() => ({}));
+    if (typeof key !== "string") return reply("Which game?", 400);
+    const res = await keeper().fetch("https://scorekeeper/test", { method: "POST", body: JSON.stringify({ key }) });
     return reply(await res.text(), res.status, { "Content-Type": "application/json" });
   }
   return reply("Not found", 404);

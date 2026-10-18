@@ -10,7 +10,6 @@ import { ADMIN_PARAM, ADMIN_URL } from "./config.js";
 import { store } from "./store.js";
 import { state, saveSelected } from "./state.js";
 import { renderBoard, setAdmin, highlightCard } from "./board.js";
-import { gameAlerts, mergeAlerts } from "./alerts.js";
 import { listView, renderList, setPickerAdmin } from "./picker.js";
 import { useServer, lastSource, pollNow } from "./source.js";
 
@@ -18,11 +17,6 @@ import { useServer, lastSource, pollNow } from "./source.js";
  * Check the admin login, and with ?admin turn the admin's features on (asking for the password if needed).
  * Resolves true when this browser is logged in, features on or not.
  */
-let polled = () => {};  // the admin module's onPoll, once installed
-
-/** After every poll, with every game: lets the admin's notifications see what changed. */
-export const adminPolled = (games) => polled(games);
-
 export async function loadAdmin() {
   // Older versions kept the password itself; swap it for a token once, then forget it.
   const oldPassword = store.get("adminKey");
@@ -90,13 +84,25 @@ async function visits() {
   return typeof body === "string" ? JSON.parse(body) : null;
 }
 
-// The scores from the program on Cloudflare (worker/scorekeeper.js). Dates arrive as text.
+// The scores from the program on Cloudflare (worker/scorekeeper.js), with the notifications since the last one this
+// page saw (none on its first ask, so old news isn't replayed), which go to the admin module's onAlerts. Dates arrive
+// as text.
+let cursor = null;       // the number of the last notification this page has seen
+let alerted = () => {};  // the admin module's onAlerts, once installed
 async function scoresFromServer() {
-  const res = await fetch(`${ADMIN_URL}/games`, { headers: { Authorization: `Bearer ${store.get("adminToken")}` } });
+  const res = await fetch(`${ADMIN_URL}/games${cursor == null ? "" : `?since=${cursor}`}`, { headers: { Authorization: `Bearer ${store.get("adminToken")}` } });
   if (!res.ok) throw new Error(`scores from the server: ${res.status}`);
   const body = await res.json();
   for (const games of Object.values(body.games)) for (const g of games) g.date = new Date(g.date);
+  cursor = body.cursor ?? cursor;
+  if (body.alerts?.length) alerted(body.alerts);
   return body;
+}
+
+// The admin's test button: a notification for this game through the program, then an update right away to get it.
+async function testAlert(key) {
+  const ok = await workerText(`${ADMIN_URL}/test-alert`, { method: "POST", headers: { Authorization: `Bearer ${store.get("adminToken")}`, "Content-Type": "application/json" }, body: JSON.stringify({ key }) });
+  if (typeof ok === "string") pollNow();
 }
 
 async function install(code) {
@@ -104,10 +110,10 @@ async function install(code) {
   const blob = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
   try {
     const { install } = await import(blob);
-    const hooks = install({ renderBoard, renderList, listView, state, saveSelected, visits, store, highlightCard, gameAlerts, mergeAlerts, lastSource });
+    const hooks = install({ renderBoard, renderList, listView, state, saveSelected, visits, store, highlightCard, lastSource, testAlert });
     setAdmin(hooks);
     setPickerAdmin(hooks);
-    if (hooks.onPoll) polled = hooks.onPoll;
+    alerted = hooks.onAlerts ?? alerted;
     useServer(scoresFromServer);  // from now on this page's scores come from the program on Cloudflare,
     pollNow();                    // starting now
     return true;

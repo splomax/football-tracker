@@ -21,6 +21,7 @@ done
 echo "should be 401 (admin API without a valid login):"
 printf "  %-20s %s\n" "/api/admin.js" "$(status "https://$SITE/api/admin.js")"
 printf "  %-20s %s\n" "/api/games" "$(status "https://$SITE/api/games")"
+printf "  %-20s %s\n" "/api/test-alert" "$(status -X POST "https://$SITE/api/test-alert")"
 printf "  %-20s %s\n" "/api/login (wrong)" "$(status -X POST -H 'Authorization: Bearer wrong' "https://$SITE/api/login")"
 echo "www. should be 301 to the bare domain, keeping the query:"
 curl "${OPTS[@]}" -o /dev/null -w "  %{http_code} -> %{redirect_url}\n" "https://www.$SITE/?game=cfb:1"

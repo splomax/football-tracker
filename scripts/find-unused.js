@@ -24,6 +24,9 @@
 //     The new admin checks caught a planted allGames hand-off and a planted unused hook. No misses found by hand.
 //   2026-10-18, run 3 (after deleting the loud ?mds and its extraGames/firstPoll plumbing): same 5 hits as run 2, all
 //     correct; it reported no leftovers from the removal, and a grep for mds, MDS_LINK, extraGames and firstPoll found none.
+//   2026-10-18, run 5 (after moving notifications to Cloudflare, worker/scorekeeper.js): 6 hits, all correct (the new
+//     IDLE_MS is used only by tests). Checked by hand: js/admin.js no longer hands over gameAlerts/mergeAlerts, and the
+//     page-side comparing (onPoll, lastSeen, memos, adminPolled) is gone.
 
 const fs = require("fs");
 const path = require("path");

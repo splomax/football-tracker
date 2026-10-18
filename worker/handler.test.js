@@ -96,19 +96,38 @@ test("a token gets the visit counts from the counter; the password and no token 
   }
 });
 
-test("a token gets the games from the program fetching the scores; nobody else does", async () => {
+// A stand-in for the ScoreKeeper Durable Object: records what it's asked.
+const fakeScores = () => {
   const asked = [];
-  const SCORES = { idFromName: (name) => name, get: (id) => ({ fetch: async (url) => {
-    asked.push([id, String(url)]);
-    return Response.json({ games: { cfb: [], nfl: [] }, confNames: {} });
+  return { asked, idFromName: (name) => name, get: (id) => ({ fetch: async (url, init = {}) => {
+    asked.push({ id, url: String(url), method: init.method ?? "GET", body: init.body });
+    return Response.json(String(url).endsWith("/test") ? { ok: true } : { games: { cfb: [], nfl: [] }, confNames: {}, alerts: [], cursor: 0 });
   } }) };
-  const withScores = { ...env, SCORES };
+};
+const api = (method, path, auth, body, envOverride) => handle(
+  new Request(`https://site.example${path}`, { method, headers: auth != null ? { Authorization: `Bearer ${auth}` } : {}, body }),
+  envOverride, "", NOW);
+
+test("a token gets the games and notifications from the program, passing on since; nobody else does", async () => {
+  const SCORES = fakeScores(), withScores = { ...env, SCORES };
   const token = await tokenFor();
-  const res = await call("GET", "/api/games", token, { envOverride: withScores });
+  const res = await api("GET", "/api/games?since=12", token, undefined, withScores);
   assert.equal(res.status, 200);
-  assert.deepEqual(await res.json(), { games: { cfb: [], nfl: [] }, confNames: {} });
-  assert.deepEqual(asked, [["scores", "https://scorekeeper/"]]);
-  assert.equal((await call("GET", "/api/games", null, { envOverride: withScores })).status, 401);
-  assert.equal((await call("GET", "/api/games", env.ADMIN_PASSWORD, { envOverride: withScores })).status, 401);
-  assert.equal(asked.length, 1);
+  assert.deepEqual(Object.keys(await res.json()), ["games", "confNames", "alerts", "cursor"]);
+  assert.deepEqual([SCORES.asked[0].id, SCORES.asked[0].url], ["scores", "https://scorekeeper/?since=12"]);
+  await api("GET", "/api/games", token, undefined, withScores);
+  assert.equal(SCORES.asked[1].url, "https://scorekeeper/");
+  assert.equal((await api("GET", "/api/games", null, undefined, withScores)).status, 401);
+  assert.equal((await api("GET", "/api/games", env.ADMIN_PASSWORD, undefined, withScores)).status, 401);
+  assert.equal(SCORES.asked.length, 2);
+});
+
+test("a token sends a game a test notification through the program", async () => {
+  const SCORES = fakeScores(), withScores = { ...env, SCORES };
+  const token = await tokenFor();
+  assert.equal((await api("POST", "/api/test-alert", token, JSON.stringify({ key: "cfb:1" }), withScores)).status, 200);
+  assert.deepEqual(SCORES.asked[0], { id: "scores", url: "https://scorekeeper/test", method: "POST", body: JSON.stringify({ key: "cfb:1" }) });
+  assert.equal((await api("POST", "/api/test-alert", token, "not json", withScores)).status, 400);
+  assert.equal((await api("POST", "/api/test-alert", null, JSON.stringify({ key: "cfb:1" }), withScores)).status, 401);
+  assert.equal(SCORES.asked.length, 1);
 });

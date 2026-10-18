@@ -55,3 +55,49 @@ test("it keeps going while pages keep asking, and stops IDLE_MS after the last o
   tick(1);
   assert.equal(keeper.watched, false);
 });
+
+// A live game with scores and a clock, for the notification tests.
+const live = (key, over = {}) => ({
+  key, state: "in", detail: "10:00 - 1st", clock: "10:00", period: 1, redZone: false, possession: "2", date: new Date(0),
+  away: { id: "1", abbr: "BUF", score: "0" }, home: { id: "2", abbr: "NE", score: "0" }, ...over,
+});
+
+test("a page just opening gets the newest notification's number, but none of the old notifications", async () => {
+  const { keeper, espn, tick } = keeperWith({ nfl: [live("nfl:1")] });
+  await keeper.ask();
+  espn.nfl = [live("nfl:1", { home: { id: "2", abbr: "NE", score: "7" } })];
+  tick(POLL_MS);
+  await keeper.poll();
+  const first = await keeper.ask(null);
+  assert.deepEqual(first.alerts, []);
+  assert.equal(first.cursor, 1);
+});
+
+test("a page gets the notifications after the last one it saw, each with its game and the score", async () => {
+  const { keeper, espn, tick } = keeperWith({ nfl: [live("nfl:1"), live("nfl:2")] });
+  const { cursor } = await keeper.ask(null);
+  espn.nfl = [live("nfl:1", { home: { id: "2", abbr: "NE", score: "3" }, lastPlay: "FG good" }), live("nfl:2")];
+  tick(POLL_MS);
+  const next = await keeper.ask(cursor);
+  assert.deepEqual(next.alerts.map(({ key, title, body }) => ({ key, title, body })),
+    [{ key: "nfl:1", title: "NE field goal", body: "BUF 0, NE 3 · 10:00 - 1st\nFG good" }]);
+  assert.deepEqual((await keeper.ask(next.cursor)).alerts, []);
+});
+
+test("one update's news for a game comes as one notification", async () => {
+  const { keeper, espn, tick } = keeperWith({ nfl: [live("nfl:1", { period: 4, clock: "0:05", detail: "0:05 - 4th" })] });
+  const { cursor } = await keeper.ask(null);
+  espn.nfl = [live("nfl:1", { state: "post", period: 4, clock: "0:00", detail: "Final", home: { id: "2", abbr: "NE", score: "3" } })];
+  tick(POLL_MS);
+  assert.deepEqual((await keeper.ask(cursor)).alerts.map((a) => a.title), ["NE field goal · Final"]);
+});
+
+test("the test button sends that game a notification marked as a test; an unknown game is refused", async () => {
+  const { keeper } = keeperWith({ cfb: [live("cfb:9", { away: { id: "1", abbr: "OSU", score: "3" }, home: { id: "2", abbr: "IU", score: "0" } })] });
+  const { cursor } = await keeper.ask(null);
+  assert.equal(keeper.test("cfb:9"), true);
+  assert.equal(keeper.test("cfb:404"), false);
+  const [alert] = (await keeper.ask(cursor)).alerts;
+  assert.deepEqual({ key: alert.key, title: alert.title, body: alert.body, forced: alert.forced },
+    { key: "cfb:9", title: "Test notification", body: "OSU 3, IU 0 · 10:00 - 1st\nSent through the Game Tracker server", forced: true });
+});
