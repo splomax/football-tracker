@@ -501,6 +501,12 @@ test.describe("notifications", () => {
     }));
     await expect(card(page, "cfb:2").locator(".bell")).toHaveAttribute("aria-pressed", "true");
     await expect(row(page, "cfb:2").locator("input")).toBeChecked();  // still picked
+    const yellow = await page.evaluate(() => {
+      const probe = Object.assign(document.createElement("span"), { style: "color: var(--poss)" });
+      document.body.append(probe);
+      return getComputedStyle(probe).color;
+    });
+    await expect(card(page, "cfb:2").locator(".bell")).toHaveCSS("background-color", yellow);  // lit card bell: yellow
     await card(page, "cfb:2").locator(".bell").click({ force: true });  // and the card's bell turns the row's off
     await expect(row(page, "cfb:2").locator(".row-bell")).toHaveAttribute("aria-pressed", "false");
   });

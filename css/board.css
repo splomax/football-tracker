@@ -95,10 +95,13 @@ svg.field { width: 100%; display: block; border-radius: 4px; }
 .last-full { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 2; padding: 8px 10px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
   box-shadow: 0 6px 20px var(--shadow); color: var(--text); font-size: 12px; line-height: 1.45; cursor: pointer; animation: last-in .15s ease-out; }
 @keyframes last-in { from { opacity: 0; transform: translateY(4px); } }
-.bell.on svg { fill: currentColor; }  /* lit: a filled bell */
+.bell.on svg { fill: currentColor; }
 .remove, .bell { flex: none; width: 24px; height: 24px; border: 0; border-radius: 6px; background: var(--remove-bg); color: #000; font-size: 14px; line-height: 1; cursor: pointer; }
 .remove:hover, .remove:focus-visible, .bell:hover, .bell:focus-visible { background: var(--remove-hover); }
 .bell { display: grid; place-items: center; padding: 0; }
+/* Lit: a yellow button (the game list's "on" color) with a filled bell, so a game with notifications stands out. */
+.bell.on, .bell.on:hover, .bell.on:focus-visible { background: var(--poss); color: #000; }
+.bell.on:hover, .bell.on:focus-visible { filter: brightness(.9); }
 /* With a mouse, float the ✕ in the top-right corner and show it on hover. Touch screens keep it in the footer. */
 @media (hover: hover) {
   .remove { position: absolute; top: 6px; right: 6px; opacity: 0; transition: opacity .15s; }
