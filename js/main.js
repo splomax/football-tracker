@@ -20,7 +20,7 @@ let linkPending = LINKED_GAMES.length > 0;  // a shared game link's card still n
 
 // The Home Screen app's splash screen (index.html): fade it out once the first scores have drawn, after at least
 // SPLASH_MIN_MS so it doesn't just flash, and after SPLASH_MAX_MS at most if ESPN is slow.
-const SPLASH_MIN_MS = 600, SPLASH_MAX_MS = 3000;
+const SPLASH_MIN_MS = 1500, SPLASH_MAX_MS = 3000;
 const splashShown = performance.now();
 function hideSplash() {
   const splash = document.getElementById("splash");
