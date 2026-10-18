@@ -14,8 +14,14 @@ export function periodName(period) {
 
 /** "OSU 24, IOWA 6 · 2:00 - 4th": both scores, away first, and where the game is. */
 export function scoreLine(g) {
-  return `${g.away.abbr} ${g.away.score}, ${g.home.abbr} ${g.home.score} · ${g.detail}`;
+  return `${score(g)} · ${g.detail}`;
 }
+
+/** "OSU 24, IOWA 6": both scores, away first. */
+const score = (g) => `${g.away.abbr} ${g.away.score}, ${g.home.abbr} ${g.home.score}`;
+
+/** "CHI @ ATL": the game, away first. */
+const matchup = (g) => `${g.away.abbr} @ ${g.home.abbr}`;
 
 const seconds = (clock) => {
   const [m, s] = String(clock ?? "").split(":").map(Number);
@@ -63,7 +69,14 @@ export function gameAlerts(prev, g, memo, now = Date.now()) {
     // The scoring play: looked up by the score when the scoreboard's last play isn't it yet (worker/scorekeeper.js), else
     // the last play if it scored, else nothing rather than the wrong play.
     const play = g.scoringPlay ?? (g.lastPlayScored ? g.lastPlay : undefined);
-    add(`${t.abbr} ${SCORE_KINDS[gained] ?? `+${gained}`}`, play, { tag: `${g.key}:score:${t.id}`, silent: quiet });
+    const tag = `${g.key}:score:${t.id}`;
+    if (SCORE_KINDS[gained] === "touchdown") {
+      // Styled: the game, then what happened, then the new score ("CHI @ ATL" / "TD CHI" / "CHI 7, ATL 0").
+      const headline = `TD ${t.abbr}`;
+      alerts.push({ title: matchup(g), body: `${headline}\n${score(g)}`, tag, silent: quiet, headline, score: score(g) });
+    } else {
+      add(`${t.abbr} ${SCORE_KINDS[gained] ?? `+${gained}`}`, play, { tag, silent: quiet });
+    }
   }
 
   // One per trip: it resets only once the other team has the ball (possession can drop out between plays).
@@ -96,8 +109,14 @@ export function gameAlerts(prev, g, memo, now = Date.now()) {
  */
 export function mergeAlerts(alerts) {
   if (alerts.length < 2) return alerts[0];
-  const [line] = alerts[0].body.split("\n");
   const scored = alerts.find((a) => a.tag);
+  // A styled one (a touchdown, so far) sets the layout: the game, everything that happened, the new score.
+  const styled = alerts.find((a) => a.headline);
+  if (styled) {
+    const happened = alerts.map((a) => a.headline ?? a.title).join(" · ");
+    return { title: styled.title, body: `${happened}\n${styled.score}`, tag: scored.tag, silent: alerts.every((a) => a.silent) };
+  }
+  const [line] = alerts[0].body.split("\n");
   return {
     title: alerts.map((a) => a.title).join(" · "),
     body: [line, ...alerts.flatMap((a) => a.body.split("\n").slice(1))].join("\n"),

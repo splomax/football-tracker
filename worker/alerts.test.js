@@ -40,7 +40,7 @@ test("scores are named by points, and a touchdown's extra point updates it quiet
   const polls = [game(), game({ home: { score: "6" } }), game({ home: { score: "7" } }), game({ home: { score: "7" }, away: { score: "2" } })];
   const alerts = polls.slice(1).map((g, i) => gameAlerts(polls[i], g, memo, (i + 1) * 10_000));
   assert.deepEqual(alerts.map((a) => a.map(({ title, silent }) => [title, silent])),
-    [[["NE touchdown", false]], [["NE extra point", true]], [["BUF 2 points", false]]]);
+    [[["BUF @ NE", false]], [["NE extra point", true]], [["BUF 2 points", false]]]);
   // Two minutes on, a new score from the same team alerts again.
   const later = gameAlerts(polls[3], game({ home: { score: "10" }, away: { score: "2" } }), memo, 200_000);
   assert.equal(later[0].silent, false);
@@ -127,24 +127,36 @@ test("a score notification quotes the scoring play: the one looked up by the sco
   const body = (over) => {
     const memo = {};
     gameAlerts(undefined, game(), memo);
-    return gameAlerts(game(), game({ home: { score: "7" }, ...over }), memo)[0].body;
+    return gameAlerts(game(), game({ home: { score: "3" }, ...over }), memo)[0].body;
   };
-  // Seen live: ESPN had JAX's new score while its last play was still the incompletion before the touchdown.
-  assert.equal(body({ lastPlay: "T.Lawrence pass incomplete short left", lastPlayScored: false }), "BUF 0, NE 7 · 10:00 - 1st");
-  assert.equal(body({ lastPlay: "T.Lawrence pass incomplete short left", lastPlayScored: false, scoringPlay: "Travis Hunter 7 Yd pass from Trevor Lawrence (Cam Little Kick)" }),
-    "BUF 0, NE 7 · 10:00 - 1st\nTravis Hunter 7 Yd pass from Trevor Lawrence (Cam Little Kick)");
-  assert.equal(body({ lastPlay: "T.Lawrence pass to T.Hunter for 7 yards, TOUCHDOWN", lastPlayScored: true }),
-    "BUF 0, NE 7 · 10:00 - 1st\nT.Lawrence pass to T.Hunter for 7 yards, TOUCHDOWN");
+  // Seen live: ESPN had JAX's new score while its last play was still the play before the score. (Touchdowns are styled
+  // without the play; this is for the others, a field goal here.)
+  assert.equal(body({ lastPlay: "T.Lawrence pass incomplete short left", lastPlayScored: false }), "BUF 0, NE 3 · 10:00 - 1st");
+  assert.equal(body({ lastPlay: "T.Lawrence pass incomplete short left", lastPlayScored: false, scoringPlay: "Cam Little 48 Yd Field Goal" }),
+    "BUF 0, NE 3 · 10:00 - 1st\nCam Little 48 Yd Field Goal");
+  assert.equal(body({ lastPlay: "C.Little 48 yard field goal is GOOD", lastPlayScored: true }), "BUF 0, NE 3 · 10:00 - 1st\nC.Little 48 yard field goal is GOOD");
+});
+
+test("a touchdown reads: the game, then TD and the team, then the new score; with other news it shares the middle line", () => {
+  const memo = {};
+  gameAlerts(undefined, game(), memo);
+  const [td] = gameAlerts(game(), game({ away: { score: "7" }, scoringPlay: "never quoted" }), memo);
+  assert.deepEqual({ title: td.title, body: td.body }, { title: "BUF @ NE", body: "TD BUF\nBUF 7, NE 0" });
+  const end = {};
+  const before = game({ period: 4, clock: "0:03", detail: "0:03 - 4th" });
+  gameAlerts(undefined, before, end);
+  const merged = mergeAlerts(gameAlerts(before, game({ state: "post", period: 4, clock: "0:00", detail: "Final", home: { score: "6" } }), end));
+  assert.deepEqual({ title: merged.title, body: merged.body }, { title: "BUF @ NE", body: "TD NE · Final\nBUF 0, NE 6" });
 });
 
 test("each sample kind reads exactly like a real notification of that kind, and only that one", () => {
   const g = game({ period: 3, clock: "6:06", detail: "6:06 - 3rd", away: { id: "1", abbr: "HOU", name: "Houston", score: "31" }, home: { id: "2", abbr: "JAX", score: "28" } });
   const titles = Object.fromEntries(Object.keys(SAMPLE_KINDS).map((k) => [k, sampleAlert(g, k)?.title ?? null]));
   assert.deepEqual(titles, {
-    test: null, touchdown: "HOU touchdown", "field-goal": "HOU field goal", "red-zone": "HOU in the red zone",
+    test: null, touchdown: "HOU @ JAX", "field-goal": "HOU field goal", "red-zone": "HOU in the red zone",
     "two-minute": "Two-minute warning", kickoff: "Kickoff", "quarter-start": "Start of the 3rd quarter",
     "quarter-end": "End of the 1st quarter", halftime: "Halftime", final: "Final",
   });
-  assert.equal(sampleAlert(g, "touchdown").body, "HOU 38, JAX 28 · 8:00 - 2nd\nHouston 25 Yd pass (sample)");
+  assert.equal(sampleAlert(g, "touchdown").body, "TD HOU\nHOU 38, JAX 28");
   assert.equal(sampleAlert(g, "nonsense"), null);
 });

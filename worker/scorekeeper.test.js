@@ -132,18 +132,18 @@ test("since(id) lists the notifications after id, for sending to phones", async 
   espn.nfl = [live("nfl:1", { home: { id: "2", abbr: "NE", score: "7" } })];
   tick(POLL_MS);
   await keeper.poll();
-  assert.deepEqual(keeper.since(0).map((a) => a.title), ["NE touchdown"]);
+  assert.deepEqual(keeper.since(0).map((a) => a.title), ["BUF @ NE"]);
   assert.deepEqual(keeper.since(1), []);
 });
 
 test("when the scoreboard's last play isn't the scoring one, the score notification quotes the scoring play looked up by the score", async () => {
   const { keeper, espn, scoring, tick } = keeperWith({ nfl: [live("nfl:1")] });
   const { cursor } = await keeper.ask(null);
-  espn.nfl = [live("nfl:1", { home: { id: "2", abbr: "NE", score: "7" }, lastPlay: "Pass incomplete", lastPlayScored: false })];
-  scoring.text = "R.Stevenson 4 Yd Run (A.Borregales Kick)";
+  espn.nfl = [live("nfl:1", { home: { id: "2", abbr: "NE", score: "3" }, lastPlay: "Pass incomplete", lastPlayScored: false })];
+  scoring.text = "A.Borregales 44 Yd Field Goal";
   tick(POLL_MS);
   const [alert] = (await keeper.ask(cursor)).alerts;
-  assert.equal(alert.body, "BUF 0, NE 7 · 10:00 - 1st\nR.Stevenson 4 Yd Run (A.Borregales Kick)");
+  assert.equal(alert.body, "BUF 0, NE 3 · 10:00 - 1st\nA.Borregales 44 Yd Field Goal");
 });
 
 test("the test button can send a sample of one kind instead of the plain test", async () => {
