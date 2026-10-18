@@ -17,18 +17,14 @@
    only. Show it automatically only that first time; a gear-menu item ("How to enable notifications") reopens it.
 7. **Are NFL timeouts trackable?** College timeouts were dropped because ESPN's counts don't reset at halftime
    (scripts/check-timeouts.js). Check whether ESPN's NFL timeout counts are reliable enough to show.
-8. **List view: clock under the score.** Move the time/quarter to sit centered under the scores, above the down &
-   distance, instead of in its own column.
-9. **Bell click makes the card's buttons blink.** Clicking the hover bell on a card flickers the buttons around it.
+8. **Bell click makes the card's buttons blink.** Clicking the hover bell on a card flickers the buttons around it.
 
-10. **List view and Upcoming games should match.** Make the list view's rows and the Upcoming games look alike (one
-    styled after the other).
-11. **Test notifications only to admins.** Make sure test notifications (the paper plane and its samples) only ever
+9. **Test notifications only to admins.** Make sure test notifications (the paper plane and its samples) only ever
     reach admin devices, once phones other than admins' can subscribe.
-12. **Notification settings.** Let people choose which events notify them (scores, red zone, two-minute warning,
+10. **Notification settings.** Let people choose which events notify them (scores, red zone, two-minute warning,
     quarters, halftime, final).
-13. **Drop "Enable notifications" when notifications go live for everyone.** The gear-menu item is the admin's switch;
+11. **Drop "Enable notifications" when notifications go live for everyone.** The gear-menu item is the admin's switch;
     once everyone has notifications, it goes (the bells would be how people subscribe).
-14. **Team names in notifications.** Maybe use team names instead of abbreviations ("Chicago @ Atlanta",
+12. **Team names in notifications.** Maybe use team names instead of abbreviations ("Chicago @ Atlanta",
     "Touchdown Chicago"), so notifications read as plain English.
 
