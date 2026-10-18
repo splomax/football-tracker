@@ -25,3 +25,6 @@
 11. **Score alignment in the game list.** Scores don't line up from card to card (a Final card's sit further left
     than the live ones').
 12. **Remove "List view" and "Light mode" from the gear menu.**
+13. **Recap link in list view.** It looks great on grid cards but out of place in list rows.
+14. **Bigger team logos, and check their alignment.** Grid view looks bad on desktop and mobile; list view is fine on
+    both.
