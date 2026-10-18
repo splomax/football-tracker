@@ -256,15 +256,16 @@ test.describe("grid and list views", () => {
 });
 
 test.describe("Halloween", () => {
-  test("every October the header has a jack-o'-lantern that spins when clicked", async ({ page }) => {
+  test("every October the header has a jack-o'-lantern that turns around its stem when clicked", async ({ page }) => {
     await page.clock.setFixedTime(new Date("2026-10-31T20:00:00"));
     await open(page, { halloween: null });  // no override: the date decides
     await expect(page.locator("html")).toHaveAttribute("data-season", "halloween");
     await expect(page.locator("#logo .pumpkin")).toBeVisible();
     await expect(page.locator("#logo .football")).toBeHidden();
-    await expect(page.locator("#logo")).toHaveAttribute("aria-label", "Spin the jack-o'-lantern");
+    await expect(page.locator("#logo")).toHaveAttribute("aria-label", "Turn the jack-o'-lantern");
     await page.locator("#logo").click();
-    expect(await style(page.locator("#logo .pumpkin"), "animationName")).toBe("pumpkin-spin");
+    expect(await style(page.locator("#logo .pumpkin .face"), "animationName")).toBe("pumpkin-turn");
+    expect(await style(page.locator("#logo .pumpkin"), "animationName")).toBe("none");  // the pumpkin itself stays put
   });
 
   test("from November 1 it's the football again", async ({ page }) => {
