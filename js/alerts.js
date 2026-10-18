@@ -1,6 +1,6 @@
 // What happened in a game between two polls, as notifications: scores, trips inside the red zone, two-minute
-// warnings, and the start and end of each quarter. Every one carries the game's score. No browser APIs here: it runs
-// in the Worker's backend (worker/hub.js), and the tests (worker/alerts.test.js) drive it directly.
+// warnings, and the start and end of each quarter. Every one carries the game's score. No browser APIs here, so the
+// admin's desktop notifications (worker/admin.js) and tests (worker/alerts.test.js) share it.
 
 const SCORE_MERGE_MS = 90_000;  // a touchdown's extra point inside this updates the touchdown's notification quietly
 
@@ -13,7 +13,7 @@ export function periodName(period) {
 }
 
 /** "OSU 24, IOWA 6 · 2:00 - 4th": both scores, away first, and where the game is. */
-export function scoreLine(g) {
+function scoreLine(g) {
   return `${g.away.abbr} ${g.away.score}, ${g.home.abbr} ${g.home.score} · ${g.detail}`;
 }
 

@@ -4,9 +4,6 @@
 //   POST /api/login     Authorization: Bearer <password>  ->  { token }, good for TOKEN_DAYS
 //   GET  /api/admin.js  Authorization: Bearer <token>     ->  the admin module
 //   GET  /api/visits    Authorization: Bearer <token>     ->  { weekly, monthly, total } from the visit counter
-//   GET  /api/games?since=<alert id>   Authorization: Bearer <token>  ->  the backend's feed (worker/hub.js): every game,
-//                       conference names, notifications after `since` (none when it's left out), and the newest id
-//   POST /api/test-alert  Authorization: Bearer <token>, { key }  ->  a test notification for that game, through the feed
 //   anything else       the site's files; www. redirects to the bare domain
 //
 // The admin code is only ever served by /api/admin.js, so regular visitors never get it, and only the token, never
@@ -21,8 +18,8 @@ export const VISITS_URL = "https://hits.sh/api/urns/yawyawfootbaw.github.io/foot
 
 /**
  * @param {Request} request
- * @param {{ ADMIN_PASSWORD?: string, ASSETS?: { fetch: (r: Request) => Promise<Response> }, HUB?: DurableObjectNamespace }} env
- *   the password is a Worker secret; ASSETS serves the site's files; HUB is the backend's game feed (worker/index.js)
+ * @param {{ ADMIN_PASSWORD?: string, ASSETS?: { fetch: (r: Request) => Promise<Response> } }} env
+ *   the password is a Worker secret; ASSETS serves the site's files
  * @param {string} code  admin.js's source
  * @param {number} [now]  for tests
  */
@@ -55,21 +52,6 @@ export async function handle(request, env, code, now = Date.now()) {
     if (!res?.ok) return reply("Counter unavailable", 502);
     const { weekly, monthly, total } = await res.json();
     return reply(JSON.stringify({ weekly, monthly, total }), 200, { "Content-Type": "application/json" });
-  }
-  // The game feed lives in one Durable Object, found by name. For now only the admin's pages use it (free plan).
-  const hub = () => env.HUB.get(env.HUB.idFromName("hub"));
-  if (route === "GET /api/games") {
-    if (!(await validToken(given, env.ADMIN_PASSWORD, now))) return reply("Log in again", 401);
-    const since = url.searchParams.get("since") ?? "";
-    const res = await hub().fetch(`https://hub/feed?since=${encodeURIComponent(since)}`);
-    return reply(await res.text(), res.status, { "Content-Type": "application/json" });
-  }
-  if (route === "POST /api/test-alert") {
-    if (!(await validToken(given, env.ADMIN_PASSWORD, now))) return reply("Log in again", 401);
-    const { key } = await request.json().catch(() => ({}));
-    if (typeof key !== "string") return reply("Which game?", 400);
-    const res = await hub().fetch("https://hub/test", { method: "POST", body: JSON.stringify({ key }) });
-    return reply(await res.text(), res.status, { "Content-Type": "application/json" });
   }
   return reply("Not found", 404);
 }

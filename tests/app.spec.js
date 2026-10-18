@@ -18,8 +18,7 @@ async function open(page, opts = {}) {
   // recaps: event ids whose summary has a written recap. summaryRequests counts summary fetches per event id.
   const state = { cfb: opts.cfb ?? cfbGames(), nfl: opts.nfl ?? nflGames(), hits: 0, espnRequests: 0, adminRequests: 0, gate: opts.gate,
     visits: { weekly: 12, monthly: 345, total: 6789 }, visitsRequests: 0,
-    recaps: new Set(opts.recaps ?? ["7", "8"]), summaryRequests: {}, failScoreboards: opts.failScoreboards ?? 0,
-    feed: opts.feed, feedAsks: [], testAlerts: [] };
+    recaps: new Set(opts.recaps ?? ["7", "8"]), summaryRequests: {}, failScoreboards: opts.failScoreboards ?? 0 };
   await page.route("https://site.api.espn.com/**", async (route) => {
     const id = route.request().url().match(/summary\?event=(\w+)/)?.[1];
     if (id) {
@@ -50,16 +49,6 @@ async function open(page, opts = {}) {
     if (req.url().endsWith("/visits") && auth === `Bearer ${ADMIN_TOKEN}`) {
       state.visitsRequests++;
       return route.fulfill({ json: state.visits, headers });
-    }
-    // The backend's game feed, when a test sets state.feed ((since) => body); otherwise refused, so pages use ESPN.
-    if (req.url().includes("/games") && auth === `Bearer ${ADMIN_TOKEN}` && state.feed) {
-      const since = new URL(req.url()).searchParams.get("since");
-      state.feedAsks.push(since);
-      return state.feed === "down" ? route.fulfill({ status: 500, body: "Down", headers }) : route.fulfill({ json: state.feed(since), headers });
-    }
-    if (req.url().endsWith("/test-alert") && req.method() === "POST" && auth === `Bearer ${ADMIN_TOKEN}`) {
-      state.testAlerts.push(JSON.parse(req.postData()).key);
-      return route.fulfill({ json: { ok: true }, headers });
     }
     return route.fulfill({ status: 401, body: "Nope", headers });
   });
@@ -451,6 +440,10 @@ test.describe("notifications", () => {
     };
   }, [answer, permission]);
   const sent = (page) => page.evaluate(() => window.sent.map(({ title, body }) => ({ title, body })));
+  // cfb:2 with UNLV's score raised to `score`.
+  const unlvScores = (score, lastPlay) => cfbGames().map((e) => e.id !== "2" ? e : { ...e, competitions: [{ ...e.competitions[0],
+    competitors: e.competitions[0].competitors.map((c) => (c.homeAway === "home" ? { ...c, score } : c)),
+    situation: { ...e.competitions[0].situation, lastPlay: { ...e.competitions[0].situation.lastPlay, text: lastPlay } } }] });
 
   test("only the admin gets Enable notifications; turning it on sends a test notification and puts a bell on every card", async ({ page }) => {
     await fakeNotifications(page);
@@ -473,56 +466,18 @@ test.describe("notifications", () => {
     await expect(page.locator("#board .bell")).toHaveCount(0);
   });
 
-  // Games as the backend's feed sends them (js/espn.js's shape, dates as text).
-  const team = (id, abbr, score) => ({ id, abbr, name: abbr, logo: `https://a.espncdn.com/i/teamlogos/ncaa/500/${id}.png`, conf: "5", color: "#555", score });
-  const fedGame = (key, away, home, over = {}) => ({ key, date: "2026-10-03T19:00:00Z", state: "in", detail: "6:06 - 3rd", clock: "6:06", period: 3,
-    away, home, yardLine: 75, possession: away.id, ddText: "1st & 10 at CAL 25", redZone: false, lastPlay: "Kickoff", network: "ESPN", ...over });
-  const FED = { cfb: [fedGame("cfb:2", team("25", "CAL", "7"), team("2439", "UNLV", "24")), fedGame("cfb:1", team("194", "OSU", "24"), team("2294", "IOWA", "6"))], nfl: [] };
-  // A feed that hands out `alerts` (with ids from 1) to pages that have seen fewer.
-  const feedOf = (alerts) => (since) => ({ games: FED, confNames: { 5: "Big Ten" }, cursor: alerts.length,
-    alerts: since == null ? [] : alerts.map((a, i) => ({ id: i + 1, at: 0, ...a })).filter((a) => a.id > Number(since)) });
-
-  test("the admin's page gets its games and notifications from the backend: a lit bell's game notifies, an unlit one's doesn't, a test always does", async ({ page }) => {
+  test("a lit bell's game sends its news with the score; an unlit one's doesn't", async ({ page }) => {
     await page.clock.install({ time: new Date("2026-10-03T20:00:00Z") });
     await fakeNotifications(page, "granted", "granted");
-    const alerts = [];
-    const state = await open(page, { query: "?admin", feed: feedOf(alerts), storage: { ...admin, selected: ["cfb:1", "cfb:2"], notify: true, notifyGames: ["cfb:2"] } });
+    const state = await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:1", "cfb:2"], notify: true } });
+    await page.locator('.card[data-key="cfb:2"] .bell').click();
+    await expect(page.locator('.card[data-key="cfb:2"] .bell')).toHaveAttribute("aria-pressed", "true");
+    await page.clock.runFor(10_000);  // a poll with nothing new
+    expect(await sent(page)).toEqual([]);
+    state.cfb = unlvScores("31", "J.Smith 40 yd pass to K.Jones for a TD").map((e) => e.id !== "1" ? e : { ...e, competitions: [{ ...e.competitions[0],
+      competitors: e.competitions[0].competitors.map((c) => (c.homeAway === "away" ? { ...c, score: "31" } : c)) }] });  // OSU scores too, unbelled
     await page.clock.runFor(10_000);
-    await expect.poll(() => state.feedAsks.length).toBeGreaterThan(0);
-    expect(state.feedAsks[0]).toBe(null);  // a page just starting asks for no old notifications
-    await expect(card(page, "cfb:2").locator(".team.away .abbr")).toHaveText("CAL");  // the feed's games are showing
-    alerts.push({ key: "cfb:2", title: "UNLV touchdown", body: "CAL 7, UNLV 31 · 6:06 - 3rd\nJ.Smith 40 yd pass" },
-      { key: "cfb:1", title: "OSU field goal", body: "OSU 27, IOWA 6 · 2:00 - 4th" },  // unlit bell
-      { key: "cfb:1", title: "Test notification", body: "OSU 24, IOWA 6 · 2:00 - 4th\nSent through the backend", forced: true });
-    await page.clock.runFor(10_000);
-    await expect.poll(() => sent(page)).toEqual([
-      { title: "UNLV touchdown", body: "CAL 7, UNLV 31 · 6:06 - 3rd\nJ.Smith 40 yd pass" },
-      { title: "Test notification", body: "OSU 24, IOWA 6 · 2:00 - 4th\nSent through the backend" },
-    ]);
-    await page.clock.runFor(10_000);
-    await expect.poll(() => state.feedAsks.at(-1)).toBe("3");  // it asks only for what's new
-    expect(await sent(page)).toHaveLength(2);
-  });
-
-  test("each card's test button sends that game a notification through the backend and fetches at once", async ({ page }) => {
-    await page.clock.install({ time: new Date("2026-10-03T20:00:00Z") });
-    await fakeNotifications(page, "granted", "granted");
-    const state = await open(page, { query: "?admin", feed: feedOf([]), storage: { ...admin, selected: ["cfb:2"], notify: true } });
-    await page.clock.runFor(10_000);
-    await expect.poll(() => state.feedAsks.length).toBeGreaterThan(0);
-    const asks = state.feedAsks.length;
-    await card(page, "cfb:2").hover();
-    await card(page, "cfb:2").locator(".test-alert").click();
-    await expect.poll(() => state.testAlerts).toEqual(["cfb:2"]);
-    await expect.poll(() => state.feedAsks.length).toBeGreaterThan(asks);  // without waiting for the next poll
-  });
-
-  test("when the backend is down, the admin's page falls back to ESPN", async ({ page }) => {
-    await page.clock.install({ time: new Date("2026-10-03T20:00:00Z") });
-    const state = await open(page, { query: "?admin", feed: "down", storage: { ...admin, selected: ["cfb:3"] } });
-    await page.clock.runFor(10_000);
-    await expect.poll(() => state.feedAsks.length).toBeGreaterThan(0);
-    await expect(card(page, "cfb:3")).toBeAttached();  // WYO–NDSU comes only from ESPN's fixtures
+    await expect.poll(() => sent(page)).toEqual([{ title: "UNLV touchdown", body: "CAL 7, UNLV 31 · 6:06 - 3rd\nJ.Smith 40 yd pass to K.Jones for a TD" }]);
   });
 
   test("each picked game's row in the game list gets a bell that shows and toggles its notifications", async ({ page }) => {

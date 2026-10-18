@@ -20,16 +20,6 @@ directory = "."
 binding = "ASSETS"
 run_worker_first = true
 
-# The backend's game feed (worker/hub.js), one Durable Object (GameHub in worker/index.js). The free plan needs the
-# SQLite-backed kind, though it only keeps its state in memory.
-[[durable_objects.bindings]]
-name = "HUB"
-class_name = "GameHub"
-
-[[migrations]]
-tag = "v1"
-new_sqlite_classes = ["GameHub"]
-
 # admin.js is the browser module the Worker hands out, so bundle it as a string.
 [[rules]]
 type = "Text"
