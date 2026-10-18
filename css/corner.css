@@ -12,6 +12,7 @@
 #settings-menu button:hover { background: var(--border); }
 #settings-menu .check { display: inline-block; width: 16px; color: var(--accent); visibility: hidden; }
 #settings-menu [aria-pressed="true"] .check { visibility: visible; }
+#settings-menu .phone-menu { display: none; }  /* the header's view and theme switches, repeated for phones (css/mobile.css) */
 #visits { display: flex; gap: 12px; padding: 6px 10px 8px; margin-bottom: 4px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 11px; white-space: nowrap; }
 #visits span { display: flex; flex-direction: column; align-items: center; }
 #visits b { color: var(--text); font-size: 15px; font-variant-numeric: tabular-nums; }

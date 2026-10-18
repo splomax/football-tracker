@@ -1,6 +1,6 @@
 // Grid or list view for the board, switched by the header button and remembered in this browser. Grid is the cards;
 // list is one row per game (js/board.js lineCard, css/board.css .card.line). Until the viewer picks, phones get list
-// and everything else grid.
+// and everything else grid. Phones also get a "List view" switch in the gear menu, which stays in reach.
 
 import { store } from "./store.js";
 import { MOBILE_QUERY } from "./config.js";
@@ -21,15 +21,18 @@ function apply(view) {
     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[next]}</svg>`;
   button.setAttribute("aria-label", `Switch to ${next} view`);
   button.title = `Switch to ${next} view`;
+  $("menu-view").setAttribute("aria-pressed", view === "list");  // the phone's gear-menu copy of the button
 }
 
 /** @param {{ onChange: () => void }} hooks  redraw the board in the new view */
 export function initView({ onChange }) {
   apply(store.get("view") ?? (matchMedia(MOBILE_QUERY).matches ? "list" : "grid"));
-  $("view-toggle").addEventListener("click", () => {
+  const toggle = () => {
     const view = isListView() ? "grid" : "list";
     store.set("view", view);
     apply(view);
     onChange();
-  });
+  };
+  $("view-toggle").addEventListener("click", toggle);
+  $("menu-view").addEventListener("click", toggle);
 }

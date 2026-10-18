@@ -1365,7 +1365,7 @@ test.describe("settings gear and google me", () => {
     await page.locator("#settings").click();
     await expect(menu).toBeVisible();
     expect(await menu.evaluate((m) => m.getAnimations().length)).toBeGreaterThan(0);
-    await expect(menu.locator("button")).toHaveText(["Save board as image", "✓google me", "✓MDS"]);
+    await expect(menu.locator("button:visible")).toHaveText(["Save board as image", "✓google me", "✓MDS"]);  // the view and theme copies are for phones
     await page.keyboard.press("Escape");
     await expect(menu).toBeHidden();
     await page.locator("#settings").click();
@@ -1643,19 +1643,36 @@ test.describe("mobile", () => {
     await expect(page.locator("#picker-toggle")).toBeVisible();
   });
 
-  test("gear and contact sit in a footer after the cards, with a full-size gear and a mailto link", async ({ page }) => {
+  test("the gear floats in the corner wherever you scroll, its menu opens above it, and the contact link sits in the footer", async ({ page }) => {
     await open(page, { storage: { selected: ALL_CFB, pickerOpen: false } });
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    const gear = await page.locator("#settings").boundingBox();
-    expect(gear.width).toBeGreaterThanOrEqual(44);
-    expect(gear.height).toBeGreaterThanOrEqual(44);
-    const last = await page.locator(".card").last().boundingBox();
-    expect(gear.y).toBeGreaterThan(last.y + last.height);  // below the cards, not over them
+    for (const y of [0, 600]) {
+      await page.evaluate((y) => window.scrollTo(0, y), y);
+      const gear = await page.locator("#settings").boundingBox();
+      expect(gear.width).toBeGreaterThanOrEqual(44);
+      expect(gear.y + gear.height).toBeLessThanOrEqual(844);  // in view, at the bottom
+      expect(gear.y + gear.height).toBeGreaterThan(844 - 80);
+    }
     await expect(page.locator("#contact a")).toHaveAttribute("href", "mailto:sean@gametrackerlive.com");
     await page.locator("#settings").tap();
     await page.locator("#settings-menu").evaluate((m) => Promise.all(m.getAnimations().map((a) => a.finished)));
-    const menu = await page.locator("#settings-menu").boundingBox();
+    const [menu, gear] = await Promise.all([page.locator("#settings-menu").boundingBox(), page.locator("#settings").boundingBox()]);
     expect(menu.y + menu.height).toBeLessThanOrEqual(gear.y);  // pops up above the gear
+  });
+
+  test("the gear menu repeats the header's view and theme switches, which scroll away; the Games bar shows the update time", async ({ page }) => {
+    await open(page, { storage: { selected: ["cfb:1"], pickerOpen: false } });
+    await expect(page.locator("#bar-updated")).toHaveText(/\d{1,2}:\d{2}:\d{2}/);
+    await page.locator("#settings").tap();
+    const view = page.locator("#menu-view"), theme = page.locator("#menu-theme");
+    await expect(view).toBeVisible();
+    await expect(view).toHaveAttribute("aria-pressed", "true");  // phones start in list view
+    await view.tap();
+    await expect(card(page, "cfb:1")).not.toHaveClass(/line/);
+    await expect(view).toHaveAttribute("aria-pressed", "false");
+    await expect(theme).toHaveAttribute("aria-pressed", "false");  // the tests run dark
+    await theme.tap();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    await expect(theme).toHaveAttribute("aria-pressed", "true");
   });
 
   test("a clipped name never hides the possession dot", async ({ page }) => {

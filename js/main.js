@@ -45,8 +45,9 @@ async function poll() {
 function renderUpdated() {
   if (lastUpdated === null) return;
   // No locale or timeZone passed, so the browser formats it in the viewer's own time zone.
-  document.getElementById("updated").textContent =
-    "Games updated at " + new Date(lastUpdated).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" });
+  const time = new Date(lastUpdated).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" });
+  document.getElementById("updated").textContent = "Games updated at " + time;
+  document.getElementById("bar-updated").textContent = time;  // in the phone's pinned Games bar, which stays in view
 }
 
 
