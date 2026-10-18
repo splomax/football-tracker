@@ -14,3 +14,5 @@
    only. Show it automatically only that first time; a gear-menu item ("How to enable notifications") reopens it.
 6. **Are NFL timeouts trackable?** College timeouts were dropped because ESPN's counts don't reset at halftime
    (scripts/check-timeouts.js). Check whether ESPN's NFL timeout counts are reliable enough to show.
+7. **List view: clock under the score.** Move the time/quarter to sit centered under the scores, above the down &
+   distance, instead of in its own column.
