@@ -52,7 +52,7 @@ async function drawMark(ctx, right, mid) {
   ctx.roundRect(x - badge, mid - 6, badge, 13, 3);
   ctx.fill();
   ctx.fillStyle = "#fff";
-  ctx.fillText("LIVE", x - 4, mid + 1);
+  ctx.fillText("LIVE", x - 4, mid + 0.5);  // half a pixel low of middle centers the font's capitals in the pill
   x -= badge + 5;
   ctx.fillStyle = cssColor("--muted");
   ctx.font = `700 13px "Barlow Condensed", "Arial Narrow", sans-serif`;

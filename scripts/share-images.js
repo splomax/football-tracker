@@ -68,7 +68,7 @@ async function renderPreview(browser) {
     h1 { display: grid; margin: 0; font-family: "Barlow Condensed", sans-serif; font-weight: 700; text-transform: uppercase; line-height: .92; }
     .l1 { font-size: 92px; letter-spacing: .16em; color: #8b93a1; }
     .l2 { display: flex; align-items: center; gap: 36px; font-size: 110px; letter-spacing: .05em; color: #e8eaed; }
-    .live { padding: 10px 26px 6px; border-radius: 20px; background: #e53935; color: #fff; font-size: 66px; letter-spacing: .08em; line-height: 1; }
+    .live { padding: 6px 26px 10px;  /* less on top: the font's capitals sit low in their box */ border-radius: 20px; background: #e53935; color: #fff; font-size: 66px; letter-spacing: .08em; line-height: 1; }
     .hash { height: 22px; margin-top: 16px; background: repeating-linear-gradient(90deg, #8b93a1 0 5px, transparent 5px 34px); opacity: .7; }
   </style>
   <img class="shot" src="data:image/png;base64,${shot}" alt="">
