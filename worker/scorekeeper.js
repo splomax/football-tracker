@@ -26,7 +26,7 @@ export class ScoreKeeper {
     this.games = { cfb: [], nfl: [] };
     this.last = new Map();   // game key -> the game at the last update
     this.memos = new Map();  // game key -> what js/alerts.js remembers about it between updates
-    this.alerts = [];        // { id, key, title, body, tag?, silent?, test?, at }, oldest first (test: from the test button)
+    this.alerts = [];        // { id, key, title, body, tag?, icon?, test?, at }, oldest first (test: from the test button)
     this.nextId = 1;
     this.polledAt = -Infinity;  // never
     this.askedAt = -Infinity;
@@ -51,7 +51,7 @@ export class ScoreKeeper {
       this.games[league] = games;
       for (const g of games) {
         if (!this.memos.has(g.key)) this.memos.set(g.key, {});
-        await this.findScoringPlay(this.last.get(g.key), g);
+        await this.findScoringPlay(this.last.get(g.key), g, this.memos.get(g.key));
         const news = gameAlerts(this.last.get(g.key), g, this.memos.get(g.key), now);
         this.last.set(g.key, g);
         if (news.length) this.add({ key: g.key, ...mergeAlerts(news) });  // one notification per game per update
@@ -60,10 +60,12 @@ export class ScoreKeeper {
   }
 
   // When the score changed but the scoreboard's last play isn't the scoring one (ESPN updates the score first), look
-  // the scoring play up by the new score, for the notification's description (js/alerts.js).
-  async findScoringPlay(prev, g) {
-    if (!prev || g.lastPlayScored) return;
-    if (g.away.score === prev.away.score && g.home.score === prev.home.score) return;
+  // the scoring play up by the new score, for the notification's description (js/alerts.js). While a touchdown's try
+  // is pending, look every time: a missed try doesn't move the score, only the touchdown's play says so.
+  async findScoringPlay(prev, g, memo) {
+    if (!prev) return;
+    const changed = g.away.score !== prev.away.score || g.home.score !== prev.home.score;
+    if (!memo?.pendingTry && (!changed || g.lastPlayScored)) return;
     try {
       g.scoringPlay = (await this.fetchScoringPlay(g)) ?? undefined;
     } catch (err) {

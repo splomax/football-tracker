@@ -234,11 +234,10 @@ function testButton(g) {
   return `<button type="button" class="test-alert" data-test-alert="${g.key}" aria-label="Send a test notification" title="Send a test notification">${PLANE}</button>`;
 }
 
-// Clicking one brings this tab forward with the game's card highlighted. A tag replaces the earlier notification with
-// that tag (a touchdown's, by its extra point); renotify alerts again unless it's meant to be silent.
+// Clicking one brings this tab forward with the game's card highlighted. Each score has its own tag (js/alerts.js).
 // The picture: the scoring team's logo for a score, else the football.
-function show({ title, body, tag, silent = false, icon }, key) {
-  const options = { body, icon: icon ?? "images/notification-icon.png", silent, ...(tag && { tag, renotify: !silent }) };
+function show({ title, body, tag, icon }, key) {
+  const options = { body, icon: icon ?? "images/notification-icon.png", ...(tag && { tag }) };
   if (app.push.applies()) return app.push.showHere(title, options);  // the installed app can only show them this way
   const n = new Notification(title, options);
   n.onclick = () => {

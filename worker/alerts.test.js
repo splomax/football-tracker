@@ -1,7 +1,7 @@
 // Run with: npm run test:worker
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { gameAlerts, mergeAlerts, periodName, sampleAlert, SAMPLE_KINDS } from "../js/alerts.js";
+import { classifyTry, gameAlerts, mergeAlerts, periodName, sampleAlert, SAMPLE_KINDS } from "../js/alerts.js";
 
 // A live game as js/espn.js normalizes it; override what each step changes.
 const game = (over = {}) => ({
@@ -32,18 +32,66 @@ test("every notification carries the score and where the game is", () => {
   const memo = {};
   gameAlerts(undefined, game(), memo);
   const [alert] = gameAlerts(game(), game({ away: { score: "3" }, lastPlay: "J.Bass 40 yd field goal", lastPlayScored: true }), memo, 5000);
-  assert.deepEqual(alert, { title: "BUF field goal", body: "BUF 3, NE 0 · 10:00 - 1st\nJ.Bass 40 yd field goal", tag: "nfl:1:score:1:5000", silent: false, icon: "buf.png" });
+  assert.deepEqual(alert, { title: "BUF field goal", body: "BUF 3, NE 0 · 10:00 - 1st\nJ.Bass 40 yd field goal", tag: "nfl:1:score:1:5000", icon: "buf.png" });
 });
 
-test("scores are named by points, and a touchdown's extra point updates it quietly", () => {
+test("scores are named by points; a made extra point is skipped, a 2-point conversion is news", () => {
   const memo = {};
-  const polls = [game(), game({ home: { score: "6" } }), game({ home: { score: "7" } }), game({ home: { score: "7" }, away: { score: "2" } })];
+  const polls = [game(), game({ home: { score: "6" } }), game({ home: { score: "7" } }), game({ home: { score: "7" }, away: { score: "2" } }),
+    game({ home: { score: "13" }, away: { score: "2" } }), game({ home: { score: "15" }, away: { score: "2" } })];
   const alerts = polls.slice(1).map((g, i) => gameAlerts(polls[i], g, memo, (i + 1) * 10_000));
-  assert.deepEqual(alerts.map((a) => a.map(({ title, silent }) => [title, silent])),
-    [[["BUF @ NE", false]], [["NE extra point", true]], [["BUF 2 points", false]]]);
-  // Two minutes on, a new score from the same team alerts again.
-  const later = gameAlerts(polls[3], game({ home: { score: "10" }, away: { score: "2" } }), memo, 200_000);
-  assert.equal(later[0].silent, false);
+  assert.deepEqual(alerts.map((a) => a.map((x) => x.headline ?? x.title)),
+    [["TD NE"], [], ["BUF 2 points"], ["TD NE"], ["2-pt conversion NE"]]);
+  assert.equal(alerts[4][0].body, "2-pt conversion NE\nBUF 2, NE 15");
+});
+
+test("a touchdown and its try in the same update come as one", () => {
+  const td = (score, extra) => {
+    const memo = {};
+    gameAlerts(undefined, game(), memo);
+    return gameAlerts(game(), game({ home: { score }, ...extra }), memo, 10_000).map((a) => a.headline);
+  };
+  assert.deepEqual(td("7"), ["TD NE"]);
+  assert.deepEqual(td("8"), ["TD NE · 2-pt conversion"]);
+  assert.deepEqual(td("6", { lastPlay: "D.Maye 12 Yd pass to H.Henry (A.Borregales PAT failed)", lastPlayScored: true }), ["TD NE · Missed PAT"]);
+});
+
+test("a missed extra point or failed 2-point try, seen in the touchdown's play a few updates later, is news", () => {
+  for (const [text, headline] of [["(A.Borregales PAT blocked)", "Missed PAT NE"], ["(Two-Point Run Conversion Failed)", "Failed 2-pt NE"]]) {
+    const memo = {};
+    const polls = [game(), game({ home: { score: "6" } }), game({ home: { score: "6" }, scoringPlay: "R.Stevenson 1 Yd Run (A.Borregales Kick)" }),
+      game({ home: { score: "6" }, scoringPlay: `R.Stevenson 1 Yd Run ${text}` }), game({ home: { score: "6" }, scoringPlay: `R.Stevenson 1 Yd Run ${text}` })];
+    const alerts = polls.slice(1).map((g, i) => gameAlerts(polls[i], g, memo, (i + 1) * 10_000));
+    assert.deepEqual(alerts.map((a) => a.map((x) => x.headline)), [["TD NE"], [], [headline], []]);
+    assert.equal(alerts[2][0].body, `${headline}\nBUF 0, NE 6`);
+    assert.equal(alerts[2][0].icon, "ne.png");
+  }
+});
+
+test("it stops watching for the try after a few minutes, or once the other team scores", () => {
+  const failed = { home: { score: "6" }, scoringPlay: "x (Two-Point Pass Conversion Failed)" };
+  let memo = {};
+  gameAlerts(undefined, game(), memo);
+  gameAlerts(game(), game({ home: { score: "6" } }), memo, 0);
+  assert.deepEqual(gameAlerts(game({ home: { score: "6" } }), game(failed), memo, 5 * 60_000), []);
+  memo = {};
+  gameAlerts(undefined, game(), memo);
+  gameAlerts(game(), game({ home: { score: "6" } }), memo, 0);
+  gameAlerts(game({ home: { score: "6" } }), game({ home: { score: "6" }, away: { score: "3" } }), memo, 10_000);
+  assert.deepEqual(gameAlerts(game({ home: { score: "6" }, away: { score: "3" } }), game({ ...failed, away: { score: "3" } }), memo, 20_000), []);
+});
+
+test("classifyTry reads ESPN's wording for each kind of try", () => {
+  assert.equal(classifyTry("J.Smith 5 Yd pass from B.Jones (J.Bates Kick)"), "kick");
+  assert.equal(classifyTry("J.Smith 5 Yd Run (J.Bates PAT failed)"), "missed-pat");
+  assert.equal(classifyTry("J.Smith 5 Yd Run (J.Bates PAT Failed)"), "missed-pat");
+  assert.equal(classifyTry("J.Smith 5 Yd Run (J.Bates PAT blocked)"), "missed-pat");
+  assert.equal(classifyTry("J.Smith 5 Yd Run (B.Jones Pass to J.Smith for Two-Point Conversion)"), "two-point");
+  assert.equal(classifyTry("J.Smith 5 Yd Run (B.Jones Run for Two-Point Conversion)"), "two-point");
+  assert.equal(classifyTry("J.Smith 5 Yd Run (Two-Point Pass Conversion Failed)"), "failed-two-point");
+  assert.equal(classifyTry("J.Smith 5 Yd Run (Two-Point Run Conversion Failed)"), "failed-two-point");
+  assert.equal(classifyTry("J.Smith 5 Yd Run"), null);
+  assert.equal(classifyTry(undefined), null);
 });
 
 test("one red-zone notification per trip, until the other team has had the ball", () => {
@@ -114,7 +162,7 @@ test("one poll's notifications for a game merge into one, with the score line on
   gameAlerts(undefined, before, memo);
   const after = game({ state: "post", period: 4, clock: "0:00", detail: "Final", home: { score: "23" }, lastPlay: "Kick is good", lastPlayScored: true });
   assert.deepEqual(mergeAlerts(gameAlerts(before, after, memo, 1)),
-    { title: "NE field goal · Final", body: "BUF 0, NE 23 · Final\nKick is good", tag: "nfl:1:score:2:1", silent: false, icon: "ne.png" });
+    { title: "NE field goal · Final", body: "BUF 0, NE 23 · Final\nKick is good", tag: "nfl:1:score:2:1", icon: "ne.png" });
   assert.equal(mergeAlerts([{ title: "Halftime", body: "x" }]).title, "Halftime");
 });
 
@@ -153,25 +201,25 @@ test("each sample kind reads exactly like a real notification of that kind, and 
   const g = game({ period: 3, clock: "6:06", detail: "6:06 - 3rd", away: { id: "1", abbr: "HOU", name: "Houston", score: "31" }, home: { id: "2", abbr: "JAX", score: "28" } });
   const titles = Object.fromEntries(Object.keys(SAMPLE_KINDS).map((k) => [k, sampleAlert(g, k)?.title ?? null]));
   assert.deepEqual(titles, {
-    test: null, touchdown: "HOU @ JAX", "field-goal": "HOU field goal", "red-zone": "HOU in the red zone",
+    test: null, touchdown: "HOU @ JAX", "missed-pat": "HOU @ JAX", "two-point": "HOU @ JAX", "failed-two-point": "HOU @ JAX", "field-goal": "HOU field goal", "red-zone": "HOU in the red zone",
     "two-minute": "Two-minute warning", kickoff: "Kickoff", "quarter-start": "Start of the 3rd quarter",
     "quarter-end": "End of the 1st quarter", halftime: "Halftime", final: "Final",
   });
   assert.equal(sampleAlert(g, "touchdown").body, "TD HOU\nHOU 38, JAX 28");
+  assert.equal(sampleAlert(g, "missed-pat").body, "Missed PAT HOU\nHOU 31, JAX 28");
+  assert.equal(sampleAlert(g, "two-point").body, "2-pt conversion HOU\nHOU 33, JAX 28");
+  assert.equal(sampleAlert(g, "failed-two-point").body, "Failed 2-pt HOU\nHOU 31, JAX 28");
   assert.equal(sampleAlert(g, "nonsense"), null);
 });
 
-test("each score is a new notification (its own tag); only a touchdown's quick extra point updates it, quietly", () => {
+test("each score is a new notification (its own tag)", () => {
   const memo = {};
-  const polls = [game(), game({ home: { score: "6" } }), game({ home: { score: "7" } }), game({ home: { score: "10" } })];
+  const polls = [game(), game({ home: { score: "6" } }), game({ home: { score: "8" } }), game({ home: { score: "11" } })];
   gameAlerts(undefined, polls[0], memo);
   const [td] = gameAlerts(polls[0], polls[1], memo, 10_000);
-  const [xp] = gameAlerts(polls[1], polls[2], memo, 40_000);
+  const [two] = gameAlerts(polls[1], polls[2], memo, 40_000);
   const [fg] = gameAlerts(polls[2], polls[3], memo, 400_000);
-  assert.equal(xp.tag, td.tag);  // replaces the touchdown's notification
-  assert.equal(xp.silent, true);
-  assert.notEqual(fg.tag, td.tag);  // a later score pops up as its own notification
-  assert.equal(fg.silent, false);
+  assert.equal(new Set([td.tag, two.tag, fg.tag]).size, 3);
   // Seen live: a second test field goal only replaced the first, out of sight. Each sample is its own notification.
   const g = game({ away: { id: "1", abbr: "HOU", score: "3" } });
   const first = sampleAlert(g, "field-goal");

@@ -153,3 +153,16 @@ test("the test button can send a sample of one kind instead of the plain test", 
   assert.equal(keeper.test("cfb:9").title, "Test notification");
   assert.deepEqual((await keeper.ask(cursor)).alerts.map((a) => [a.title, a.test]), [["Halftime", true], ["Test notification", true]]);
 });
+
+test("after a touchdown it keeps reading the touchdown's play, so a missed extra point (the score unchanged) is news", async () => {
+  const { keeper, espn, scoring, tick } = keeperWith({ nfl: [live("nfl:1")] });
+  const { cursor } = await keeper.ask(null);
+  espn.nfl = [live("nfl:1", { home: { id: "2", abbr: "NE", score: "6" }, lastPlay: "R.Stevenson 1 Yd Run", lastPlayScored: true })];
+  tick(POLL_MS);
+  await keeper.poll();
+  scoring.text = "R.Stevenson 1 Yd Run (A.Borregales PAT failed)";
+  espn.nfl = [live("nfl:1", { home: { id: "2", abbr: "NE", score: "6" }, lastPlay: "Kickoff", lastPlayScored: false })];
+  tick(POLL_MS);
+  const { alerts } = await keeper.ask(cursor);
+  assert.deepEqual(alerts.map((a) => a.body), ["TD NE\nBUF 0, NE 6", "Missed PAT NE\nBUF 0, NE 6"]);
+});

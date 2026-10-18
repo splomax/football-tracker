@@ -2,9 +2,22 @@
 // warnings, and the start and end of each quarter. Every one carries the game's score. No browser APIs here: it runs
 // in the program on Cloudflare (worker/scorekeeper.js), and the tests (worker/alerts.test.js) drive it directly.
 
-const SCORE_MERGE_MS = 90_000;  // a touchdown's extra point inside this updates the touchdown's notification quietly
+const TRY_GIVE_UP_MS = 4 * 60_000;  // after a touchdown, how long to watch for how its try went
 
-const SCORE_KINDS = { 1: "extra point", 2: "2 points", 3: "field goal", 6: "touchdown", 7: "touchdown", 8: "touchdown" };
+const SCORE_KINDS = { 2: "2 points", 3: "field goal", 6: "touchdown", 7: "touchdown", 8: "touchdown" };
+
+/**
+ * How a touchdown's try went, from ESPN's wording on the touchdown's play: "kick", "missed-pat", "two-point",
+ * "failed-two-point", or null if it doesn't say (yet).
+ */
+export function classifyTry(text) {
+  if (!text) return null;
+  if (/PAT (failed|blocked)/i.test(text)) return "missed-pat";
+  if (/Two-Point \w* ?Conversion Failed/i.test(text)) return "failed-two-point";
+  if (/for Two-Point Conversion/i.test(text)) return "two-point";
+  if (/Kick\)?\s*$/i.test(text)) return "kick";
+  return null;
+}
 
 /** "1st quarter" … "4th quarter", then "overtime", "2nd overtime", … */
 export function periodName(period) {
@@ -34,7 +47,7 @@ const between = (g) => g.state === "in" && /^End of|Halftime/i.test(g.detail ?? 
  * The notifications for game g, given how it looked at the last poll (prev; undefined the first time it's seen) and
  * memo, an object kept per game between calls (start it as {}). The first look only fills memo: something already
  * under way when the page opens isn't news.
- * @returns {{ title: string, body: string, tag?: string, silent?: boolean }[]}
+ * @returns {{ title: string, body: string, tag?: string, icon?: string }[]}
  */
 export function gameAlerts(prev, g, memo, now = Date.now()) {
   if (!prev) {
@@ -60,26 +73,53 @@ export function gameAlerts(prev, g, memo, now = Date.now()) {
     add(g.period === 1 ? "Kickoff" : `Start of the ${periodName(g.period)}`);
   }
 
+  // The scoring play: looked up by the score when the scoreboard's last play isn't it yet (worker/scorekeeper.js), else
+  // the last play if it scored, else nothing rather than the wrong play. After a touchdown it also says how the try
+  // went: ESPN adds "(J.Bates Kick)", "(J.Bates PAT failed)" and so on to the touchdown's play.
+  const play = g.scoringPlay ?? (g.lastPlayScored ? g.lastPlay : undefined);
+  // Styled: the game, then what happened, then the new score ("CHI @ ATL" / "TD CHI" / "CHI 7, ATL 0"). Each score gets
+  // its own tag, so it shows as a new notification: a repeated tag only replaces the earlier one, out of sight.
+  const styled = (headline, t) => {
+    const alert = { title: matchup(g), body: `${headline}\n${score(g)}`, tag: `${g.key}:score:${t.id}:${now}`, headline, score: score(g), icon: t.logo };
+    alerts.push(alert);
+    return alert;
+  };
+  let touchdown;  // this poll's touchdown notification, which a try seen in the same poll joins
   for (const side of ["away", "home"]) {
     const gained = Number(g[side].score) - Number(prev[side].score);
     if (gained <= 0) continue;
     const t = g[side];
-    const quiet = now - (memo.scoredAt?.[t.id] ?? -Infinity) < SCORE_MERGE_MS;
-    memo.scoredAt = { ...memo.scoredAt, [t.id]: now };
-    // Each score gets its own tag, so it shows as a new notification: a repeated tag only replaces the earlier one,
-    // silently, out of sight in the notification center. The one exception is a quick follow-up (the extra point after
-    // a touchdown), which reuses its touchdown's tag to update it quietly.
-    if (!quiet) memo.scoreTags = { ...memo.scoreTags, [t.id]: `${g.key}:score:${t.id}:${now}` };
-    // The scoring play: looked up by the score when the scoreboard's last play isn't it yet (worker/scorekeeper.js), else
-    // the last play if it scored, else nothing rather than the wrong play.
-    const play = g.scoringPlay ?? (g.lastPlayScored ? g.lastPlay : undefined);
-    const tag = memo.scoreTags[t.id];
-    if (SCORE_KINDS[gained] === "touchdown") {
-      // Styled: the game, then what happened, then the new score ("CHI @ ATL" / "TD CHI" / "CHI 7, ATL 0").
-      const headline = `TD ${t.abbr}`;
-      alerts.push({ title: matchup(g), body: `${headline}\n${score(g)}`, tag, silent: quiet, headline, score: score(g), icon: t.logo });
+    const tryFor = memo.pendingTry?.team === t.id;
+    if (memo.pendingTry && !tryFor) memo.pendingTry = null;  // the other team scored: that try is long over
+    if (gained === 1) {
+      // A made extra point is expected, so it's skipped; a missed one is the news (below).
+      if (tryFor) memo.pendingTry = null;
+    } else if (gained === 2 && tryFor) {
+      memo.pendingTry = null;
+      styled(`2-pt conversion ${t.abbr}`, t);
+    } else if (SCORE_KINDS[gained] === "touchdown") {
+      // +6 waits for its try; +7 already has the extra point; +8 had the 2-point conversion.
+      touchdown = styled(gained === 8 ? `TD ${t.abbr} · 2-pt conversion` : `TD ${t.abbr}`, t);
+      if (gained === 6) memo.pendingTry = { team: t.id, at: now };
     } else {
-      add(`${t.abbr} ${SCORE_KINDS[gained] ?? `+${gained}`}`, play, { tag, silent: quiet, icon: t.logo });
+      add(`${t.abbr} ${SCORE_KINDS[gained] ?? `+${gained}`}`, play, { tag: `${g.key}:score:${t.id}:${now}`, icon: t.logo });
+    }
+  }
+
+  // A touchdown whose try failed: the score doesn't move, so the touchdown's play says so (or, after a while, nothing will).
+  if (memo.pendingTry) {
+    const t = memo.pendingTry.team === g.home.id ? g.home : g.away;
+    const result = classifyTry(play);
+    const missed = { "missed-pat": "Missed PAT", "failed-two-point": "Failed 2-pt" }[result];
+    if (now - memo.pendingTry.at > TRY_GIVE_UP_MS) {
+      memo.pendingTry = null;
+    } else if (missed && touchdown) {
+      memo.pendingTry = null;
+      touchdown.headline = `${touchdown.headline} · ${missed}`;
+      touchdown.body = `${touchdown.headline}\n${touchdown.score}`;
+    } else if (missed) {
+      memo.pendingTry = null;
+      styled(`${missed} ${t.abbr}`, t);
     }
   }
 
@@ -114,24 +154,25 @@ export function gameAlerts(prev, g, memo, now = Date.now()) {
 export function mergeAlerts(alerts) {
   if (alerts.length < 2) return alerts[0];
   const scored = alerts.find((a) => a.tag);
-  // A styled one (a touchdown, so far) sets the layout: the game, everything that happened, the new score.
+  // A styled one (a touchdown or a try) sets the layout: the game, everything that happened, the new score.
   const styled = alerts.find((a) => a.headline);
   if (styled) {
     const happened = alerts.map((a) => a.headline ?? a.title).join(" · ");
-    return { title: styled.title, body: `${happened}\n${styled.score}`, tag: scored.tag, silent: alerts.every((a) => a.silent), icon: styled.icon };
+    return { title: styled.title, body: `${happened}\n${styled.score}`, tag: scored.tag, icon: styled.icon };
   }
   const [line] = alerts[0].body.split("\n");
   return {
     title: alerts.map((a) => a.title).join(" · "),
     body: [line, ...alerts.flatMap((a) => a.body.split("\n").slice(1))].join("\n"),
-    ...(scored && { tag: scored.tag, silent: alerts.every((a) => a.silent), icon: scored.icon }),
+    ...(scored && { tag: scored.tag, icon: scored.icon }),
   };
 }
 
 
 /** The kinds of sample notification the admin's test button can send (sampleAlert), in the order its chooser lists them. */
 export const SAMPLE_KINDS = {
-  test: "Test", touchdown: "Touchdown", "field-goal": "Field goal", "red-zone": "Red zone", "two-minute": "Two-minute warning",
+  test: "Test", touchdown: "Touchdown", "missed-pat": "Missed PAT", "two-point": "2-pt conversion",
+  "failed-two-point": "Failed 2-pt", "field-goal": "Field goal", "red-zone": "Red zone", "two-minute": "Two-minute warning",
   kickoff: "Kickoff", "quarter-start": "Start of quarter", "quarter-end": "End of quarter", halftime: "Halftime", final: "Final",
 };
 
@@ -150,6 +191,16 @@ export function sampleAlert(g, kind) {
   switch (kind) {
     case "touchdown":
       now = { ...base, away: { ...base.away, score: String(away + 7) }, scoringPlay: `${g.away.name ?? g.away.abbr} 25 Yd pass (sample)` };
+      break;
+    case "missed-pat":
+    case "failed-two-point":
+      // The touchdown came a poll earlier; its play now says the try failed.
+      memo.pendingTry = { team: g.away.id, at: Date.now() };
+      prev = now = { ...base, scoringPlay: `${g.away.name ?? g.away.abbr} 25 Yd pass (${kind === "missed-pat" ? "sample PAT failed" : "Two-Point Pass Conversion Failed"})` };
+      break;
+    case "two-point":
+      memo.pendingTry = { team: g.away.id, at: Date.now() };
+      now = { ...base, away: { ...base.away, score: String(away + 2) } };
       break;
     case "field-goal":
       now = { ...base, away: { ...base.away, score: String(away + 3) }, scoringPlay: `${g.away.name ?? g.away.abbr} 42 Yd Field Goal (sample)` };
