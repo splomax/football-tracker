@@ -4,6 +4,8 @@
 //   POST /api/login     Authorization: Bearer <password>  ->  { token }, good for TOKEN_DAYS
 //   GET  /api/admin.js  Authorization: Bearer <token>     ->  the admin module
 //   GET  /api/visits    Authorization: Bearer <token>     ->  { weekly, monthly, total } from the visit counter
+//   GET  /api/games     Authorization: Bearer <token>     ->  { games: { cfb, nfl }, confNames } from the program on
+//                       Cloudflare that fetches the scores (scorekeeper.js)
 //   anything else       the site's files; www. redirects to the bare domain
 //
 // The admin code is only ever served by /api/admin.js, so regular visitors never get it, and only the token, never
@@ -18,8 +20,8 @@ export const VISITS_URL = "https://hits.sh/api/urns/yawyawfootbaw.github.io/foot
 
 /**
  * @param {Request} request
- * @param {{ ADMIN_PASSWORD?: string, ASSETS?: { fetch: (r: Request) => Promise<Response> } }} env
- *   the password is a Worker secret; ASSETS serves the site's files
+ * @param {{ ADMIN_PASSWORD?: string, ASSETS?: { fetch: (r: Request) => Promise<Response> }, SCORES?: DurableObjectNamespace }} env
+ *   the password is a Worker secret; ASSETS serves the site's files; SCORES is the program fetching the scores (index.js)
  * @param {string} code  admin.js's source
  * @param {number} [now]  for tests
  */
@@ -52,6 +54,12 @@ export async function handle(request, env, code, now = Date.now()) {
     if (!res?.ok) return reply("Counter unavailable", 502);
     const { weekly, monthly, total } = await res.json();
     return reply(JSON.stringify({ weekly, monthly, total }), 200, { "Content-Type": "application/json" });
+  }
+  if (route === "GET /api/games") {
+    if (!(await validToken(given, env.ADMIN_PASSWORD, now))) return reply("Log in again", 401);
+    const keeper = env.SCORES.get(env.SCORES.idFromName("scores"));  // one, found by name
+    const res = await keeper.fetch("https://scorekeeper/");
+    return reply(await res.text(), res.status, { "Content-Type": "application/json" });
   }
   return reply("Not found", 404);
 }

@@ -20,8 +20,14 @@ directory = "."
 binding = "ASSETS"
 run_worker_first = true
 
-# A Durable Object (GameHub) was deployed briefly for a backend game feed, then removed. Cloudflare keeps a record of
-# its classes, so the removal has to be a migration of its own; keep both entries.
+# The program that fetches the scores for the admin's pages (worker/scorekeeper.js), in one Durable Object. The free
+# plan needs the SQLite-backed kind, though it only keeps its state in memory.
+[[durable_objects.bindings]]
+name = "SCORES"
+class_name = "ScoreKeeper"
+
+# Cloudflare keeps a record of Durable Object classes: GameHub was deployed briefly for a first try at this, then
+# removed, which had to be a migration of its own. Keep every entry, in order.
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["GameHub"]
@@ -29,6 +35,10 @@ new_sqlite_classes = ["GameHub"]
 [[migrations]]
 tag = "v2"
 deleted_classes = ["GameHub"]
+
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["ScoreKeeper"]
 
 # admin.js is the browser module the Worker hands out, so bundle it as a string.
 [[rules]]

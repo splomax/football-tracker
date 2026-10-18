@@ -95,3 +95,20 @@ test("a token gets the visit counts from the counter; the password and no token 
     globalThis.fetch = realFetch;
   }
 });
+
+test("a token gets the games from the program fetching the scores; nobody else does", async () => {
+  const asked = [];
+  const SCORES = { idFromName: (name) => name, get: (id) => ({ fetch: async (url) => {
+    asked.push([id, String(url)]);
+    return Response.json({ games: { cfb: [], nfl: [] }, confNames: {} });
+  } }) };
+  const withScores = { ...env, SCORES };
+  const token = await tokenFor();
+  const res = await call("GET", "/api/games", token, { envOverride: withScores });
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { games: { cfb: [], nfl: [] }, confNames: {} });
+  assert.deepEqual(asked, [["scores", "https://scorekeeper/"]]);
+  assert.equal((await call("GET", "/api/games", null, { envOverride: withScores })).status, 401);
+  assert.equal((await call("GET", "/api/games", env.ADMIN_PASSWORD, { envOverride: withScores })).status, 401);
+  assert.equal(asked.length, 1);
+});

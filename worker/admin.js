@@ -4,12 +4,14 @@
 // - "Enable notifications" in the gear menu, which puts a bell on every card and on each picked game's row in the game
 //   list, where a lit one shows at a glance. A lit bell gets desktop notifications for that game (js/alerts.js says
 //   what's news), while this page is open.
+// - "Scores from:" atop the gear menu: whether this page's last update came from the program on Cloudflare
+//   (worker/scorekeeper.js), which the admin's pages use, or from ESPN directly because the program couldn't be reached.
 // - The visit counter's weekly, monthly and total counts atop the gear menu, fetched each time it opens.
 // - In the game list, a row of bulk buttons atop each section: Live, Upcoming and Final get "Select all" (every game
 //   the section shows) and "Remove all" (that state's picked games, which sit under Selected); Selected gets
 //   "Remove all" (every picked game in the current tab and filters).
 
-let app;  // { renderBoard, renderList, listView, state, saveSelected, visits, store, highlightCard, gameAlerts, mergeAlerts } from js/admin.js
+let app;  // { renderBoard, renderList, listView, state, saveSelected, visits, store, highlightCard, gameAlerts, mergeAlerts, lastSource } from js/admin.js
 
 /** Returns the hooks for js/board.js's setAdmin. */
 export function install(appApi) {
@@ -18,6 +20,7 @@ export function install(appApi) {
   app.store.set("hiddenFromList", null);
   addNotifyToggle();
   addVisits();
+  addScoreSource();
   return {
     groupExtras,
     rowExtras: (g) => (notifying() && app.state.selected.has(g.key) ? bellButton(g, "row-bell") : ""),
@@ -59,6 +62,21 @@ function groupExtras(group) {
 // filters: unpicked games of the section's state to add, picked ones to remove; Selected removes every picked game.
 function bulkGames(group, add) {
   return app.listView().filter((g) => (group === "Selected" || g.state === STATE_OF[group]) && app.state.selected.has(g.key) !== add);
+}
+
+// Gear menu: where this page's scores came from at the last update, under the visit counts, checked whenever the menu
+// opens.
+const SOURCES = { server: "Game Tracker server", espn: "ESPN", "espn-fallback": "ESPN (server unreachable)" };
+function addScoreSource() {
+  const visits = document.getElementById("visits");
+  if (!visits || document.getElementById("score-source")) return;
+  const row = document.createElement("div");
+  row.id = "score-source";
+  visits.after(row);
+  const refresh = () => { row.textContent = `Scores from: ${SOURCES[app.lastSource()] ?? "…"}`; };
+  refresh();
+  const gear = document.getElementById("settings");
+  gear.addEventListener("click", () => { if (gear.getAttribute("aria-expanded") === "true") refresh(); });
 }
 
 // Gear menu: the visit counts, refreshed whenever the menu opens. The gear's click opens the menu before this runs.

@@ -12,6 +12,7 @@ import { state, saveSelected } from "./state.js";
 import { renderBoard, setAdmin, highlightCard } from "./board.js";
 import { gameAlerts, mergeAlerts } from "./alerts.js";
 import { listView, renderList, setPickerAdmin } from "./picker.js";
+import { useServer, lastSource, pollNow } from "./source.js";
 
 /**
  * Check the admin login, and with ?admin turn the admin's features on (asking for the password if needed).
@@ -89,15 +90,26 @@ async function visits() {
   return typeof body === "string" ? JSON.parse(body) : null;
 }
 
+// The scores from the program on Cloudflare (worker/scorekeeper.js). Dates arrive as text.
+async function scoresFromServer() {
+  const res = await fetch(`${ADMIN_URL}/games`, { headers: { Authorization: `Bearer ${store.get("adminToken")}` } });
+  if (!res.ok) throw new Error(`scores from the server: ${res.status}`);
+  const body = await res.json();
+  for (const games of Object.values(body.games)) for (const g of games) g.date = new Date(g.date);
+  return body;
+}
+
 async function install(code) {
   if (typeof code !== "string") return false;
   const blob = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
   try {
     const { install } = await import(blob);
-    const hooks = install({ renderBoard, renderList, listView, state, saveSelected, visits, store, highlightCard, gameAlerts, mergeAlerts });
+    const hooks = install({ renderBoard, renderList, listView, state, saveSelected, visits, store, highlightCard, gameAlerts, mergeAlerts, lastSource });
     setAdmin(hooks);
     setPickerAdmin(hooks);
     if (hooks.onPoll) polled = hooks.onPoll;
+    useServer(scoresFromServer);  // from now on this page's scores come from the program on Cloudflare,
+    pollNow();                    // starting now
     return true;
   } catch (err) {
     console.error("admin", err);

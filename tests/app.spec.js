@@ -18,7 +18,8 @@ async function open(page, opts = {}) {
   // recaps: event ids whose summary has a written recap. summaryRequests counts summary fetches per event id.
   const state = { cfb: opts.cfb ?? cfbGames(), nfl: opts.nfl ?? nflGames(), hits: 0, espnRequests: 0, adminRequests: 0, gate: opts.gate,
     visits: { weekly: 12, monthly: 345, total: 6789 }, visitsRequests: 0,
-    recaps: new Set(opts.recaps ?? ["7", "8"]), summaryRequests: {}, failScoreboards: opts.failScoreboards ?? 0 };
+    recaps: new Set(opts.recaps ?? ["7", "8"]), summaryRequests: {}, failScoreboards: opts.failScoreboards ?? 0,
+    scores: opts.scores, scoresAsks: 0 };
   await page.route("https://site.api.espn.com/**", async (route) => {
     const id = route.request().url().match(/summary\?event=(\w+)/)?.[1];
     if (id) {
@@ -49,6 +50,13 @@ async function open(page, opts = {}) {
     if (req.url().endsWith("/visits") && auth === `Bearer ${ADMIN_TOKEN}`) {
       state.visitsRequests++;
       return route.fulfill({ json: state.visits, headers });
+    }
+    // The program on Cloudflare that fetches the scores, when a test sets opts.scores (its answer, or "down");
+    // otherwise refused, so admin pages fall back to ESPN as the other tests expect.
+    if (req.url().endsWith("/games") && auth === `Bearer ${ADMIN_TOKEN}`) {
+      state.scoresAsks++;
+      if (!state.scores) return route.fulfill({ status: 401, body: "Nope", headers });
+      return state.scores === "down" ? route.fulfill({ status: 500, body: "Down", headers }) : route.fulfill({ json: state.scores, headers });
     }
     return route.fulfill({ status: 401, body: "Nope", headers });
   });
@@ -427,6 +435,41 @@ test.describe("board image", () => {
   });
 });
 
+test.describe("scores from the program on Cloudflare", () => {
+  // Games as the program sends them (js/espn.js's shape, dates as text).
+  const team = (id, abbr, score) => ({ id, abbr, name: abbr, logo: `https://a.espncdn.com/i/teamlogos/ncaa/500/${id}.png`, conf: "5", color: "#555", score });
+  const SERVER = { games: { nfl: [], cfb: [{ key: "cfb:77", date: "2026-10-03T19:00:00Z", state: "in", detail: "6:06 - 3rd", clock: "6:06", period: 3,
+    away: team("356", "ILL", "17"), home: team("130", "MICH", "14"), yardLine: 60, possession: "356", ddText: "2nd & 4 at MICH 40", redZone: false,
+    lastPlay: "Rush for 6 yards", network: "BTN" }] }, confNames: { 5: "Big Ten" } };
+  const sourceLine = async (page) => { await page.locator("#settings").click(); return page.locator("#score-source"); };
+
+  test("the admin's page gets its scores from the program, and the gear menu says so", async ({ page }) => {
+    await page.clock.install({ time: new Date("2026-10-03T20:00:00Z") });
+    const state = await open(page, { query: "?admin", scores: SERVER, storage: { ...admin, selected: ["cfb:77"] } });
+    await expect(card(page, "cfb:77")).toBeAttached();  // a game only the program has, right after the admin features load
+    await expect(card(page, "cfb:77").locator(".dd")).toHaveText("2nd & 4 at MICH 40");
+    expect(state.scoresAsks).toBeGreaterThan(0);
+    await expect(await sourceLine(page)).toHaveText("Scores from: Game Tracker server");
+  });
+
+  test("when the program can't be reached, the admin's page gets its scores from ESPN, and the gear menu says so", async ({ page }) => {
+    await page.clock.install({ time: new Date("2026-10-03T20:00:00Z") });
+    const state = await open(page, { query: "?admin", scores: "down", storage: { ...admin, selected: ["cfb:3"] } });
+    await page.clock.runFor(10_000);
+    await expect.poll(() => state.scoresAsks).toBeGreaterThan(0);
+    await expect(card(page, "cfb:3")).toBeAttached();  // WYO–NDSU comes only from ESPN's fixtures
+    await expect(await sourceLine(page)).toHaveText("Scores from: ESPN (server unreachable)");
+  });
+
+  test("everyone else's page never asks the program", async ({ page }) => {
+    await page.clock.install({ time: new Date("2026-10-03T20:00:00Z") });
+    const state = await open(page, { scores: SERVER, storage: { ...admin, selected: ["cfb:1"] } });  // logged in, no ?admin
+    await page.clock.runFor(20_000);
+    expect(state.scoresAsks).toBe(0);
+    await expect(page.locator("#score-source")).toHaveCount(0);
+  });
+});
+
 test.describe("notifications", () => {
   // A stand-in for the browser's Notification: records what's sent (window.sent), starts at `permission` and answers
   // the permission prompt with `answer`.
@@ -472,7 +515,10 @@ test.describe("notifications", () => {
     const state = await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:1", "cfb:2"], notify: true } });
     await page.locator('.card[data-key="cfb:2"] .bell').click();
     await expect(page.locator('.card[data-key="cfb:2"] .bell')).toHaveAttribute("aria-pressed", "true");
+    const before = state.espnRequests;
     await page.clock.runFor(10_000);  // a poll with nothing new
+    await expect.poll(() => state.espnRequests).toBeGreaterThanOrEqual(before + 2);  // both leagues answered
+    await page.waitForTimeout(200);  // and the page has taken them in
     expect(await sent(page)).toEqual([]);
     state.cfb = unlvScores("31", "J.Smith 40 yd pass to K.Jones for a TD").map((e) => e.id !== "1" ? e : { ...e, competitions: [{ ...e.competitions[0],
       competitors: e.competitions[0].competitors.map((c) => (c.homeAway === "away" ? { ...c, score: "31" } : c)) }] });  // OSU scores too, unbelled
