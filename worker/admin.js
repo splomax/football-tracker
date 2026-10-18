@@ -5,6 +5,9 @@
 //   list, where a lit one shows at a glance. A lit bell gets desktop notifications for that game while this page is
 //   open. The program on Cloudflare works out what's news (worker/scorekeeper.js, js/alerts.js) and hands it over with
 //   the scores (onAlerts). Each card also gets a paper-plane button that sends that game a test notification that way.
+//   On an iPhone, notifications work in the Home Screen app (app.push, js/push.js): turning them on there subscribes the
+//   phone, and its bells go to the server, which pushes notifications even while the app is closed. In Safari,
+//   Enable notifications explains how to add the app first.
 // - "Scores from:" atop the gear menu: whether this page's last update came from the program on Cloudflare
 //   (worker/scorekeeper.js), which the admin's pages use, or from ESPN directly because the program couldn't be reached.
 // - The visit counter's weekly, monthly and total counts atop the gear menu, fetched each time it opens.
@@ -12,7 +15,7 @@
 //   the section shows) and "Remove all" (that state's picked games, which sit under Selected); Selected gets
 //   "Remove all" (every picked game in the current tab and filters).
 
-let app;  // { renderBoard, renderList, listView, state, saveSelected, visits, store, highlightCard, lastSource, testAlert } from js/admin.js
+let app;  // { renderBoard, renderList, listView, state, saveSelected, visits, store, highlightCard, lastSource, testAlert, push } from js/admin.js
 
 /** Returns the hooks for js/board.js's setAdmin. */
 export function install(appApi) {
@@ -120,13 +123,21 @@ function addNotifyToggle() {
   button.addEventListener("click", async () => {
     if (notifying()) {
       app.store.set("notify", false);
+      if (app.push.applies()) app.push.turnOff();
+    } else if (app.push.needsInstall()) {
+      return explainInstall();
     } else if (!window.Notification) {
       return label("Notifications unsupported");
     } else if (await Notification.requestPermission() !== "granted") {
       return label("Notifications blocked");  // the browser's site settings can unblock them
     } else {
       app.store.set("notify", true);
-      show({ title: "Notifications are on", body: "Click a game's bell to get its scores, red-zone trips, two-minute warnings and quarters." });
+      // The installed app's notifications come from the server, so the server needs this phone and its bells.
+      if (app.push.applies() && !(await app.push.turnOn([...belled()]).catch(() => false))) {
+        app.store.set("notify", false);
+        return label("Couldn't turn on notifications");
+      }
+      show({ title: "Notifications are on", body: "Tap a game's bell to get its scores, red-zone trips, two-minute warnings and quarters." });
     }
     button.setAttribute("aria-pressed", notifying());
     app.renderBoard();
@@ -145,14 +156,34 @@ function bellButton(g, kind = "bell") {
 function toggleBell(key) {
   const keys = belled();
   keys.has(key) ? keys.delete(key) : keys.add(key);
-  app.store.set("notifyGames", [...keys].filter((k) => app.state.selected.has(k)));
+  const lit = [...keys].filter((k) => app.state.selected.has(k));
+  app.store.set("notifyGames", lit);
+  if (app.push.applies()) app.push.sendBells(lit);  // the server pushes this phone's notifications
   app.renderBoard();
   app.renderList();
 }
 
+// On an iPhone in Safari: notifications only work in the Home Screen app, so say how to get there.
+function explainInstall() {
+  const dialog = document.createElement("dialog");
+  dialog.id = "install-help";
+  dialog.innerHTML = `<form method="dialog">
+    <label>Notifications need the Game Tracker app</label>
+    <ol class="steps">
+      <li>Tap the Share button (the square with an arrow, at the bottom of Safari).</li>
+      <li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li>
+      <li>Open Game Tracker from your Home Screen and turn on notifications there.</li>
+    </ol>
+    <div class="buttons"><button value="ok">OK</button></div>
+  </form>`;
+  document.body.append(dialog);
+  dialog.addEventListener("close", () => dialog.remove());
+  dialog.showModal();
+}
+
 // Notifications from the program on Cloudflare: those for picked games with a lit bell, and any test notification.
 function onAlerts(alerts) {
-  if (!notifying()) return;
+  if (!notifying() || app.push.applies()) return;  // the installed app gets its notifications pushed by the server
   const keys = belled();
   for (const a of alerts) if (a.forced || (keys.has(a.key) && app.state.selected.has(a.key))) show(a, a.key);
 }
@@ -168,7 +199,9 @@ function testButton(g) {
 // Clicking one brings this tab forward with the game's card highlighted. A tag replaces the earlier notification with
 // that tag (a touchdown's, by its extra point); renotify alerts again unless it's meant to be silent.
 function show({ title, body, tag, silent = false }, key) {
-  const n = new Notification(title, { body, icon: "images/apple-touch-icon.png", silent, ...(tag && { tag, renotify: !silent }) });
+  const options = { body, icon: "images/apple-touch-icon.png", silent, ...(tag && { tag, renotify: !silent }) };
+  if (app.push.applies()) return app.push.showHere(title, options);  // the installed app can only show them this way
+  const n = new Notification(title, options);
   n.onclick = () => {
     window.focus();
     if (key) app.highlightCard(key);

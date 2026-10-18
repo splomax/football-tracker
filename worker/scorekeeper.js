@@ -74,12 +74,15 @@ export class ScoreKeeper {
     };
   }
 
-  /** The admin's test button: a notification for this game, sent the same way as real ones, bell or not. */
+  /**
+   * The admin's test button: a notification for this game, sent the same way as real ones, bell or not. Returns it
+   * (the Durable Object also pushes it to phones, worker/index.js), or null for a game it doesn't know.
+   */
   test(key) {
     const g = [...this.games.cfb, ...this.games.nfl].find((x) => x.key === key);
-    if (!g) return false;
+    if (!g) return null;
     this.add({ key, title: "Test notification", body: `${scoreLine(g)}\nSent through the Game Tracker server`, forced: true });
-    return true;
+    return this.alerts.at(-1);
   }
 
   /** Whether to keep going: a page asked within IDLE_MS. */

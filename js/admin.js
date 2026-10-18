@@ -12,7 +12,7 @@ import { state, saveSelected } from "./state.js";
 import { renderBoard, setAdmin, highlightCard } from "./board.js";
 import { listView, renderList, setPickerAdmin } from "./picker.js";
 import { useServer, lastSource, pollNow } from "./source.js";
-import { registerServiceWorker } from "./push.js";
+import { registerServiceWorker, needsInstall, pushApplies, turnOn, turnOff, sendBells, showHere } from "./push.js";
 
 /**
  * Check the admin login, and with ?admin turn the admin's features on (asking for the password if needed).
@@ -26,7 +26,10 @@ export async function loadAdmin() {
     const token = await logIn(oldPassword);
     if (typeof token === "string") store.set("adminToken", token);
   }
-  if (ADMIN_PARAM === "off") store.set("adminToken", null);
+  if (ADMIN_PARAM === "off") {
+    if (pushApplies()) await turnOff().catch(() => {});  // a phone logging out stops its notifications too
+    store.set("adminToken", null);
+  }
   let code = await adminCode();
   // ?admin asks for the password only when this browser isn't already logged in.
   if (!code && ADMIN_PARAM !== null && ADMIN_PARAM !== "off") {
@@ -111,7 +114,8 @@ async function install(code) {
   const blob = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
   try {
     const { install } = await import(blob);
-    const hooks = install({ renderBoard, renderList, listView, state, saveSelected, visits, store, highlightCard, lastSource, testAlert });
+    const hooks = install({ renderBoard, renderList, listView, state, saveSelected, visits, store, highlightCard, lastSource, testAlert,
+      push: { needsInstall, applies: pushApplies, turnOn, turnOff, sendBells, showHere } });
     setAdmin(hooks);
     setPickerAdmin(hooks);
     alerted = hooks.onAlerts ?? alerted;

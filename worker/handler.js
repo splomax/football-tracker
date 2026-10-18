@@ -6,12 +6,18 @@
 //   GET  /api/visits    Authorization: Bearer <token>     ->  { weekly, monthly, total } from the visit counter
 //   GET  /api/games?since=<n>  Authorization: Bearer <token>  ->  { games: { cfb, nfl }, confNames, alerts, cursor } from
 //                       the program on Cloudflare (scorekeeper.js): the notifications after number n (none without it)
-//   POST /api/test-alert  Authorization: Bearer <token>, { key }  ->  a test notification for that game
+//   POST /api/test-alert  Authorization: Bearer <token>, { key }  ->  a test notification for that game (phones get it
+//                       about 5 seconds later, time to lock the phone)
+//   POST /api/push/subscribe    Authorization: Bearer <token>, { subscription, bells }  ->  a phone turning on notifications
+//   POST /api/push/bells        Authorization: Bearer <token>, { endpoint, bells }      ->  a phone's lit bells changed
+//   POST /api/push/unsubscribe  Authorization: Bearer <token>, { endpoint }             ->  a phone turning them off
 //   anything else       the site's files; www. redirects to the bare domain
 //
 // The admin code is only ever served by /api/admin.js, so regular visitors never get it, and only the token, never
 // the password, is kept in a browser. Tokens are signed with the password, so changing the password (wrangler secret
 // put ADMIN_PASSWORD) signs everyone out at once.
+
+import { savePhone, setBells, removePhone } from "./phones.js";
 
 export const TOKEN_DAYS = 30;
 
@@ -23,7 +29,7 @@ export const VISITS_URL = "https://hits.sh/api/urns/yawyawfootbaw.github.io/foot
  * @param {Request} request
  * @param {{ ADMIN_PASSWORD?: string, ASSETS?: { fetch: (r: Request) => Promise<Response> }, SCORES?: DurableObjectNamespace, VERSION?: { id: string } }} env
  *   the password is a Worker secret; ASSETS serves the site's files; SCORES is the program fetching the scores (index.js);
- *   VERSION is the deployed version (wrangler.toml)
+ *   VERSION is the deployed version; PUSH (KV) holds the phones that turned on notifications (wrangler.toml)
  * @param {string} code  admin.js's source
  * @param {number} [now]  for tests
  */
@@ -72,6 +78,17 @@ export async function handle(request, env, code, now = Date.now()) {
     if (typeof key !== "string") return reply("Which game?", 400);
     const res = await keeper().fetch("https://scorekeeper/test", { method: "POST", body: JSON.stringify({ key }) });
     return reply(await res.text(), res.status, { "Content-Type": "application/json" });
+  }
+  // Phones turning notifications on and off, and their bells (worker/phones.js).
+  if (route.startsWith("POST /api/push/")) {
+    if (!(await validToken(given, env.ADMIN_PASSWORD, now))) return reply("Log in again", 401);
+    const body = await request.json().catch(() => ({}));
+    const ok = route === "POST /api/push/subscribe" ? await savePhone(env.PUSH, body.subscription, body.bells, now)
+      : route === "POST /api/push/bells" ? await setBells(env.PUSH, body.endpoint, body.bells, now)
+      : route === "POST /api/push/unsubscribe" ? (await removePhone(env.PUSH, body.endpoint), true)
+      : null;
+    if (ok === null) return reply("Not found", 404);
+    return ok ? reply('{"ok":true}', 200, { "Content-Type": "application/json" }) : reply("Not a phone, or not its bells", 400);
   }
   return reply("Not found", 404);
 }

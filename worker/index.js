@@ -4,6 +4,9 @@
 import code from "./admin.js";
 import { handle } from "./handler.js";
 import { ScoreKeeper as Keeper, POLL_MS } from "./scorekeeper.js";
+import { sendToPhones } from "./phones.js";
+
+const PHONE_TEST_DELAY_MS = 5000;  // a test reaches phones a few seconds late, time to lock the phone and see it arrive
 
 export default {
   fetch: (request, env) => handle(request, env, code),
@@ -13,8 +16,9 @@ export default {
 // keep asking, an alarm fetches the scores every POLL_MS; once nobody has asked for a while (keeper.watched), it lets
 // the alarm lapse. GET /?since=<n>: the games and notifications; POST /test { key }: a test notification.
 export class ScoreKeeper {
-  constructor(ctx) {
+  constructor(ctx, env) {
     this.ctx = ctx;
+    this.env = env;
     this.keeper = new Keeper();
   }
 
@@ -22,7 +26,15 @@ export class ScoreKeeper {
     const url = new URL(request.url);
     if (request.method === "POST" && url.pathname === "/test") {
       const { key } = await request.json();
-      return this.keeper.test(key) ? Response.json({ ok: true }) : Response.json({ ok: false }, { status: 404 });
+      const alert = this.keeper.test(key);
+      if (!alert) return Response.json({ ok: false }, { status: 404 });
+      // Pages pick it up with their next update; phones get it pushed, a little later.
+      const send = async () => {
+        await new Promise((resolve) => setTimeout(resolve, PHONE_TEST_DELAY_MS));
+        await sendToPhones(this.env, { title: alert.title, body: alert.body, key });
+      };
+      this.ctx.waitUntil(send());
+      return Response.json({ ok: true });
     }
     const since = url.searchParams.get("since");
     const body = await this.keeper.ask(since ? Number(since) : null);

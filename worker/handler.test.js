@@ -2,6 +2,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { handle, TOKEN_DAYS, VISITS_URL } from "./handler.js";
+import { fakeKv } from "./phones.test.js";
+import { listPhones } from "./phones.js";
 
 const assets = { fetch: async (req) => new Response(`asset ${new URL(req.url).pathname}`) };
 const env = { ADMIN_PASSWORD: "right horse battery", ASSETS: assets };
@@ -138,4 +140,19 @@ test("each deployed version gets its own copy of the program, so a deploy never 
   await api("GET", "/api/games", token, undefined, { ...env, SCORES, VERSION: { id: "v1" } });
   await api("GET", "/api/games", token, undefined, { ...env, SCORES, VERSION: { id: "v2" } });
   assert.deepEqual(SCORES.asked.map((a) => a.id), ["scores-v1", "scores-v2"]);
+});
+
+test("a token lets a phone turn notifications on, change its bells and turn them off; nobody else", async () => {
+  const PUSH = fakeKv(), withPush = { ...env, PUSH };
+  const token = await tokenFor();
+  const subscription = { endpoint: "https://web.push.apple.com/abc", keys: { p256dh: "BPhone", auth: "auth" } };
+  const post = (path, body, auth = token) => api("POST", path, auth, JSON.stringify(body), withPush);
+  assert.equal((await post("/api/push/subscribe", { subscription, bells: ["cfb:1"] }, null)).status, 401);
+  assert.equal((await post("/api/push/subscribe", { subscription, bells: ["cfb:1"] })).status, 200);
+  assert.equal((await post("/api/push/bells", { endpoint: subscription.endpoint, bells: ["nfl:9"] })).status, 200);
+  assert.deepEqual((await listPhones(PUSH)).map((p) => p.bells), [["nfl:9"]]);
+  assert.equal((await post("/api/push/subscribe", { subscription: { endpoint: "nope" }, bells: [] })).status, 400);
+  assert.equal((await post("/api/push/unsubscribe", { endpoint: subscription.endpoint })).status, 200);
+  assert.deepEqual(await listPhones(PUSH), []);
+  assert.equal((await post("/api/push/other", {})).status, 404);
 });

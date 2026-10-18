@@ -95,8 +95,8 @@ test("one update's news for a game comes as one notification", async () => {
 test("the test button sends that game a notification marked as a test; an unknown game is refused", async () => {
   const { keeper } = keeperWith({ cfb: [live("cfb:9", { away: { id: "1", abbr: "OSU", score: "3" }, home: { id: "2", abbr: "IU", score: "0" } })] });
   const { cursor } = await keeper.ask(null);
-  assert.equal(keeper.test("cfb:9"), true);
-  assert.equal(keeper.test("cfb:404"), false);
+  assert.equal(keeper.test("cfb:9").title, "Test notification");
+  assert.equal(keeper.test("cfb:404"), null);
   const [alert] = (await keeper.ask(cursor)).alerts;
   assert.deepEqual({ key: alert.key, title: alert.title, body: alert.body, forced: alert.forced },
     { key: "cfb:9", title: "Test notification", body: "OSU 3, IU 0 · 10:00 - 1st\nSent through the Game Tracker server", forced: true });

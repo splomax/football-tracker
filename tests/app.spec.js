@@ -19,7 +19,7 @@ async function open(page, opts = {}) {
   const state = { cfb: opts.cfb ?? cfbGames(), nfl: opts.nfl ?? nflGames(), hits: 0, espnRequests: 0, adminRequests: 0, gate: opts.gate,
     visits: { weekly: 12, monthly: 345, total: 6789 }, visitsRequests: 0,
     recaps: new Set(opts.recaps ?? ["7", "8"]), summaryRequests: {}, failScoreboards: opts.failScoreboards ?? 0,
-    scores: opts.scores, scoresAsks: 0, sinces: [], testAlerts: [] };
+    scores: opts.scores, scoresAsks: 0, sinces: [], testAlerts: [], pushPosts: [] };
   await page.route("https://site.api.espn.com/**", async (route) => {
     const id = route.request().url().match(/summary\?event=(\w+)/)?.[1];
     if (id) {
@@ -60,6 +60,10 @@ async function open(page, opts = {}) {
       if (!state.scores) return route.fulfill({ status: 401, body: "Nope", headers });
       if (state.scores === "down") return route.fulfill({ status: 500, body: "Down", headers });
       return route.fulfill({ json: typeof state.scores === "function" ? state.scores(since) : state.scores, headers });
+    }
+    if (req.url().includes("/push/") && req.method() === "POST" && auth === `Bearer ${ADMIN_TOKEN}`) {
+      state.pushPosts.push({ path: new URL(req.url()).pathname.replace(/.*\/push\//, ""), body: JSON.parse(req.postData()) });
+      return route.fulfill({ json: { ok: true }, headers });
     }
     if (req.url().endsWith("/test-alert") && req.method() === "POST" && auth === `Bearer ${ADMIN_TOKEN}`) {
       state.testAlerts.push(JSON.parse(req.postData()).key);
@@ -472,6 +476,52 @@ test.describe("installing on a phone", () => {
     await page.goto("/index.html?admin");
     await expect.poll(() => page.evaluate(async () => (await navigator.serviceWorker.getRegistration())?.active?.scriptURL ?? null))
       .toBe("http://localhost:4173/sw.js");
+  });
+});
+
+test.describe("iPhone notifications", () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+
+  test("in Safari on an iPhone, Enable notifications explains how to add the app first, and stays off", async ({ page }) => {
+    await page.addInitScript(() => Object.defineProperty(Navigator.prototype, "userAgent", { get: () => "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari/604.1" }));
+    await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:1"], pickerOpen: false } });
+    await page.locator("#settings").tap();
+    await page.locator("#notify").tap();
+    await expect(page.locator("#install-help")).toBeVisible();
+    await expect(page.locator("#install-help")).toContainText("Add to Home Screen");
+    await page.locator('#install-help [value="ok"]').tap();
+    await expect(page.locator("#install-help")).toHaveCount(0);
+    await expect(page.locator("#notify")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  test("in the Home Screen app, turning notifications on subscribes the phone with its bells; bells and turning off reach the server", async ({ page, context }) => {
+    await context.grantPermissions(["notifications"]);
+    // Stand-ins for iOS: an installed app, and a push subscription that doesn't need Apple.
+    await page.addInitScript(() => {
+      Object.defineProperty(Navigator.prototype, "standalone", { get: () => true });
+      const sub = { endpoint: "https://web.push.apple.com/phone", toJSON() { return { endpoint: this.endpoint, keys: { p256dh: "BPhone", auth: "auth" } }; },
+        unsubscribe: async () => { window.unsubscribed = true; return true; } };
+      let current = null;
+      PushManager.prototype.getSubscription = async () => current;
+      PushManager.prototype.subscribe = async (options) => { window.subscribedWith = options; current = sub; return sub; };
+      ServiceWorkerRegistration.prototype.showNotification = async (title, options) => { (window.shown ??= []).push({ title, body: options.body }); };
+    });
+    const state = await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:1", "cfb:2"], notifyGames: ["cfb:2"], pickerOpen: false } });
+    await expect(card(page, "cfb:1")).toBeAttached();
+    await page.locator("#settings").tap();
+    await page.locator("#notify").tap();
+    await expect(page.locator("#notify")).toHaveAttribute("aria-pressed", "true");
+    await expect.poll(() => state.pushPosts.map((p) => p.path)).toEqual(["subscribe"]);
+    expect(state.pushPosts[0].body).toEqual({ subscription: { endpoint: "https://web.push.apple.com/phone", keys: { p256dh: "BPhone", auth: "auth" } }, bells: ["cfb:2"] });
+    expect(await page.evaluate(() => window.subscribedWith)).toMatchObject({ userVisibleOnly: true });
+    await expect.poll(() => page.evaluate(() => window.shown)).toEqual([{ title: "Notifications are on", body: expect.any(String) }]);  // shown the iPhone way
+    await page.keyboard.press("Escape");
+    await card(page, "cfb:1").locator(".bell").tap();
+    await expect.poll(() => state.pushPosts.at(-1)).toEqual({ path: "bells", body: { endpoint: "https://web.push.apple.com/phone", bells: ["cfb:2", "cfb:1"] } });
+    await page.locator("#settings").tap();
+    await page.locator("#notify").tap();
+    await expect.poll(() => state.pushPosts.at(-1)).toEqual({ path: "unsubscribe", body: { endpoint: "https://web.push.apple.com/phone" } });
+    await expect.poll(() => page.evaluate(() => window.unsubscribed)).toBe(true);
   });
 });
 
