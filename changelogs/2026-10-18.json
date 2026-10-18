@@ -1,7 +1,7 @@
 {
   "title": "Game Tracker Live: what's new (Oct 10 - Oct 18)",
   "since": "2026-10-10",
-  "through": "da1d4cb",
+  "through": "24475df",
   "features": [
     { "title": "New name: Game Tracker Live", "text": "a red LIVE badge in the logo, page title and link previews.",
       "shots": ["board-grid"] },
@@ -23,7 +23,7 @@
     "The timeout indicator is gone: ESPN's college timeout counts don't reset at halftime, so it was often wrong."
   ],
   "comingSoon": [
-    { "title": "Game notifications", "text": "a bell on each game for alerts on scores, red zone, the two-minute warning and new quarters, including push notifications on iPhone with Game Tracker Live installed to the Home Screen. Scores are moving to a server of our own to drive this. All of it is still being tested and isn't available yet.",
+    { "title": "Game notifications", "text": "a bell on each game for alerts on scores (quoting the scoring play), red zone, the two-minute warning and new quarters, including push notifications on iPhone with Game Tracker Live installed to the Home Screen, where it opens with its own splash screen. Scores are moving to a server of our own to drive this. All of it is still being tested and isn't available yet.",
       "shots": ["admin-board:phone"] }
   ]
 }
