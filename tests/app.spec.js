@@ -653,7 +653,7 @@ test.describe("notifications", () => {
   test("each picked game's row in the game list gets a bell that shows and toggles its notifications", async ({ page }) => {
     await fakeNotifications(page, "granted", "granted");
     await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:1", "cfb:2"], notify: true, pickerOpen: true } });
-    await expect(page.locator("#list .row-bell")).toHaveCount(2);  // picked games only
+    await expect(page.locator("#list .row-bell")).toHaveCount(await page.locator("#list label.game").count());  // every row
     const rowBell = row(page, "cfb:2").locator(".row-bell");
     await expect(rowBell).toHaveAttribute("aria-pressed", "false");
     await expect(rowBell).toHaveCSS("opacity", "0");  // off: only on hover
@@ -665,20 +665,34 @@ test.describe("notifications", () => {
     const lit = row(page, "cfb:2").locator(".row-bell");
     await expect(lit).toHaveCSS("opacity", "1");  // on: always, in yellow
     expect(await lit.evaluate((b) => getComputedStyle(b).color)).toBe(await page.evaluate(() => {
-      const probe = Object.assign(document.createElement("span"), { style: "color: var(--poss)" });
+      const probe = Object.assign(document.createElement("span"), { style: "color: var(--bell-edge)" });
       document.body.append(probe);
       return getComputedStyle(probe).color;
     }));
     await expect(card(page, "cfb:2").locator(".bell")).toHaveAttribute("aria-pressed", "true");
     await expect(row(page, "cfb:2").locator("input")).toBeChecked();  // still picked
     const yellow = await page.evaluate(() => {
-      const probe = Object.assign(document.createElement("span"), { style: "color: var(--poss)" });
+      const probe = Object.assign(document.createElement("span"), { style: "color: var(--bell)" });
       document.body.append(probe);
       return getComputedStyle(probe).color;
     });
     await expect(card(page, "cfb:2").locator(".bell")).toHaveCSS("background-color", yellow);  // lit card bell: yellow
     await card(page, "cfb:2").locator(".bell").click({ force: true });  // and the card's bell turns the row's off
     await expect(row(page, "cfb:2").locator(".row-bell")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  test("an unpicked game's bell shows on hover, and clicking it picks the game and lights its bell", async ({ page }) => {
+    await fakeNotifications(page, "granted", "granted");
+    await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:1"], notify: true, pickerOpen: true } });
+    const bell = row(page, "cfb:3").locator(".row-bell");
+    await expect(bell).toHaveCSS("opacity", "0");
+    await row(page, "cfb:3").hover();
+    await expect(bell).toHaveCSS("opacity", "1");
+    await bell.click();
+    await expect(row(page, "cfb:3").locator("input")).toBeChecked();  // picked
+    await expect(row(page, "cfb:3").locator(".row-bell")).toHaveAttribute("aria-pressed", "true");  // and lit
+    await expect(card(page, "cfb:3").locator(".bell")).toHaveAttribute("aria-pressed", "true");
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("selected")))).toEqual(["cfb:1", "cfb:3"]);
   });
 
   test("a refused permission says so and stays off", async ({ page }) => {

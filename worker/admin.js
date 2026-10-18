@@ -2,7 +2,7 @@
 // js/admin.js. It runs from a blob: URL, so it can't import the app's modules; install() is handed what it needs.
 //
 // - "Enable notifications" in the gear menu, which puts a bell on every card and on each picked game's row in the game
-//   list, where a lit one shows at a glance. A lit bell gets desktop notifications for that game while this page is
+//   list (picked or not: an unpicked game's bell picks it too), where a lit one shows at a glance. A lit bell gets desktop notifications for that game while this page is
 //   open. The program on Cloudflare works out what's news (worker/scorekeeper.js, js/alerts.js) and hands it over with
 //   the scores (onAlerts). Each card also gets a paper-plane button that sends that game a test notification that way.
 //   On an iPhone, notifications work in the Home Screen app (app.push, js/push.js): turning them on there subscribes the
@@ -27,10 +27,22 @@ export function install(appApi) {
   addScoreSource();
   return {
     groupExtras,
-    rowExtras: (g) => (notifying() && app.state.selected.has(g.key) ? bellButton(g, "row-bell") : ""),
+    // Every row gets a bell (unlit ones show on hover): on an unpicked game, it picks the game and lights the bell.
+    rowExtras: (g) => (notifying() ? bellButton(g, "row-bell") : ""),
     onListClick(e) {
       const bellKey = e.target.closest("[data-bell]")?.dataset.bell;
-      if (bellKey) { e.preventDefault(); toggleBell(bellKey); return true; }  // preventDefault: the row's label stays put
+      if (bellKey) {
+        e.preventDefault();  // the row's label stays put; picking is done here
+        if (app.state.selected.has(bellKey)) {
+          toggleBell(bellKey);
+          return true;
+        }
+        app.state.selected.add(bellKey);
+        app.saveSelected();
+        if (!belled().has(bellKey)) toggleBell(bellKey);  // lights it (and redraws)
+        else { app.renderList(); app.renderBoard(); }
+        return true;
+      }
       const button = e.target.closest("[data-bulk]");
       if (!button) return false;
       const add = button.dataset.bulk === "add";

@@ -96,8 +96,8 @@ label.game input:focus-visible ~ .pick { outline: 2px solid var(--accent); outli
    shows while the row is hovered (always, on touch screens, which have no hover). */
 .row-bell { flex: none; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--muted); cursor: pointer; }
 .row-bell:hover, .row-bell:focus-visible { color: var(--text); background: var(--row-hover); }
-.row-bell.on, .row-bell.on:hover { color: var(--poss); }
-.row-bell.on svg { fill: currentColor; }
+.row-bell.on, .row-bell.on:hover { color: var(--bell-edge); }
+.row-bell.on svg { fill: var(--bell); }
 @media (hover: hover) {
   .row-bell:not(.on) { opacity: 0; transition: opacity .15s; }
   label.game:hover .row-bell, .row-bell:focus-visible { opacity: 1; }

@@ -107,7 +107,7 @@ svg.field { width: 100%; display: block; border-radius: 4px; }
 .remove:hover, .remove:focus-visible, .bell:hover, .bell:focus-visible, .test-alert:hover, .test-alert:focus-visible { background: var(--remove-hover); }
 .bell, .test-alert { display: grid; place-items: center; padding: 0; }
 /* Lit: a yellow button (the game list's "on" color) with a filled bell, so a game with notifications stands out. */
-.bell.on, .bell.on:hover, .bell.on:focus-visible { background: var(--poss); color: #000; }
+.bell.on, .bell.on:hover, .bell.on:focus-visible { background: var(--bell); color: #000; }
 .bell.on:hover, .bell.on:focus-visible { filter: brightness(.9); }
 /* With a mouse, float the ✕ in the top-right corner and show it on hover. Touch screens keep it in the footer. */
 @media (hover: hover) {

@@ -3,6 +3,7 @@
 :root {
   --bg: #0f1115; --panel: #181b22; --card: #262a32; --card-border: #323846; --border: #2a2f3a;
   --text: #e8eaed; --strong: #fff; --muted: #8b93a1; --accent: #4c8dff; --red: #ff5a5a; --poss: #f5d000; --live-badge: #e53935;
+  --bell: #f5d000; --bell-edge: #f5d000;  /* a lit notification bell: its fill, and its outline in the game list */
   --row-alt: #1c2029; --row-hover: #262b35; --section: #2d3442; --section-border: #3b4352; --chip: #1c2029;
   --live-section: #3d1e25; --live-border: #61303a; --live-text: #fff;
   --control-hover: #3a404c; --scrollbar: #3a404c; --shadow: rgba(0, 0, 0, .5);
@@ -15,6 +16,7 @@
 :root[data-theme="light"] {
   --bg: #f4f5f7; --panel: #fff; --card: #fff; --card-border: #d7dbe1; --border: #e0e3e8;
   --text: #1c2027; --strong: #000; --muted: #5d6673; --accent: #2f6fe4; --red: #d93636; --poss: #c99a00; --live-badge: #e53935;
+  --bell: #ffc61a; --bell-edge: #9a6f00;  /* bright yellow with a darker edge, so it stands out on white */
   --row-alt: #eceef2; --row-hover: #e2e6ec; --section: #d9dee6; --section-border: #c8cfd9; --chip: #fff;
   --live-section: #fbe2e2; --live-border: #efb3b3; --live-text: #8c1d1d;
   --control-hover: #d3d8df; --scrollbar: #c2c7ce; --shadow: rgba(0, 0, 0, .15);
