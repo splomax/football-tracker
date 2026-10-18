@@ -21,10 +21,14 @@
    distance, instead of in its own column.
 9. **Bell click makes the card's buttons blink.** Clicking the hover bell on a card flickers the buttons around it.
 
-10. **Disable zoom on mobile.** Stop pinch and double-tap zooming on phones.
-11. **List view and Upcoming games should match.** Make the list view's rows and the Upcoming games look alike (one
+10. **List view and Upcoming games should match.** Make the list view's rows and the Upcoming games look alike (one
     styled after the other).
-12. **Test notifications only to admins.** Make sure test notifications (the paper plane and its samples) only ever
+11. **Test notifications only to admins.** Make sure test notifications (the paper plane and its samples) only ever
     reach admin devices, once phones other than admins' can subscribe.
-13. **Notification settings.** Let people choose which events notify them (scores, red zone, two-minute warning,
+12. **Notification settings.** Let people choose which events notify them (scores, red zone, two-minute warning,
     quarters, halftime, final).
+13. **Drop "Enable notifications" when notifications go live for everyone.** The gear-menu item is the admin's switch;
+    once everyone has notifications, it goes (the bells would be how people subscribe).
+14. **Team names in notifications.** Maybe use team names instead of abbreviations ("Chicago @ Atlanta",
+    "Touchdown Chicago"), so notifications read as plain English.
+
