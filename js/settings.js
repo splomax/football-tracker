@@ -35,7 +35,7 @@ function coachOffset(point) {
 }
 
 const COACHES = {
-  ghost: { src: "images/ghost.svg", alt: "A friendly ghost" },  // Halloween only
+  ghost: { src: "images/ghost.png", alt: "A ghost in a football helmet, holding a football" },  // Halloween only
   cignetti: { src: "images/cignetti.png", alt: "Indiana head coach Curt Cignetti" },
   pelini: { src: "images/pelini.png", alt: "Former Nebraska head coach Bo Pelini" },
 };

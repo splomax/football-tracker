@@ -348,7 +348,7 @@ test.describe("Halloween", () => {
     await page.addInitScript(() => { const rolls = [0.1, 0.6, 0.05, 0.6, 0.6]; Math.random = () => rolls.shift() ?? 0.6; });
     await open(page, { halloween: true });
     const coach = page.locator("#coach img");
-    for (const src of ["images/ghost.svg", "images/pelini.png", "images/cignetti.png"]) {
+    for (const src of ["images/ghost.png", "images/pelini.png", "images/cignetti.png"]) {
       await page.locator("#settings").click();
       await page.locator("#google-me").click();
       await expect(coach).toHaveAttribute("src", src);
