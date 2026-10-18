@@ -236,19 +236,10 @@ test("a score's notification shows the scoring team's logo; others leave the pic
   assert.equal(sampleAlert(g, "field-goal").icon, "buf.png");
 });
 
-test("each notification calls the teams by one of ESPN's names, picked at random a third of the time each", (t) => {
-  const named = (over) => game({ ...over,
-    away: { name: "Bears", location: "Chicago", fullName: "Chicago Bears", ...over?.away },
-    home: { name: "Falcons", location: "Atlanta", fullName: "Atlanta Falcons", ...over?.home } });
-  const touchdown = (roll) => {
-    t.mock.method(Math, "random", () => roll);
-    const memo = {};
-    gameAlerts(undefined, named(), memo);
-    const [a] = gameAlerts(named(), named({ away: { score: "7" }, redZone: true, possession: "1" }), memo, 10_000);
-    t.mock.restoreAll();
-    return mergeAlerts([a]);
-  };
-  assert.deepEqual([touchdown(0).title, touchdown(0).body], ["Bears @ Falcons", "TD Bears\nBears 7, Falcons 0"]);
-  assert.equal(touchdown(0.5).body, "TD Chicago\nChicago 7, Atlanta 0");
-  assert.equal(touchdown(0.99).title, "Chicago Bears @ Atlanta Falcons");
+test("notifications call the teams by ESPN's short name", () => {
+  const named = (over) => game({ ...over, away: { name: "Cardinals", ...over?.away }, home: { name: "Rams", ...over?.home } });
+  const memo = {};
+  gameAlerts(undefined, named(), memo);
+  const [a] = gameAlerts(named(), named({ away: { score: "7" } }), memo, 10_000);
+  assert.deepEqual([a.title, a.body], ["Cardinals @ Rams", "TD Cardinals\nCardinals 7, Rams 0"]);
 });

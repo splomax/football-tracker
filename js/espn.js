@@ -61,8 +61,7 @@ function parseEvent(league, e) {
     const c = comp.competitors.find((t) => t.homeAway === ha);
     // conf: a college conference id, or an NFL division name like "AFC East".
     const conf = league === "nfl" ? nflDivisionOf[c.team.abbreviation] : c.team.conferenceId;
-    return { id: c.team.id, abbr: c.team.abbreviation, name: c.team.shortDisplayName || c.team.abbreviation,
-             location: c.team.location, fullName: c.team.displayName, logo: c.team.logo, conf,
+    return { id: c.team.id, abbr: c.team.abbreviation, name: c.team.shortDisplayName || c.team.abbreviation, logo: c.team.logo, conf,
              color: "#" + (c.team.color || "555"), score: c.score, rank: c.curatedRank?.current,
              record: c.records?.find((r) => r.type === "total")?.summary };  // overall W-L, e.g. "4-1"
   };
