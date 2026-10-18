@@ -15,7 +15,7 @@ Live: https://gametrackerlive.com/
 | Grid or list | The button left of the theme switch flips the board between cards (grid) and one row per game (list): logos, ranks, teams and scores around an @ with the down & distance centered underneath and the network (with the recap link once a game has one) under the away team, then the clock. Rows are only as wide as the widest game, all the same width, with their columns lined up. Narrow boards (phones) stack away over home. Phones start in list, everything else in grid; the viewer's choice is remembered in each browser. |
 | Halloween | Every October (decided before the page first draws), the header's football becomes a jack-o'-lantern that turns around its stem when clicked (its face slides round), the loading spinners become jack-o'-lanterns whose faces keep turning, and **google me** shows a ghost one time in four (otherwise the usual coaches). A saved `halloween` value in localStorage (true or false) overrides the date. |
 | Admin | Open the site with `?admin` and enter the admin password. The Worker trades it for a login token that lasts 30 days; only the token is kept in the browser, never the password, and while it works `?admin` skips the password. The admin features only show with `?admin` in the address bar, and it stays there while they're on. Without it a logged-in browser looks like anyone else's, but its visits still aren't counted. `?admin=off` logs out, and changing the password (`npx wrangler secret put ADMIN_PASSWORD`) logs out every browser. The admin isn't counted by the visit counter. In the game list, each section gets **Select all** and **Remove all**, and Selected gets **Remove all** for every pick in the current tab and filters. The gear menu also gets **Enable notifications**, which puts a bell on every card and on each picked game's row in the game list (so lit ones show at a glance, and can be switched there too): a lit bell sends desktop notifications for that game (scores, red-zone trips, two-minute warnings, kickoff, the start and end of each quarter, halftime and the final, each with the score) while the page is open. Turning it on sends a test notification; if that never appears, the system is blocking Chrome (on a Mac: System Settings > Notifications > Google Chrome, or a Focus mode). The gear menu also gets the visit counter's week, month and total counts at the top (read from hits.sh through the Worker at `/api/visits`, fresh each time the menu opens). That code isn't in the public site: the site's Worker (`worker/`) hands it out only to a logged-in admin. |
-| MDS | **MDS** in the gear menu is the only leader highlighting: it underlines the leading team's score, colors its name and score blue and boxes the team in grey, on the cards and in the game list, remembered in that browser. A `?mds` link (any case) also turns on the loud version for that visit, with MDS shown on in the gear menu; switching MDS off there ends the loud version until the next `?mds` visit (switching it back on is just the blue). The loud version: FOOTBALL IS HAPPENING scrolls up the left edge and down the right, with the page fitted between them; the leading team's name turns blue, with a huge red arrow jabbing at it from the side and a small one at its score in the game list (on a phone the big ones point down at the score from above, and the small ones point right at the score from its left); a lead change sets off explosions and a banner; banners shout things like HOLY SHIT every so often (taking turns, overlapping only for a moment); every 8 to 14 seconds a missile flies in from the lower right corner at a leader (in the game list, or on the board when the list is closed); and fireworks go up about every half minute, sometimes two or three at once. It always brings three fake live games, already in progress, beside the visitor's own picks (once ESPN's first answer is in), whose scores swing every few seconds (never saved as picks). It starts calm and builds to full speed over its first 30 seconds. No sound. Its code (`js/mds.js`, `css/mds.css`) only downloads with the link. |
+| MDS | **MDS** in the gear menu is the only leader highlighting: it underlines the leading team's score, colors its name and score blue and boxes the team in grey, on the cards and in the game list, remembered in that browser. |
 | Loading spinner | Add `?loading` to the URL. The page never fetches games, so both loading spinners stay up. It also skips the visit counter. |
 | Test | `npm install` and `npx playwright install webkit` once, then `npm test`. Playwright runs headless in your installed Google Chrome, except the tests tagged `@webkit` (Safari-only bugs, like the scroll position), which run in Playwright's WebKit. `npm run test:worker` tests the Worker. |
 | Deploy | Push to `main`. CI (`.github/workflows/ci.yml`) runs the tests and, if they pass, deploys with `wrangler deploy`: one Cloudflare Worker (`wrangler.toml`) serves the repo's files (minus `.assetsignore`) on gametrackerlive.com, plus the admin API under `/api/`. There is no build step. CI needs the repo secret `CLOUDFLARE_API_TOKEN` (an "Edit Cloudflare Workers" token covering the domain); `npx wrangler deploy` also works by hand. |
@@ -37,10 +37,9 @@ css/
   board.css           board sections, game cards, field, last play, remove button
   corner.css          contact footer, settings gear, coach photo
   mobile.css          phone layout (≤700px): slide-in picker drawer, tighter cards
-  mds.css             the loud MDS's overlay, banners and side scrollers (loaded by js/mds.js)
 js/
   main.js             entry point: wires modules together and polls ESPN every 10s
-  config.js           API URLs, timings, ?admin (login), ADMIN_URL, ?loading, ?mds, ?league and ?game parameters
+  config.js           API URLs, timings, ?admin (login), ADMIN_URL, ?loading, ?league and ?game parameters
   store.js            localStorage wrapper that never throws
   state.js            state shared by picker and board (games, picks, tab, filters, …)
   espn.js             fetches ESPN's scoreboard and normalizes each game
@@ -51,7 +50,7 @@ js/
   field.js            the SVG field on each card
   format.js           small shared HTML helpers (logos, status lines, escaping)
   drawer.js           hiding/showing the picker: desktop side panel, phone drawer
-  settings.js         settings gear, "google me", MDS (leader in blue), the ?mds link and Save board as image
+  settings.js         settings gear, "google me", MDS (leader in blue) and Save board as image
   image.js            Save board as image: the picked games drawn as a list for forums
   alerts.js           what's news in a game between polls (scores, red zone, two-minute warning, quarters), for notifications
   theme.js            light/dark theme and its header switch
@@ -59,7 +58,6 @@ js/
   season.js           the Halloween look (every October): jack-o'-lantern logo, ghost in google me
   logo.js             the football beside the title, which spirals once when clicked
   counter.js          hidden visit counter
-  mds.js              the loud MDS (?mds): arrows, explosions, missiles, fireworks, fake games
 fonts/                Barlow Condensed Bold for the wordmark (self-hosted, SIL Open Font License in OFL.txt)
 images/               coach photos for "google me", favicon, link-preview image
 scripts/
@@ -73,7 +71,6 @@ scripts/
   check-old-address.js  checks that old GitHub Pages links forward to gametrackerlive.com with their query
   publish-pages-redirect.sh  publishes the gh-pages branch, which turns the old GitHub Pages address into that redirect
   preview-leader-styles.js  renders the board with each style considered for marking the leading team
-  preview-mds.js      screenshots the loud MDS (?mds) from the moment it loads
   check-timeouts.js   compares ESPN's live timeout counts with the play log; why cards don't show timeouts
 wrangler.toml         the Cloudflare Worker that serves the site and its admin API, on gametrackerlive.com
 .assetsignore         repo files the site doesn't serve (the Worker's source, tests, tooling)

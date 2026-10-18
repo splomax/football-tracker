@@ -1,10 +1,8 @@
 // Settings gear in the corner. "google me" toggles a coach photo: Curt Cignetti usually, Bo Pelini one time in ten,
 // and at Halloween a ghost one time in four.
-// "MDS" colors the leading team blue. A ?mds link also loads the loud version (js/mds.js) for that visit, until MDS is
-// switched off. "Save board as image" saves the picked games as a list (js/image.js, loaded when first used).
+// "MDS" colors the leading team blue. "Save board as image" saves the picked games as a list (js/image.js, loaded when first used).
 
 import { store } from "./store.js";
-import { MDS_LINK } from "./config.js";
 import { isHalloween } from "./season.js";
 
 const $ = (id) => document.getElementById(id);
@@ -85,24 +83,15 @@ function setBlue(on) {
   store.set("mdsBlue", on);
 }
 
-/** @param {{ mds: object }} hooks  what js/mds.js's start() needs: { state, renderBoard, renderList, setExtraGames, firstPoll } */
-export function initSettings({ mds }) {
+export function initSettings() {
   for (const [who, { src }] of Object.entries(COACHES)) if (who !== "ghost" || isHalloween()) new Image().src = src;  // preload so a swap is instant
   settingsBtn = $("settings");
   settingsMenu = $("settings-menu");
   coach = $("coach");
   googleMe = $("google-me");
   mdsBtn = $("mds-blue");
-  // A ?mds visit shows MDS switched on, with the loud version on top, without changing what's remembered. Switching it
-  // off stops the loud version for the rest of the visit; switching it back on is the plain blue highlighting.
-  let loud = MDS_LINK ? import("./mds.js").then((m) => { m.start(mds); return m; }) : null;
-  mdsBtn.addEventListener("click", () => {
-    const on = mdsBtn.getAttribute("aria-pressed") !== "true";
-    if (!on && loud) { loud.then((m) => m.stop()); loud = null; }
-    setBlue(on);
-  });
-  if (MDS_LINK) { mdsBtn.setAttribute("aria-pressed", true); document.body.classList.add("mds-blue"); }
-  else setBlue(store.get("mdsBlue", false));
+  mdsBtn.addEventListener("click", () => setBlue(mdsBtn.getAttribute("aria-pressed") !== "true"));
+  setBlue(store.get("mdsBlue", false));
 
   settingsBtn.addEventListener("click", (e) => {
     e.stopPropagation();

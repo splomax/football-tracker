@@ -45,7 +45,6 @@ const STATES = {
   "admin-gear-menu": { query: "?admin", storage: { selected: PICKS, view: "grid", pickerOpen: false, ...ADMIN },
     run: async (page) => { await page.click("#settings"); await settle(page, 300); } },
   "admin-login": { query: "?admin", storage: { selected: PICKS, view: "grid", pickerOpen: false }, loggedOut: true },
-  "mds": { query: "?mds", storage: { selected: PICKS, view: "grid", pickerOpen: false }, run: (page) => settle(page, 2500) },
   "halloween": { storage: { selected: PICKS, view: "grid", pickerOpen: false, halloween: true } },
 };
 

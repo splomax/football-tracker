@@ -1,7 +1,7 @@
 // Entry point: wires the modules together and polls ESPN.
 
 import { LINKED_GAMES, LOADING, MOBILE_QUERY, POLL_MS } from "./config.js";
-import { state, allGames, extraGames, setExtraGames } from "./state.js";
+import { state, allGames } from "./state.js";
 import { fetchGames } from "./espn.js";
 import { checkRecaps } from "./recap.js";
 import { renderList, listIsStale, initPicker } from "./picker.js";
@@ -15,8 +15,6 @@ import { loadAdmin, adminPolled } from "./admin.js";
 import { initLogo } from "./logo.js";
 
 let lastUpdated = null;
-let firstPollDone;
-const firstPoll = new Promise((resolve) => { firstPollDone = resolve; });  // settles once the first poll has drawn, either way  // when data last arrived successfully; a failed poll leaves the old time showing
 let linkPending = LINKED_GAMES.length > 0;  // a shared game link's card still needs its highlight once it first shows
 
 async function poll() {
@@ -27,7 +25,7 @@ async function poll() {
       // ESPN now and then answers with an empty week for a moment. Games don't vanish mid-week, so treat that as a
       // failed poll and keep what's showing rather than blanking the list and the board.
       if (!games.length && state.games[league].length) throw new Error("ESPN sent no games; keeping the last ones");
-      state.games[league] = [...games, ...extraGames(league)];
+      state.games[league] = games;
       state.loaded[league] = true;
       lastUpdated = Date.now();
     } catch (err) {
@@ -35,7 +33,6 @@ async function poll() {
     }
   }));
   renderUpdated();
-  firstPollDone();
   // First load renders right away; after that the list waits out LIST_REFRESH_MS so it doesn't shift under your finger.
   if (listIsStale()) renderList();
   renderBoard();
@@ -64,7 +61,7 @@ initBoard({
   onSelectionChanged: () => { renderList(); renderBoard(); },  // a card's ✕ unpicks, so uncheck its row too
 });
 initDrawer({ animateLayout: animateBoardLayout });
-initSettings({ mds: { state, renderBoard, renderList, setExtraGames, firstPoll } });
+initSettings();
 initLogo();
 initTheme({ onChange: () => { renderList(); renderBoard(); } });  // logos differ per theme
 initView({ onChange: renderBoard });

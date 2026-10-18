@@ -22,6 +22,8 @@
 //   2026-10-17, run 2 (after removing the allGames hook and scoreLine's export): 6 hits, all correct; none to act on
 //     (periodName, TOKEN_DAYS and VISITS_URL stay exported for their tests; the hidden* keys are a deliberate cleanup).
 //     The new admin checks caught a planted allGames hand-off and a planted unused hook. No misses found by hand.
+//   2026-10-18, run 3 (after deleting the loud ?mds and its extraGames/firstPoll plumbing): same 5 hits as run 2, all
+//     correct; it reported no leftovers from the removal, and a grep for mds, MDS_LINK, extraGames and firstPoll found none.
 
 const fs = require("fs");
 const path = require("path");

@@ -668,18 +668,9 @@ test.describe("admin login", () => {
 });
 
 test.describe("MDS", () => {
-  const errorsOn = (page) => {
-    const errors = [];
-    page.on("pageerror", (e) => errors.push(String(e)));
-    page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
-    return errors;
-  };
-  const fake = (page) => page.locator('.card[data-key^="cfb:mds-"]');
   const BLUE = { dark: "rgb(74, 134, 255)", light: "rgb(31, 107, 255)" };
 
-  test("the gear menu's MDS colors the leading team's name and score blue in a grey box, remembered; nothing loud loads", async ({ page }) => {
-    const loaded = [];
-    page.on("request", (r) => r.url().includes("mds") && loaded.push(r.url()));
+  test("the gear menu's MDS colors the leading team's name and score blue in a grey box, remembered", async ({ page }) => {
     await open(page, { storage: { selected: ["cfb:1", "cfb:4"] } });
     const away = card(page, "cfb:1").locator(".team.away"), home = card(page, "cfb:1").locator(".team.home");
     await expect(away.locator(".abbr")).not.toHaveCSS("color", BLUE.dark);
@@ -698,78 +689,17 @@ test.describe("MDS", () => {
     await page.locator("#settings").click();
     await page.locator("#mds-blue").click();
     await expect(card(page, "cfb:1").locator(".team.away .pts")).not.toHaveCSS("color", BLUE.dark);
-    expect(loaded).toEqual([]);
-    await expect(page.locator("#mds-canvas")).toHaveCount(0);
   });
 
-  test("?mds, any case, turns on the loud version for the visit, fake games and all, beside the visitor's own picks", async ({ page }) => {
-    const errors = errorsOn(page);
-    await open(page, { query: "?MDS", storage: { selected: ["cfb:1", "cfb:4"] } });
-    await expect(page.locator("body")).toHaveClass(/mds/);
-    await expect(page.locator("#mds-canvas")).toBeAttached();
-    await expect(page.locator(".mds-marquee")).toHaveCount(2);
-    await expect(fake(page)).toHaveCount(3);
-    await expect(card(page, "cfb:1")).toBeVisible();
-    await expect(card(page, "cfb:1").locator(".team.away .abbr")).toHaveCSS("color", /rgb\((31, 107, 255|\d+, \d+, 255)\)/);
-    await page.waitForTimeout(2500);  // missiles at the leaders' rows
-    await page.goto("/index.html");
-    await expect(row(page, "cfb:1")).toBeVisible();
-    await expect(page.locator("body")).not.toHaveClass(/mds/);
-    await expect(fake(page)).toHaveCount(0);
-    expect(errors).toEqual([]);
-  });
-
-  test("with ?mds the gear menu shows MDS on; off ends the loud version for the visit, and on again is just the blue", async ({ page }) => {
-    const errors = errorsOn(page);
+  test("a ?mds link no longer does anything special", async ({ page }) => {
+    const loaded = [];
+    page.on("request", (r) => /mds\.(js|css)/.test(r.url()) && loaded.push(r.url()));
     await open(page, { query: "?mds", storage: { selected: ["cfb:1"] } });
-    await expect(fake(page)).toHaveCount(3);
-    await page.locator("#settings").click();
-    await expect(page.locator("#mds-blue")).toHaveAttribute("aria-pressed", "true");
-    expect(await page.evaluate(() => localStorage.getItem("mdsBlue"))).toBeNull();  // the link alone saves nothing
-    await page.locator("#mds-blue").click();
-    await expect(page.locator("body")).not.toHaveClass(/mds/);
-    await expect(page.locator("#mds-canvas, .mds-marquee, .mds-banner")).toHaveCount(0);
-    await expect(fake(page)).toHaveCount(0);
-    await expect(row(page, "cfb:mds-1")).toHaveCount(0);
-    await expect(card(page, "cfb:1").locator(".team.away .abbr")).not.toHaveCSS("color", BLUE.dark);
-    await page.locator("#mds-blue").click();
-    await expect(card(page, "cfb:1").locator(".team.away .abbr")).toHaveCSS("color", BLUE.dark);
-    await expect(card(page, "cfb:1").locator(".team.away")).toHaveCSS("outline-style", "solid");
-    await page.waitForTimeout(1500);
-    await expect(page.locator("#mds-canvas, .mds-marquee")).toHaveCount(0);  // the loud version stays gone
-    await expect(fake(page)).toHaveCount(0);
-    expect(errors).toEqual([]);
+    await expect(card(page, "cfb:1")).toBeAttached();
+    expect(loaded).toEqual([]);
+    await expect(page.locator("#mds-blue")).toHaveAttribute("aria-pressed", "false");
+    await expect(page.locator("#board .card")).toHaveCount(1);
   });
-
-  test("?mds's fake games wait for ESPN's first answer", async ({ page }) => {
-    let release;
-    const gate = new Promise((r) => { release = r; });
-    const state = await open(page, { query: "?mds", gate });  // ESPN holds its answers until released
-    await page.waitForTimeout(800);
-    await expect(fake(page)).toHaveCount(0);
-    release();
-    await expect(fake(page)).toHaveCount(3);
-    expect(state.espnRequests).toBeGreaterThan(0);
-  });
-
-  test("the fake games' scores change, and they're never saved as picks", async ({ page }) => {
-    test.slow();  // twelve seconds of animation frames on the fake clock
-    await page.clock.install({ time: new Date("2026-10-03T20:00:00Z") });
-    const errors = errorsOn(page);
-    const quiet = cfbGames().filter((e) => e.status.type.state !== "in");
-    await open(page, { query: "?mds", cfb: quiet, nfl: [], storage: { selected: ["cfb:7"] } });
-    await page.clock.runFor(1000);
-    await expect(fake(page)).toHaveCount(3);
-    await expect(row(page, "cfb:mds-1")).toBeVisible();
-    const scores = () => fake(page).locator(".pts").allTextContents();
-    const before = await scores();
-    await page.clock.runFor(12_000);  // three scoring plays, and a poll that must keep them
-    expect(await scores()).not.toEqual(before);
-    await row(page, "cfb:8").click();  // saving picks leaves the fake games out
-    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("selected")))).toEqual(["cfb:7", "cfb:8"]);
-    expect(errors).toEqual([]);
-  });
-
 });
 
 test.describe("game picker", () => {
@@ -1618,15 +1548,6 @@ test.describe("desktop game list panel", () => {
 
 test.describe("mobile", () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
-
-  test("?mds keeps the page and the game list drawer between the side scrollers, with no sideways scrolling", async ({ page }) => {
-    await open(page, { query: "?mds", storage: { selected: ["cfb:1"], pickerOpen: true } });
-    await expect(page.locator(".mds-marquee")).toHaveCount(2);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
-    const drawer = await page.locator("#picker-body").boundingBox();
-    expect(drawer.x).toBe(34);
-    expect(drawer.x + drawer.width).toBeLessThanOrEqual(390 - 34);
-  });
 
   test("with no picks, the board says to tap the Games bar", async ({ page }) => {
     await open(page, { storage: { pickerOpen: false } });
