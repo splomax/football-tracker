@@ -268,6 +268,18 @@ test.describe("Halloween", () => {
     expect(await style(page.locator("#logo .pumpkin"), "animationName")).toBe("none");  // the pumpkin itself stays put
   });
 
+  test("the loading spinners are jack-o'-lanterns too, faces turning", async ({ page }) => {
+    let release;
+    await open(page, { halloween: true, gate: new Promise((r) => (release = r)) });
+    for (const at of ["#list", "#board"]) {
+      await expect(page.locator(`${at} .spinner .pumpkin`)).toBeVisible();
+      await expect(page.locator(`${at} .spinner .ball`)).toBeHidden();
+      expect(await style(page.locator(`${at} .spinner .face`), "animationName")).toBe("pumpkin-turn");
+    }
+    release();
+    await expect(page.locator(".spinner")).toHaveCount(0);
+  });
+
   test("from November 1 it's the football again", async ({ page }) => {
     await page.clock.setFixedTime(new Date("2026-11-01T09:00:00"));
     await open(page, { halloween: null });

@@ -46,7 +46,11 @@ header h1 .hash { height: 4px; margin-top: 3px; background: repeating-linear-gra
    off one side and comes back round from the other, like the football's laces. */
 #logo .pumpkin, [data-season="halloween"] #logo .football { display: none; }
 [data-season="halloween"] #logo .pumpkin { display: block; }
-#logo .face { transform-box: view-box; transform-origin: 32px 38px; }
+#logo .face, .spinner .face { transform-box: view-box; transform-origin: 32px 38px; }
+/* The loading spinners turn into jack-o'-lanterns too, their faces going round and round. */
+.spinner .pumpkin, [data-season="halloween"] .spinner .ball { display: none; }
+[data-season="halloween"] .spinner .pumpkin { display: inline; }
+[data-season="halloween"] .spinner .face { animation: pumpkin-turn .9s linear infinite; }
 [data-season="halloween"] #logo.spiral .face { animation: pumpkin-turn .9s linear; }
 @keyframes pumpkin-turn {
   0% { transform: none; }
