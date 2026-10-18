@@ -54,7 +54,7 @@ export async function listPhones(kv) {
 }
 
 /**
- * Send `message` ({ title, body, key }) to `phones` (every saved phone if left out). A phone whose push service
+ * Send `message` ({ title, body, key, icon? }) to `phones` (every saved phone if left out). A phone whose push service
  * answers 404 or 410 has gone and is forgotten. Resolves with { sent, gone }: how many were sent, and the gone ones'
  * endpoints (so a caller holding its own list can drop them).
  */

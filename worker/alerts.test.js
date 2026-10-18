@@ -6,10 +6,10 @@ import { gameAlerts, mergeAlerts, periodName, sampleAlert, SAMPLE_KINDS } from "
 // A live game as js/espn.js normalizes it; override what each step changes.
 const game = (over = {}) => ({
   key: "nfl:1", state: "in", detail: "10:00 - 1st", clock: "10:00", period: 1, redZone: false, possession: "2",
-  away: { id: "1", abbr: "BUF", score: "0" }, home: { id: "2", abbr: "NE", score: "0" }, ddText: "1st & 10 at NE 30",
+  away: { id: "1", abbr: "BUF", score: "0", logo: "buf.png" }, home: { id: "2", abbr: "NE", score: "0", logo: "ne.png" }, ddText: "1st & 10 at NE 30",
   ...over,
-  ...(over.away && { away: { id: "1", abbr: "BUF", score: "0", ...over.away } }),
-  ...(over.home && { home: { id: "2", abbr: "NE", score: "0", ...over.home } }),
+  ...(over.away && { away: { id: "1", abbr: "BUF", score: "0", logo: "buf.png", ...over.away } }),
+  ...(over.home && { home: { id: "2", abbr: "NE", score: "0", logo: "ne.png", ...over.home } }),
 });
 
 // Feeds the polls through one memo, as the page does; returns each poll's titles.
@@ -32,7 +32,7 @@ test("every notification carries the score and where the game is", () => {
   const memo = {};
   gameAlerts(undefined, game(), memo);
   const [alert] = gameAlerts(game(), game({ away: { score: "3" }, lastPlay: "J.Bass 40 yd field goal", lastPlayScored: true }), memo, 5000);
-  assert.deepEqual(alert, { title: "BUF field goal", body: "BUF 3, NE 0 · 10:00 - 1st\nJ.Bass 40 yd field goal", tag: "nfl:1:score:1:5000", silent: false });
+  assert.deepEqual(alert, { title: "BUF field goal", body: "BUF 3, NE 0 · 10:00 - 1st\nJ.Bass 40 yd field goal", tag: "nfl:1:score:1:5000", silent: false, icon: "buf.png" });
 });
 
 test("scores are named by points, and a touchdown's extra point updates it quietly", () => {
@@ -114,7 +114,7 @@ test("one poll's notifications for a game merge into one, with the score line on
   gameAlerts(undefined, before, memo);
   const after = game({ state: "post", period: 4, clock: "0:00", detail: "Final", home: { score: "23" }, lastPlay: "Kick is good", lastPlayScored: true });
   assert.deepEqual(mergeAlerts(gameAlerts(before, after, memo, 1)),
-    { title: "NE field goal · Final", body: "BUF 0, NE 23 · Final\nKick is good", tag: "nfl:1:score:2:1", silent: false });
+    { title: "NE field goal · Final", body: "BUF 0, NE 23 · Final\nKick is good", tag: "nfl:1:score:2:1", silent: false, icon: "ne.png" });
   assert.equal(mergeAlerts([{ title: "Halftime", body: "x" }]).title, "Halftime");
 });
 
@@ -177,4 +177,13 @@ test("each score is a new notification (its own tag); only a touchdown's quick e
   const first = sampleAlert(g, "field-goal");
   const second = sampleAlert(g, "field-goal");
   assert.notEqual(first.tag, second.tag);
+});
+
+test("a score's notification shows the scoring team's logo; others leave the picture to the default (the football)", () => {
+  const memo = {};
+  gameAlerts(undefined, game(), memo);
+  assert.equal(gameAlerts(game(), game({ home: { score: "7" } }), memo, 1)[0].icon, "ne.png");
+  const g = game({ period: 2, clock: "0:00", detail: "Halftime" });
+  assert.equal(sampleAlert(g, "halftime").icon, undefined);
+  assert.equal(sampleAlert(g, "field-goal").icon, "buf.png");
 });

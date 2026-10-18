@@ -77,7 +77,7 @@ export class ScoreKeeper {
     for (const a of fresh) {
       if (a.test) continue;  // the test button sends those itself (test())
       const phones = this.phones.filter((p) => p.bells.includes(a.key));
-      if (phones.length) await this.send({ title: a.title, body: a.body, key: a.key }, phones);
+      if (phones.length) await this.send({ title: a.title, body: a.body, key: a.key, icon: a.icon }, phones);
     }
   }
 
@@ -95,7 +95,7 @@ export class ScoreKeeper {
       await new Promise((resolve) => setTimeout(resolve, this.testDelay));
       if (!this.phones) await this.loadPhones();
       const belled = this.phones.filter((p) => p.bells.includes(key));
-      if (belled.length) await this.send({ title: alert.title, body: alert.body, key }, belled);
+      if (belled.length) await this.send({ title: alert.title, body: alert.body, key, icon: alert.icon }, belled);
     })());
     return Response.json({ ok: true });
   }

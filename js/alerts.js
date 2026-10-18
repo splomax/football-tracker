@@ -77,9 +77,9 @@ export function gameAlerts(prev, g, memo, now = Date.now()) {
     if (SCORE_KINDS[gained] === "touchdown") {
       // Styled: the game, then what happened, then the new score ("CHI @ ATL" / "TD CHI" / "CHI 7, ATL 0").
       const headline = `TD ${t.abbr}`;
-      alerts.push({ title: matchup(g), body: `${headline}\n${score(g)}`, tag, silent: quiet, headline, score: score(g) });
+      alerts.push({ title: matchup(g), body: `${headline}\n${score(g)}`, tag, silent: quiet, headline, score: score(g), icon: t.logo });
     } else {
-      add(`${t.abbr} ${SCORE_KINDS[gained] ?? `+${gained}`}`, play, { tag, silent: quiet });
+      add(`${t.abbr} ${SCORE_KINDS[gained] ?? `+${gained}`}`, play, { tag, silent: quiet, icon: t.logo });
     }
   }
 
@@ -118,13 +118,13 @@ export function mergeAlerts(alerts) {
   const styled = alerts.find((a) => a.headline);
   if (styled) {
     const happened = alerts.map((a) => a.headline ?? a.title).join(" · ");
-    return { title: styled.title, body: `${happened}\n${styled.score}`, tag: scored.tag, silent: alerts.every((a) => a.silent) };
+    return { title: styled.title, body: `${happened}\n${styled.score}`, tag: scored.tag, silent: alerts.every((a) => a.silent), icon: styled.icon };
   }
   const [line] = alerts[0].body.split("\n");
   return {
     title: alerts.map((a) => a.title).join(" · "),
     body: [line, ...alerts.flatMap((a) => a.body.split("\n").slice(1))].join("\n"),
-    ...(scored && { tag: scored.tag, silent: alerts.every((a) => a.silent) }),
+    ...(scored && { tag: scored.tag, silent: alerts.every((a) => a.silent), icon: scored.icon }),
   };
 }
 

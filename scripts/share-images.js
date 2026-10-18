@@ -1,5 +1,6 @@
 // Regenerates the link-preview image (images/og.png) and the home-screen icons: images/apple-touch-icon.png (180px,
-// iPhone) and images/icon-192.png and icon-512.png (the app manifest, manifest.webmanifest).
+// iPhone) and images/icon-192.png and icon-512.png (the app manifest, manifest.webmanifest); and the notification
+// picture, images/notification-icon.png (the football alone, no background).
 //
 // Usage: start the local server (npm start), then run: node scripts/share-images.js
 //
@@ -15,13 +16,14 @@ const IMAGES = path.join(__dirname, "..", "images");
 const PREVIEW_GAMES = ["cfb:1", "cfb:2", "cfb:4", "nfl:101", "cfb:7", "cfb:5"];
 
 // The favicon is transparent; give the home-screen versions the app's dark background and some padding (the same
-// proportions at every size: the ball is 140/180 of the square).
-async function renderIcon(browser, size, file) {
+// proportions at every size: the ball is 140/180 of the square). The notification picture keeps it transparent and
+// lets the ball fill the square, since a notification shows it small and on its own light or dark background.
+async function renderIcon(browser, size, file, { background = "#0f1115", fill = 140 / 180 } = {}) {
   const page = await browser.newPage({ viewport: { width: size, height: size } });
-  const ball = Math.round(size * 140 / 180), pad = (size - ball) / 2;
-  await page.setContent(`<body style="margin: 0; background: #0f1115"><img src="${SITE}/images/favicon.svg" width="${ball}" height="${ball}" style="margin: ${pad}px"></body>`);
+  const ball = Math.round(size * fill), pad = (size - ball) / 2;
+  await page.setContent(`<body style="margin: 0; background: ${background}"><img src="${SITE}/images/favicon.svg" width="${ball}" height="${ball}" style="margin: ${pad}px"></body>`);
   await page.locator("img").evaluate((img) => img.decode());
-  await page.screenshot({ path: path.join(IMAGES, file) });
+  await page.screenshot({ path: path.join(IMAGES, file), omitBackground: background === "transparent" });
   await page.close();
 }
 
@@ -87,6 +89,7 @@ async function renderPreview(browser) {
     await renderIcon(browser, 180, "apple-touch-icon.png");
     await renderIcon(browser, 192, "icon-192.png");
     await renderIcon(browser, 512, "icon-512.png");
+    await renderIcon(browser, 192, "notification-icon.png", { background: "transparent", fill: 1 });
     await renderPreview(browser);
   } finally {
     await browser.close();

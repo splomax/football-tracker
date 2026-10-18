@@ -1,6 +1,7 @@
 // Game Tracker's service worker: the small script a phone keeps around to receive notifications while the app isn't
 // open (iPhone notifications need the site added to the Home Screen, and this). Registered by js/push.js on admin
-// pages. The server (worker/phones.js) pushes { title, body, key }; this shows it, and tapping it opens the app.
+// pages. The server (worker/phones.js) pushes { title, body, key, icon }; this shows it (with the scoring team's logo
+// for a score, else the football), and tapping it opens the app.
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
@@ -11,7 +12,7 @@ self.addEventListener("push", (event) => {
   try { message = event.data?.json() ?? {}; } catch {}
   event.waitUntil(self.registration.showNotification(message.title || "Game Tracker", {
     body: message.body || "",
-    icon: "/images/apple-touch-icon.png",
+    icon: message.icon || "/images/notification-icon.png",
     tag: message.key ? `${message.key}:${Date.now()}` : undefined,
     data: { key: message.key },
   }));

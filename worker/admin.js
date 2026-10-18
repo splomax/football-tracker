@@ -236,8 +236,9 @@ function testButton(g) {
 
 // Clicking one brings this tab forward with the game's card highlighted. A tag replaces the earlier notification with
 // that tag (a touchdown's, by its extra point); renotify alerts again unless it's meant to be silent.
-function show({ title, body, tag, silent = false }, key) {
-  const options = { body, icon: "images/apple-touch-icon.png", silent, ...(tag && { tag, renotify: !silent }) };
+// The picture: the scoring team's logo for a score, else the football.
+function show({ title, body, tag, silent = false, icon }, key) {
+  const options = { body, icon: icon ?? "images/notification-icon.png", silent, ...(tag && { tag, renotify: !silent }) };
   if (app.push.applies()) return app.push.showHere(title, options);  // the installed app can only show them this way
   const n = new Notification(title, options);
   n.onclick = () => {
