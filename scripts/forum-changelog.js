@@ -7,7 +7,7 @@
 //     commit of the newest changelogs/*.json.
 //
 //   node scripts/forum-changelog.js render changelogs/<date>.json
-//     Shoots the screenshots the notes name and prints the BB code (also saved next to the screenshots, in a temp
+//     Shoots the logo (00-logo.png, centered above the title) and the screenshots the notes name and prints the BB code (also saved next to the screenshots, in a temp
 //     dir printed at the end) for uploading the images to imgur by hand. Needs npm start (and webkit for :phone).
 //
 // The notes file is written by hand from the commits list, as high-level features, not commit messages:
@@ -87,7 +87,8 @@ async function render(notesFile) {
     return s;
   }
 
-  let bb = `[size=5][b]${notes.title}[/b][/size]\n\n`;
+  await logo(path.join(out, "00-logo.png"));
+  let bb = `[center][img]00-logo.png[/img][/center]\n[size=5][b]${notes.title}[/b][/size]\n\n`;
   if (notes.features?.length) bb += `[b]New[/b]\n[list]\n${await items(notes.features)}[/list]\n\n`;
   if (notes.fixes?.length) bb += `[b]Fixes[/b]\n[list]\n${notes.fixes.map((f) => `[*]${f}\n`).join("")}[/list]\n\n`;
   if (notes.comingSoon?.length) {
@@ -96,6 +97,25 @@ async function render(notesFile) {
   fs.writeFileSync(path.join(out, "changelog.bbcode"), bb);
   console.log(bb);
   console.log(`Screenshots and changelog.bbcode in ${out}\nReplace each [img]file[/img] with its imgur link.`);
+}
+
+// The header's football (a jack-o'-lantern in October, as on the site) and wordmark, at twice size for sharp edges.
+async function logo(file) {
+  const { chromium } = require("@playwright/test");
+  const browser = await chromium.launch({ channel: "chrome" });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1300, height: 900 }, deviceScaleFactor: 2, colorScheme: "dark" });
+    await page.route("https://site.api.espn.com/**", (route) => route.abort());
+    await page.goto("http://localhost:4173/");
+    await page.waitForSelector("header h1");
+    await page.waitForTimeout(500);  // web fonts
+    const [a, b] = [await page.locator("#logo").boundingBox(), await page.locator("header h1").boundingBox()];
+    const pad = 12, x = Math.min(a.x, b.x) - pad, y = Math.min(a.y, b.y) - pad;
+    await page.screenshot({ path: file, clip: { x, y,
+      width: Math.max(a.x + a.width, b.x + b.width) + pad - x, height: Math.max(a.y + a.height, b.y + b.height) + pad - y } });
+  } finally {
+    await browser.close();
+  }
 }
 
 const [cmd, arg, value] = process.argv.slice(2);
