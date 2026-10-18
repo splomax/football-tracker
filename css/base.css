@@ -34,8 +34,8 @@ header h1 { display: grid; margin: 0 0 0 -8px; font-family: "Barlow Condensed", 
   text-transform: uppercase; line-height: .92; }
 header h1 .l1 { font-size: 15px; letter-spacing: .16em; color: var(--muted); }
 header h1 .l2 { display: flex; align-items: center; gap: 6px; font-size: 18px; letter-spacing: .05em; }
-/* The badge's padding is less on top than its line height suggests: the font's capitals sit low in their box. */
-header h1 .live { padding: 1.375px 5px 1.625px; border-radius: 4px; background: var(--live-badge); color: #fff; font-size: 11px; letter-spacing: .08em; line-height: 1; }
+/* The badge's text box is trimmed to the capitals (text-box), so equal padding centers LIVE at any pixel density. */
+header h1 .live { padding: 3px 5px; text-box: trim-both cap alphabetic; border-radius: 4px; background: var(--live-badge); color: #fff; font-size: 11px; letter-spacing: .08em; line-height: 1; }
 header h1 .hash { height: 4px; margin-top: 3px; background: repeating-linear-gradient(90deg, var(--muted) 0 1px, transparent 1px 6px); opacity: .7; }
 /* The football; js/logo.js spirals it once on click. */
 #logo { display: flex; padding: 2px; border: 0; border-radius: 6px; background: none; cursor: pointer; }
@@ -117,6 +117,6 @@ main:has(aside.preload), aside.preload { transition: none; }  /* no slide on fir
   text-transform: uppercase; line-height: .92; }
 #splash .l1 { font-size: 24px; letter-spacing: .16em; color: #8b93a1; }
 #splash .l2 { display: flex; align-items: center; gap: 10px; font-size: 32px; letter-spacing: .05em; color: #e8eaed; }
-/* Uneven padding, like the header's badge, to center LIVE in the pill. */
-#splash .live { padding: 1.5px 8px 3.5px; border-radius: 5px; background: #e53935; color: #fff; font-size: 18px; letter-spacing: .08em; line-height: 1; }
+/* Trimmed to the capitals, like the header's badge, so equal padding centers LIVE. */
+#splash .live { padding: 5px 8px; text-box: trim-both cap alphabetic; border-radius: 5px; background: #e53935; color: #fff; font-size: 18px; letter-spacing: .08em; line-height: 1; }
 @keyframes splash-in { from { opacity: 0; transform: scale(.96); } }
