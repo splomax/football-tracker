@@ -100,7 +100,7 @@ function card(g) {
   return `${cardOpen(g)}
     <div class="score">${team(g, g.away, "away", g.home)}<div class="clock">${statusLines(g)}</div>${team(g, g.home, "home", g.away)}</div>
     ${live ? `<div class="dd">${g.ddText || "&nbsp;"}</div>${field(g)}` : ""}
-    <div class="card-foot">
+    <div class="card-foot ${(live && g.lastPlay) || recap || g.network ? "" : "bare"}">
       ${live && g.lastPlay
         ? `<div class="last" data-play="${g.key}" title="${escapeAttr(g.lastPlay)}">${g.lastPlay}</div>`
         : recap

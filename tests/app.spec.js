@@ -1549,6 +1549,17 @@ test.describe("desktop game list panel", () => {
 test.describe("mobile", () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
+  test("in grid view, an upcoming card's ✕ sits beside the scoreboard instead of on a row of its own", async ({ page }) => {
+    await open(page, { storage: { selected: ["cfb:5", "cfb:7"], pickerOpen: false, view: "grid" } });
+    test.skip(await page.evaluate(() => matchMedia("(hover: hover)").matches), "emulated device reports hover");
+    const [score, remove] = await Promise.all([card(page, "cfb:5").locator(".score").boundingBox(), card(page, "cfb:5").locator(".remove").boundingBox()]);
+    expect(remove.y).toBeLessThan(score.y + score.height);  // level with the scoreboard
+    expect(remove.x).toBeGreaterThan(score.x + score.width);  // beside it
+    // A final with a network keeps its footer row for the network.
+    const final = await Promise.all([card(page, "cfb:7").locator(".score").boundingBox(), card(page, "cfb:7").locator(".remove").boundingBox()]);
+    expect(final[1].y).toBeGreaterThan(final[0].y + final[0].height);
+  });
+
   test("a phone on its side (wide but short) gets the phone layout too", async ({ page }) => {
     await page.setViewportSize({ width: 750, height: 342 });
     await open(page, { storage: { selected: ["cfb:1", "cfb:2"], pickerOpen: false } });

@@ -85,6 +85,13 @@
 .dd { text-align: center; font-size: 18px; font-weight: 700; margin: 8px 0 6px; height: 25px; line-height: 25px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 svg.field { width: 100%; display: block; border-radius: 4px; }
 .card-foot { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+/* On touch screens the buttons sit in the footer, always showing. On a Final or Upcoming card where that's all the
+   footer would hold (no recap or network), they move up beside the scoreboard instead of spending a row on their own. */
+@media (hover: none) {
+  .compact .card:has(> .card-foot.bare) { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 10px; }
+  .compact .card-foot.bare { margin: 0; }
+  .compact .card-foot.bare .last { display: none; }
+}
 .net { flex: none; max-width: 40%; color: var(--strong); font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .last { flex: 1; min-width: 0; color: var(--muted); font-size: 12px; height: 17px; line-height: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .recap { color: var(--accent); font-weight: 600; text-decoration: none; }
