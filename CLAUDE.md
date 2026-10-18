@@ -2,6 +2,10 @@
 
 Open work is in `TODO.md`.
 
+**Every UI change is checked in four layouts: mobile grid, mobile list, desktop grid, desktop list**, each with live,
+upcoming and finished games. Share as many styles as possible across them; desktop may differ more on purpose. Check
+all four with `node scripts/screenshot-matrix.js board-grid board-list` before shipping.
+
 Scripts to use instead of redoing the work by hand (details in each file's header comment and README's file list):
 
 - `scripts/test-and-ship.sh "message" files…`: runs all tests (`RUNS=2` for two Playwright runs) and commits and
