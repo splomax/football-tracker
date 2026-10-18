@@ -56,6 +56,9 @@ async function open(page, opts = {}) {
     state.hits++;
     return route.fulfill({ body: "<svg xmlns='http://www.w3.org/2000/svg'/>", contentType: "image/svg+xml" });
   });
+  // Off unless a test asks (opts.halloween: true, or null to let the date decide): the real date would otherwise turn it
+  // on every October, changing the logo and "google me".
+  await page.addInitScript((on) => localStorage.setItem("halloween", JSON.stringify(on)), "halloween" in opts ? opts.halloween : false);
   if (opts.storage) {
     // Seed once per test; later reloads must see what the app itself saved.
     await page.addInitScript((seed) => {
@@ -249,6 +252,43 @@ test.describe("grid and list views", () => {
     await card(page, "cfb:2").locator(".remove").click();
     await expect(card(page, "cfb:2")).toHaveCount(0);
     await expect(row(page, "cfb:2").locator("input")).not.toBeChecked();
+  });
+});
+
+test.describe("Halloween", () => {
+  test("every October the header has a jack-o'-lantern that spins when clicked", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-10-31T20:00:00"));
+    await open(page, { halloween: null });  // no override: the date decides
+    await expect(page.locator("html")).toHaveAttribute("data-season", "halloween");
+    await expect(page.locator("#logo .pumpkin")).toBeVisible();
+    await expect(page.locator("#logo .football")).toBeHidden();
+    await expect(page.locator("#logo")).toHaveAttribute("aria-label", "Spin the jack-o'-lantern");
+    await page.locator("#logo").click();
+    expect(await style(page.locator("#logo .pumpkin"), "animationName")).toBe("pumpkin-spin");
+  });
+
+  test("from November 1 it's the football again", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-11-01T09:00:00"));
+    await open(page, { halloween: null });
+    await expect(page.locator("html")).not.toHaveAttribute("data-season", "halloween");
+    await expect(page.locator("#logo .football")).toBeVisible();
+    await expect(page.locator("#logo .pumpkin")).toBeHidden();
+  });
+
+  test("google me shows a ghost one time in four, and the coaches the rest of the time", async ({ page }) => {
+    // Each showing rolls for the ghost (under .25), then if not, for Pelini (under .1).
+    await page.addInitScript(() => { const rolls = [0.1, 0.6, 0.05, 0.6, 0.6]; Math.random = () => rolls.shift() ?? 0.6; });
+    await open(page, { halloween: true });
+    const coach = page.locator("#coach img");
+    for (const src of ["images/ghost.svg", "images/pelini.png", "images/cignetti.png"]) {
+      await page.locator("#settings").click();
+      await page.locator("#google-me").click();
+      await expect(coach).toHaveAttribute("src", src);
+      await page.waitForTimeout(600);
+      await page.locator("#coach").click();
+      await expect(page.locator("#coach")).toBeHidden();
+      await page.keyboard.press("Escape");
+    }
   });
 });
 

@@ -1,9 +1,11 @@
-// Settings gear in the corner. "google me" toggles a coach photo: Curt Cignetti usually, Bo Pelini one time in ten.
+// Settings gear in the corner. "google me" toggles a coach photo: Curt Cignetti usually, Bo Pelini one time in ten,
+// and at Halloween a ghost one time in four.
 // "MDS" colors the leading team blue. A ?mds link also loads the loud version (js/mds.js) for that visit, until MDS is
 // switched off. "Save board as image" saves the picked games as a list (js/image.js, loaded when first used).
 
 import { store } from "./store.js";
 import { MDS_LINK } from "./config.js";
+import { isHalloween } from "./season.js";
 
 const $ = (id) => document.getElementById(id);
 let settingsBtn, settingsMenu, coach, googleMe, mdsBtn;
@@ -35,6 +37,7 @@ function coachOffset(point) {
 }
 
 const COACHES = {
+  ghost: { src: "images/ghost.svg", alt: "A friendly ghost" },  // Halloween only
   cignetti: { src: "images/cignetti.png", alt: "Indiana head coach Curt Cignetti" },
   pelini: { src: "images/pelini.png", alt: "Former Nebraska head coach Bo Pelini" },
 };
@@ -42,7 +45,8 @@ const COACHES = {
 // Swap in this showing's coach and wait until the new photo can paint; otherwise the previous coach
 // stays on screen for a moment after a swap.
 async function pickCoach() {
-  const { src, alt } = Math.random() < 0.1 ? COACHES.pelini : COACHES.cignetti;
+  // At Halloween a ghost one time in four; otherwise (and the rest of the time) Pelini one time in ten.
+  const { src, alt } = isHalloween() && Math.random() < 0.25 ? COACHES.ghost : Math.random() < 0.1 ? COACHES.pelini : COACHES.cignetti;
   const img = coach.querySelector("img");
   img.alt = alt;
   if (img.getAttribute("src") !== src) {
@@ -83,7 +87,7 @@ function setBlue(on) {
 
 /** @param {{ mds: object }} hooks  what js/mds.js's start() needs: { state, renderBoard, renderList, setExtraGames, firstPoll } */
 export function initSettings({ mds }) {
-  for (const { src } of Object.values(COACHES)) new Image().src = src;  // preload so a swap is instant
+  for (const [who, { src }] of Object.entries(COACHES)) if (who !== "ghost" || isHalloween()) new Image().src = src;  // preload so a swap is instant
   settingsBtn = $("settings");
   settingsMenu = $("settings-menu");
   coach = $("coach");

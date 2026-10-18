@@ -42,6 +42,11 @@ header h1 .hash { height: 4px; margin-top: 3px; background: repeating-linear-gra
 #logo:focus-visible { outline: 2px solid var(--accent); }
 #logo .laces { transform-box: view-box; transform-origin: 32px 32px; }
 #logo.spiral .laces { animation: spiral-once .7s linear; }
+/* Halloween (js/season.js): the jack-o'-lantern instead, which spins all the way round on click. */
+#logo .pumpkin, [data-season="halloween"] #logo .football { display: none; }
+[data-season="halloween"] #logo .pumpkin { display: block; }
+[data-season="halloween"] #logo.spiral .pumpkin { animation: pumpkin-spin .7s ease-in-out; }
+@keyframes pumpkin-spin { to { transform: rotate(360deg); } }
 #panel-toggle { margin: -2px 0; padding: 2px 8px; background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-size: 15px; line-height: 1.3; cursor: pointer; }
 #panel-toggle:hover { color: var(--text); }
 #view-toggle, #theme-toggle { margin: -2px 0; padding: 2px 8px; background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-size: 14px; line-height: 1.3; cursor: pointer; }
