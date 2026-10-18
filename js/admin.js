@@ -8,7 +8,7 @@
 
 import { ADMIN_PARAM, ADMIN_URL } from "./config.js";
 import { store } from "./store.js";
-import { state, saveSelected } from "./state.js";
+import { state, saveSelected, onSelectionSaved } from "./state.js";
 import { renderBoard, setAdmin, highlightCard } from "./board.js";
 import { listView, renderList, setPickerAdmin } from "./picker.js";
 import { useServer, lastSource, pollNow } from "./source.js";
@@ -121,6 +121,7 @@ async function install(code) {
     setAdmin(hooks);
     setPickerAdmin(hooks);
     alerted = hooks.onAlerts ?? alerted;
+    if (hooks.onSelectionSaved) onSelectionSaved(hooks.onSelectionSaved);
     useServer(scoresFromServer);  // from now on this page's scores come from the program on Cloudflare,
     pollNow();                    // starting now
     registerServiceWorker();      // for phone notifications (js/push.js)

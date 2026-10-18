@@ -544,6 +544,8 @@ test.describe("iPhone notifications", () => {
     await page.keyboard.press("Escape");
     await card(page, "cfb:1").locator(".bell").tap();
     await expect.poll(() => state.pushPosts.at(-1)).toEqual({ path: "bells", body: { endpoint: "https://web.push.apple.com/phone", bells: ["cfb:2", "cfb:1"] } });
+    await card(page, "cfb:2").locator(".remove").tap();  // deselecting reaches the server too
+    await expect.poll(() => state.pushPosts.at(-1)).toEqual({ path: "bells", body: { endpoint: "https://web.push.apple.com/phone", bells: ["cfb:1"] } });
     await page.locator("#settings").tap();
     await page.locator("#notify").tap();
     await expect.poll(() => state.pushPosts.at(-1)).toEqual({ path: "unsubscribe", body: { endpoint: "https://web.push.apple.com/phone" } });
@@ -715,6 +717,17 @@ test.describe("notifications", () => {
     await expect(row(page, "cfb:3").locator(".row-bell")).toHaveAttribute("aria-pressed", "true");  // and lit
     await expect(card(page, "cfb:3").locator(".bell")).toHaveAttribute("aria-pressed", "true");
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem("selected")))).toEqual(["cfb:1", "cfb:3"]);
+  });
+
+  test("deselecting a game turns its bell off", async ({ page }) => {
+    await fakeNotifications(page, "granted", "granted");
+    await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:1", "cfb:2"], notify: true, notifyGames: ["cfb:1", "cfb:2"] } });
+    await card(page, "cfb:2").hover();
+    await card(page, "cfb:2").locator(".remove").click();
+    await expect(card(page, "cfb:2")).toHaveCount(0);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("notifyGames")))).toEqual(["cfb:1"]);
+    await row(page, "cfb:2").locator(".pick").click();  // picked again: its bell stays off
+    await expect(card(page, "cfb:2").locator(".bell")).toHaveAttribute("aria-pressed", "false");
   });
 
   test("a refused permission says so and stays off", async ({ page }) => {

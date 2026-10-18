@@ -63,6 +63,7 @@ export function install(appApi) {
     // Left of the ✕ and styled like it, with notifications on: the bell, the test button, and its chooser.
     cardExtras: (g) => (notifying() ? bellButton(g) + testButton(g) + kindChooser(g) : ""),
     onAlerts,
+    onSelectionSaved: dropUnpickedBells,
     onBoardClick(e) {
       const bellKey = e.target.closest("[data-bell]")?.dataset.bell;
       if (bellKey) { toggleBell(bellKey); return true; }
@@ -181,6 +182,15 @@ function toggleBell(key) {
   if (app.push.applies()) app.push.sendBells(lit);  // the server pushes this phone's notifications
   app.renderBoard();
   app.renderList();
+}
+
+// Deselecting a game (its card's ✕, the game list, Remove all) turns its bell off too, on a phone at the server as well.
+function dropUnpickedBells() {
+  const keys = belled();
+  const lit = [...keys].filter((k) => app.state.selected.has(k));
+  if (lit.length === keys.size) return;
+  app.store.set("notifyGames", lit);
+  if (app.push.applies()) app.push.sendBells(lit);
 }
 
 // On an iPhone in Safari: notifications only work in the Home Screen app, so say how to get there.

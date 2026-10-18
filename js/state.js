@@ -3,6 +3,10 @@
 import { store } from "./store.js";
 import { LEAGUE_PARAM, LINKED_GAMES } from "./config.js";
 
+// Declared before anything below saves picks (a ?game= link does, while this module loads).
+let selectionSaved = () => {};  // the admin's notifications, which drop the bells of games no longer picked (js/admin.js)
+export const onSelectionSaved = (fn) => { selectionSaved = fn; };
+
 export const state = {
   games: { nfl: [], cfb: [] },                             // latest parsed games per league
   loaded: { nfl: false, cfb: false },                      // whether ESPN has answered for the league yet
@@ -44,6 +48,7 @@ function loadFilters() {
 
 export function saveSelected() {
   store.set("selected", [...state.selected]);
+  selectionSaved();
 }
 
 export const allGames = () => [...state.games.cfb, ...state.games.nfl];
