@@ -67,6 +67,7 @@ scripts/
   preview-images.js   renders Save board as image from the test fixtures, to check its look by eye
   test-and-ship.sh    runs every test and commits and pushes only if they all pass
   find-unused.js      lists code that looks unused, for review by hand
+  screenshot-matrix.js  shoots every feature state on desktop and iPhone, side by side, for comparing them
   check-local-admin.js  logs in against the Worker running locally (wrangler dev), to check the admin login path
   check-live-site.sh  checks the deployed site: pages load, private files are 404, www. redirects, the admin API refuses
   check-old-address.js  checks that old GitHub Pages links forward to gametrackerlive.com with their query
