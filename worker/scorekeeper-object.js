@@ -75,7 +75,7 @@ export class ScoreKeeper {
     this.sentThrough = fresh.at(-1).id;
     if (!this.phones) await this.loadPhones();
     for (const a of fresh) {
-      if (a.forced) continue;
+      if (a.test) continue;  // the test button sends those itself (test())
       const phones = this.phones.filter((p) => p.bells.includes(a.key));
       if (phones.length) await this.send({ title: a.title, body: a.body, key: a.key }, phones);
     }
@@ -89,11 +89,13 @@ export class ScoreKeeper {
   test(key, kind) {
     const alert = this.keeper.test(key, kind);
     if (!alert) return Response.json({ ok: false }, { status: 404 });
-    // Pages pick it up with their next update; every phone gets it pushed, a little later.
+    // Pages pick it up with their next update; phones whose bells include the game get it pushed, a little later. A
+    // test follows the bells like a real notification, so it shows exactly what someone subscribed would get.
     this.ctx.waitUntil((async () => {
       await new Promise((resolve) => setTimeout(resolve, this.testDelay));
       if (!this.phones) await this.loadPhones();
-      await this.send({ title: alert.title, body: alert.body, key }, this.phones);
+      const belled = this.phones.filter((p) => p.bells.includes(key));
+      if (belled.length) await this.send({ title: alert.title, body: alert.body, key }, belled);
     })());
     return Response.json({ ok: true });
   }

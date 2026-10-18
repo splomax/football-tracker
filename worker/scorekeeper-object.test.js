@@ -72,14 +72,14 @@ test("a phone's bell on a live game keeps it fetching, and each notification goe
   assert.deepEqual(s.pushed, []);  // nothing new, nothing sent
 });
 
-test("the test button reaches every phone; a phone Apple says is gone is dropped", async (t) => {
-  const s = await setUp(t, { phones: { a: [], gone: [] } });
+test("the test button reaches only phones whose bells include the game; a phone Apple says is gone is dropped", async (t) => {
+  const s = await setUp(t, { phones: { a: ["cfb:9"], gone: ["cfb:9"], unbelled: ["cfb:1"] } });
   s.espn.cfb = [live("cfb:9")];
   await s.req("/");
   assert.equal((await s.req("/test", { method: "POST", body: JSON.stringify({ key: "cfb:9" }) })).status, 200);
   await s.settle();
-  assert.deepEqual(s.pushed.sort(), ["a", "gone"]);
-  assert.equal((await s.kv.list({ prefix: "phone:" })).keys.length, 1);
+  assert.deepEqual(s.pushed.sort(), ["a", "gone"]);  // not "unbelled", whose bells don't include the game
+  assert.equal((await s.kv.list({ prefix: "phone:" })).keys.length, 2);  // "gone" forgotten
   s.pushed.length = 0;
   await s.req("/test", { method: "POST", body: JSON.stringify({ key: "cfb:9" }) });
   await s.settle();

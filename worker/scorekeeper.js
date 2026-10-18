@@ -26,7 +26,7 @@ export class ScoreKeeper {
     this.games = { cfb: [], nfl: [] };
     this.last = new Map();   // game key -> the game at the last update
     this.memos = new Map();  // game key -> what js/alerts.js remembers about it between updates
-    this.alerts = [];        // { id, key, title, body, tag?, silent?, forced?, at }, oldest first
+    this.alerts = [];        // { id, key, title, body, tag?, silent?, test?, at }, oldest first (test: from the test button)
     this.nextId = 1;
     this.polledAt = -Infinity;  // never
     this.askedAt = -Infinity;
@@ -92,7 +92,7 @@ export class ScoreKeeper {
   }
 
   /**
-   * The admin's test button: a notification for this game, sent the same way as real ones, bell or not: a sample of
+   * The admin's test button: a notification for this game, sent the same way as real ones (to lit bells only): a sample of
    * `kind` (js/alerts.js SAMPLE_KINDS, for styling them) or, by default, a plain test. Returns it (the Durable Object
    * also pushes it to phones, worker/scorekeeper-object.js), or null for a game it doesn't know.
    */
@@ -100,7 +100,7 @@ export class ScoreKeeper {
     const g = [...this.games.cfb, ...this.games.nfl].find((x) => x.key === key);
     if (!g) return null;
     const sample = sampleAlert(g, kind) ?? { title: "Test notification", body: `${scoreLine(g)}\nSent through the Game Tracker server` };
-    this.add({ key, ...sample, forced: true });
+    this.add({ key, ...sample, test: true });
     return this.alerts.at(-1);
   }
 

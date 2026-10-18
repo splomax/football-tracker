@@ -639,7 +639,7 @@ test.describe("notifications", () => {
     await expect(card(page, "cfb:77").locator(".test-kind")).toHaveValue("halftime");
   });
 
-  test("the program's notifications show for a lit bell's game, not an unlit one's; a test notification always shows", async ({ page }) => {
+  test("the program's notifications show for a lit bell's game, not an unlit one's, test notifications included", async ({ page }) => {
     await page.clock.install({ time: new Date("2026-10-03T20:00:00Z") });
     await fakeNotifications(page, "granted", "granted");
     const alerts = [];
@@ -648,14 +648,15 @@ test.describe("notifications", () => {
     expect(state.sinces[0]).toBe(null);  // a page just opening asks for no old notifications
     alerts.push({ key: "cfb:77", title: "MICH touchdown", body: "ILL 17, MICH 21 · 6:06 - 3rd\nPass for 30 yards" },
       { key: "cfb:78", title: "OSU field goal", body: "OSU 27, IOWA 6 · 6:06 - 3rd" },  // unlit bell
-      { key: "cfb:78", title: "Test notification", body: "OSU 24, IOWA 6 · 6:06 - 3rd\nSent through the Game Tracker server", forced: true });
+      { key: "cfb:78", title: "Test notification", body: "OSU 24, IOWA 6 · 6:06 - 3rd\nSent through the Game Tracker server", test: true },  // unlit too
+      { key: "cfb:77", title: "Test notification", body: "ILL 17, MICH 14 · 6:06 - 3rd\nSent through the Game Tracker server", test: true });
     await page.clock.runFor(10_000);
     await expect.poll(() => sent(page)).toEqual([
       { title: "MICH touchdown", body: "ILL 17, MICH 21 · 6:06 - 3rd\nPass for 30 yards" },
-      { title: "Test notification", body: "OSU 24, IOWA 6 · 6:06 - 3rd\nSent through the Game Tracker server" },
+      { title: "Test notification", body: "ILL 17, MICH 14 · 6:06 - 3rd\nSent through the Game Tracker server" },
     ]);
     await page.clock.runFor(10_000);
-    await expect.poll(() => state.sinces.at(-1)).toBe("3");  // it then asks only for newer ones
+    await expect.poll(() => state.sinces.at(-1)).toBe("4");  // it then asks only for newer ones
     expect(await sent(page)).toHaveLength(2);
   });
 

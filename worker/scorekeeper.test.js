@@ -99,8 +99,8 @@ test("the test button sends that game a notification marked as a test; an unknow
   assert.equal(keeper.test("cfb:9").title, "Test notification");
   assert.equal(keeper.test("cfb:404"), null);
   const [alert] = (await keeper.ask(cursor)).alerts;
-  assert.deepEqual({ key: alert.key, title: alert.title, body: alert.body, forced: alert.forced },
-    { key: "cfb:9", title: "Test notification", body: "OSU 3, IU 0 · 10:00 - 1st\nSent through the Game Tracker server", forced: true });
+  assert.deepEqual({ key: alert.key, title: alert.title, body: alert.body, test: alert.test },
+    { key: "cfb:9", title: "Test notification", body: "OSU 3, IU 0 · 10:00 - 1st\nSent through the Game Tracker server", test: true });
 });
 
 test("it fetches every 10 seconds while a page is watching or a phone's bell is on a live or about-to-start game, every 15 minutes for later games, and not at all otherwise", async () => {
@@ -151,5 +151,5 @@ test("the test button can send a sample of one kind instead of the plain test", 
   const { cursor } = await keeper.ask(null);
   assert.equal(keeper.test("cfb:9", "halftime").title, "Halftime");
   assert.equal(keeper.test("cfb:9").title, "Test notification");
-  assert.deepEqual((await keeper.ask(cursor)).alerts.map((a) => [a.title, a.forced]), [["Halftime", true], ["Test notification", true]]);
+  assert.deepEqual((await keeper.ask(cursor)).alerts.map((a) => [a.title, a.test]), [["Halftime", true], ["Test notification", true]]);
 });

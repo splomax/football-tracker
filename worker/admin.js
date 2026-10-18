@@ -201,11 +201,11 @@ function explainInstall() {
   dialog.showModal();
 }
 
-// Notifications from the program on Cloudflare: those for picked games with a lit bell, and any test notification.
+// Notifications from the program on Cloudflare, tests included: those for picked games with a lit bell.
 function onAlerts(alerts) {
   if (!notifying() || app.push.applies()) return;  // the installed app gets its notifications pushed by the server
   const keys = belled();
-  for (const a of alerts) if (a.forced || (keys.has(a.key) && app.state.selected.has(a.key))) show(a, a.key);
+  for (const a of alerts) if (keys.has(a.key) && app.state.selected.has(a.key)) show(a, a.key);
 }
 
 // A paper plane: send this game a test notification through the program on Cloudflare.
