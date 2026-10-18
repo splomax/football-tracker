@@ -26,13 +26,18 @@ run_worker_first = true
 name = "SCORES"
 class_name = "ScoreKeeper"
 
+# Every 15 minutes, nudge the program (worker/index.js scheduled): after a deploy, nothing else would start the new code
+# for phones waiting on a game.
+[triggers]
+crons = ["*/15 * * * *"]
+
 # The phones that turned on notifications, and their bells (worker/phones.js). KV, so they survive deploys.
 [[kv_namespaces]]
 binding = "PUSH"
 id = "42cd3d2358094401929c99a2b50aa4f1"
 
-# The deployed version's id (env.VERSION.id), so each deploy talks to a fresh copy of the program (worker/handler.js):
-# a copy that pages keep busy would otherwise go on running the code it started with.
+# The deployed version's id (env.VERSION.id). Requests to the program carry it, and a program still running older code
+# resets itself (worker/handler.js keeperFetch): pages and phones keep it busy, so it wouldn't restart on its own.
 [version_metadata]
 binding = "VERSION"
 

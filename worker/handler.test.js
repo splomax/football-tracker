@@ -102,7 +102,7 @@ test("a token gets the visit counts from the counter; the password and no token 
 const fakeScores = () => {
   const asked = [];
   return { asked, idFromName: (name) => name, get: (id) => ({ fetch: async (url, init = {}) => {
-    asked.push({ id, url: String(url), method: init.method ?? "GET", body: init.body });
+    asked.push({ id, url: String(url), method: init.method ?? "GET", body: init.body, version: init.headers?.["X-Version"] });
     return Response.json(String(url).endsWith("/test") ? { ok: true } : { games: { cfb: [], nfl: [] }, confNames: {}, alerts: [], cursor: 0 });
   } }) };
 };
@@ -116,7 +116,7 @@ test("a token gets the games and notifications from the program, passing on sinc
   const res = await api("GET", "/api/games?since=12", token, undefined, withScores);
   assert.equal(res.status, 200);
   assert.deepEqual(Object.keys(await res.json()), ["games", "confNames", "alerts", "cursor"]);
-  assert.deepEqual([SCORES.asked[0].id, SCORES.asked[0].url], ["scores-dev", "https://scorekeeper/?since=12"]);
+  assert.deepEqual([SCORES.asked[0].id, SCORES.asked[0].url], ["scores", "https://scorekeeper/?since=12"]);
   await api("GET", "/api/games", token, undefined, withScores);
   assert.equal(SCORES.asked[1].url, "https://scorekeeper/");
   assert.equal((await api("GET", "/api/games", null, undefined, withScores)).status, 401);
@@ -128,18 +128,30 @@ test("a token sends a game a test notification through the program", async () =>
   const SCORES = fakeScores(), withScores = { ...env, SCORES };
   const token = await tokenFor();
   assert.equal((await api("POST", "/api/test-alert", token, JSON.stringify({ key: "cfb:1" }), withScores)).status, 200);
-  assert.deepEqual(SCORES.asked[0], { id: "scores-dev", url: "https://scorekeeper/test", method: "POST", body: JSON.stringify({ key: "cfb:1" }) });
+  assert.deepEqual(SCORES.asked[0], { id: "scores", url: "https://scorekeeper/test", method: "POST", body: JSON.stringify({ key: "cfb:1" }), version: "" });
   assert.equal((await api("POST", "/api/test-alert", token, "not json", withScores)).status, 400);
   assert.equal((await api("POST", "/api/test-alert", null, JSON.stringify({ key: "cfb:1" }), withScores)).status, 401);
   assert.equal(SCORES.asked.length, 1);
 });
 
-test("each deployed version gets its own copy of the program, so a deploy never leaves old code running", async () => {
-  const SCORES = fakeScores();
-  const token = await tokenFor();
-  await api("GET", "/api/games", token, undefined, { ...env, SCORES, VERSION: { id: "v1" } });
-  await api("GET", "/api/games", token, undefined, { ...env, SCORES, VERSION: { id: "v2" } });
-  assert.deepEqual(SCORES.asked.map((a) => a.id), ["scores-v1", "scores-v2"]);
+test("every request to the program carries the deployed version, and one an outdated program refuses is tried again", async () => {
+  let resets = 1;
+  const asked = [];
+  const SCORES = { idFromName: (name) => name, get: (id) => ({ fetch: async (url, init) => {
+    asked.push([id, init.headers["X-Version"]]);
+    if (resets-- > 0) throw new Error("newer code deployed");  // the old program resetting itself
+    return Response.json({ games: { cfb: [], nfl: [] }, confNames: {}, alerts: [], cursor: 0 });
+  } }) };
+  const res = await api("GET", "/api/games", await tokenFor(), undefined, { ...env, SCORES, VERSION: { id: "v2" } });
+  assert.equal(res.status, 200);
+  assert.deepEqual(asked, [["scores", "v2"], ["scores", "v2"]]);
+});
+
+test("a phone's change tells the program to reload its list of phones", async () => {
+  const PUSH = fakeKv(), SCORES = fakeScores();
+  const subscription = { endpoint: "https://web.push.apple.com/abc", keys: { p256dh: "BPhone", auth: "auth" } };
+  await api("POST", "/api/push/subscribe", await tokenFor(), JSON.stringify({ subscription, bells: [] }), { ...env, PUSH, SCORES });
+  assert.deepEqual(SCORES.asked.map((a) => a.url), ["https://scorekeeper/phones"]);
 });
 
 test("a token lets a phone turn notifications on, change its bells and turn them off; nobody else", async () => {

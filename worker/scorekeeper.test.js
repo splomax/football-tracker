@@ -101,3 +101,36 @@ test("the test button sends that game a notification marked as a test; an unknow
   assert.deepEqual({ key: alert.key, title: alert.title, body: alert.body, forced: alert.forced },
     { key: "cfb:9", title: "Test notification", body: "OSU 3, IU 0 · 10:00 - 1st\nSent through the Game Tracker server", forced: true });
 });
+
+test("it fetches every 10 seconds while a page is watching or a phone's bell is on a live or about-to-start game, every 15 minutes for later games, and not at all otherwise", async () => {
+  const at = (mins) => new Date(1_000_000 + mins * 60_000);
+  const { keeper, tick } = keeperWith({ cfb: [
+    live("cfb:live"),
+    { ...live("cfb:soon"), state: "pre", date: at(10) },
+    { ...live("cfb:later"), state: "pre", date: at(120) },
+    { ...live("cfb:over"), state: "post" },
+  ] });
+  await keeper.poll();  // fetched, but no page has asked
+  const wake = (bells) => keeper.nextWake([{ bells }]);
+  assert.equal(wake([]), null);
+  assert.equal(wake(["cfb:over"]), null);
+  assert.equal(wake(["cfb:later"]), 15 * 60_000);
+  assert.equal(wake(["cfb:later", "cfb:soon"]), POLL_MS);
+  assert.equal(wake(["cfb:live"]), POLL_MS);
+  assert.equal(wake(["cfb:unknown"]), 15 * 60_000);  // not fetched yet: look again soon
+  assert.equal(keeper.nextWake([]), null);
+  await keeper.ask();
+  assert.equal(keeper.nextWake([]), POLL_MS);  // a page is watching
+  tick(IDLE_MS);
+  assert.equal(keeper.nextWake([]), null);
+});
+
+test("since(id) lists the notifications after id, for sending to phones", async () => {
+  const { keeper, espn, tick } = keeperWith({ nfl: [live("nfl:1")] });
+  await keeper.poll();
+  espn.nfl = [live("nfl:1", { home: { id: "2", abbr: "NE", score: "7" } })];
+  tick(POLL_MS);
+  await keeper.poll();
+  assert.deepEqual(keeper.since(0).map((a) => a.title), ["NE touchdown"]);
+  assert.deepEqual(keeper.since(1), []);
+});

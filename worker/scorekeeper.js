@@ -4,14 +4,17 @@
 // Object (ScoreKeeper, worker/index.js), so there's a single copy; this file is plain code so Node tests can drive it
 // (worker/scorekeeper.test.js).
 //
-// It only works while someone is watching: every POLL_MS while an admin page has asked within IDLE_MS, then it stops,
-// which keeps it inside Cloudflare's free plan. The next ask starts it again.
+// It works only when someone could want it (nextWake), which keeps it inside Cloudflare's free plan: every POLL_MS while
+// an admin page has asked within IDLE_MS, or while a phone has a lit bell on a game that's live or starts within
+// SOON_MS; every IDLE_CHECK_MS while phones have bells on later games (to notice kickoffs); otherwise not at all.
 
 import { fetchGames, confNames } from "../js/espn.js";
 import { gameAlerts, mergeAlerts, scoreLine } from "../js/alerts.js";
 
 export const POLL_MS = 10_000;
 export const IDLE_MS = 2 * 60_000;
+export const SOON_MS = 15 * 60_000;
+export const IDLE_CHECK_MS = 15 * 60_000;
 const KEEP_ALERTS = 200;  // the most recent notifications kept for pages to catch up on
 
 export class ScoreKeeper {
@@ -85,8 +88,30 @@ export class ScoreKeeper {
     return this.alerts.at(-1);
   }
 
-  /** Whether to keep going: a page asked within IDLE_MS. */
+  /** Whether a page asked within IDLE_MS. */
   get watched() {
     return this.now() - this.askedAt < IDLE_MS;
+  }
+
+  /**
+   * How long until the next fetch, or null for none: POLL_MS while watched or while a phone's lit bell is on a game
+   * that's live or starts within SOON_MS; IDLE_CHECK_MS while phones' bells are on later games (or games it hasn't
+   * fetched yet); null when no phone has a bell on a game still to come.
+   * @param {{ bells: string[] }[]} phones
+   */
+  nextWake(phones) {
+    if (this.watched) return POLL_MS;
+    const bells = new Set(phones.flatMap((p) => p.bells));
+    if (!bells.size) return null;
+    const known = [...this.games.cfb, ...this.games.nfl].filter((g) => bells.has(g.key));
+    if (known.length < bells.size) return IDLE_CHECK_MS;  // some it hasn't seen: fetch to find out
+    const now = this.now();
+    if (known.some((g) => g.state === "in" || (g.state === "pre" && new Date(g.date) - now < SOON_MS))) return POLL_MS;
+    return known.some((g) => g.state === "pre") ? IDLE_CHECK_MS : null;
+  }
+
+  /** The notifications after `id`, for sending to phones. */
+  since(id) {
+    return this.alerts.filter((a) => a.id > id);
   }
 }

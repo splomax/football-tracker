@@ -54,22 +54,26 @@ export async function listPhones(kv) {
 }
 
 /**
- * Send `message` ({ title, body, key }) to each phone `wanted(phone)` picks (all, by default). A phone whose push
- * service answers 404 or 410 has gone and is forgotten. Resolves with how many were sent.
+ * Send `message` ({ title, body, key }) to `phones` (every saved phone if left out). A phone whose push service
+ * answers 404 or 410 has gone and is forgotten. Resolves with { sent, gone }: how many were sent, and the gone ones'
+ * endpoints (so a caller holding its own list can drop them).
  */
-export async function sendToPhones(env, message, wanted = () => true) {
-  if (!env.PUSH || !env.VAPID_PRIVATE_KEY) return 0;
+export async function sendToPhones(env, message, phones) {
+  if (!env.PUSH || !env.VAPID_PRIVATE_KEY) return { sent: 0, gone: [] };
   const vapid = { privateJwk: JSON.parse(env.VAPID_PRIVATE_KEY), subject: SUBJECT };
   let sent = 0;
-  for (const phone of (await listPhones(env.PUSH)).filter(wanted)) {
+  const gone = [];
+  for (const phone of phones ?? await listPhones(env.PUSH)) {
     try {
       const status = await sendPush(phone.subscription, message, vapid);
-      if (status === 404 || status === 410) await removePhone(env.PUSH, phone.subscription.endpoint);
-      else if (status >= 200 && status < 300) sent++;
+      if (status === 404 || status === 410) {
+        await removePhone(env.PUSH, phone.subscription.endpoint);
+        gone.push(phone.subscription.endpoint);
+      } else if (status >= 200 && status < 300) sent++;
       else console.error("push", status, new URL(phone.subscription.endpoint).origin);
     } catch (err) {
       console.error("push", err);
     }
   }
-  return sent;
+  return { sent, gone };
 }

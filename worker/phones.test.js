@@ -42,8 +42,9 @@ test("sending reaches the phones picked, and forgets one whose push service says
   for (const [k, v] of kv.data) kv.data.set(k, JSON.stringify({ ...JSON.parse(v), subscription: { ...JSON.parse(v).subscription, keys: { p256dh, auth: "AAAAAAAAAAAAAAAAAAAAAA" } } }));
   const vapid = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign"]);
   const env = { PUSH: kv, VAPID_PRIVATE_KEY: JSON.stringify(await crypto.subtle.exportKey("jwk", vapid.privateKey)) };
-  const sent = await sendToPhones(env, { title: "t", body: "b", key: "cfb:1" }, (phone) => phone.bells.includes("cfb:1"));
-  assert.equal(sent, 1);
+  const belled = (await listPhones(kv)).filter((phone) => phone.bells.includes("cfb:1"));
+  const result = await sendToPhones(env, { title: "t", body: "b", key: "cfb:1" }, belled);
+  assert.deepEqual(result, { sent: 1, gone: [sub(3).endpoint] });
   assert.deepEqual(asked.sort(), [sub(1).endpoint, sub(3).endpoint]);  // not phone 2, whose bells don't include it
   assert.deepEqual((await listPhones(kv)).map((p) => p.subscription.endpoint).sort(), [sub(1).endpoint, sub(2).endpoint]);  // 3 forgotten
 });

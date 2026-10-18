@@ -63,20 +63,17 @@ export async function handle(request, env, code, now = Date.now()) {
     const { weekly, monthly, total } = await res.json();
     return reply(JSON.stringify({ weekly, monthly, total }), 200, { "Content-Type": "application/json" });
   }
-  // One copy of the program per deployed version, found by name. A copy that admin pages keep asking never restarts, so
-  // it would go on running the code it started with; a new deploy starts a new copy instead, and the old one goes idle.
-  const keeper = () => env.SCORES.get(env.SCORES.idFromName(`scores-${env.VERSION?.id ?? "dev"}`));
   if (route === "GET /api/games") {
     if (!(await validToken(given, env.ADMIN_PASSWORD, now))) return reply("Log in again", 401);
     const since = url.searchParams.get("since");
-    const res = await keeper().fetch(`https://scorekeeper/${since ? `?since=${encodeURIComponent(since)}` : ""}`);
+    const res = await keeperFetch(env, `/${since ? `?since=${encodeURIComponent(since)}` : ""}`);
     return reply(await res.text(), res.status, { "Content-Type": "application/json" });
   }
   if (route === "POST /api/test-alert") {
     if (!(await validToken(given, env.ADMIN_PASSWORD, now))) return reply("Log in again", 401);
     const { key } = await request.json().catch(() => ({}));
     if (typeof key !== "string") return reply("Which game?", 400);
-    const res = await keeper().fetch("https://scorekeeper/test", { method: "POST", body: JSON.stringify({ key }) });
+    const res = await keeperFetch(env, "/test", { method: "POST", body: JSON.stringify({ key }) });
     return reply(await res.text(), res.status, { "Content-Type": "application/json" });
   }
   // Phones turning notifications on and off, and their bells (worker/phones.js).
@@ -88,7 +85,9 @@ export async function handle(request, env, code, now = Date.now()) {
       : route === "POST /api/push/unsubscribe" ? (await removePhone(env.PUSH, body.endpoint), true)
       : null;
     if (ok === null) return reply("Not found", 404);
-    return ok ? reply('{"ok":true}', 200, { "Content-Type": "application/json" }) : reply("Not a phone, or not its bells", 400);
+    if (!ok) return reply("Not a phone, or not its bells", 400);
+    await keeperFetch(env, "/phones").catch((err) => console.error("phones", err));  // the program reloads its list
+    return reply('{"ok":true}', 200, { "Content-Type": "application/json" });
   }
   return reply("Not found", 404);
 }
@@ -115,4 +114,20 @@ async function sameText(a, b) {
   const hash = async (s) => new Uint8Array(await crypto.subtle.digest("SHA-256", encode(s)));
   const [x, y] = await Promise.all([hash(a), hash(b)]);
   return x.reduce((diff, byte, i) => diff | (byte ^ y[i]), 0) === 0;
+}
+
+/**
+ * Ask the program (the ScoreKeeper Durable Object, worker/index.js): one instance, found by name. Each request carries
+ * the deployed version; an instance still running older code (pages and phones keep it busy, so it never restarts on
+ * its own) resets itself and throws, and the request is tried once more, on the new code.
+ */
+export async function keeperFetch(env, path, init = {}) {
+  const ask = () => env.SCORES.get(env.SCORES.idFromName("scores")).fetch(`https://scorekeeper${path}`,
+    { ...init, headers: { ...init.headers, "X-Version": env.VERSION?.id ?? "" } });
+  try {
+    return await ask();
+  } catch (err) {
+    console.error("scorekeeper, retrying", err);
+    return ask();
+  }
 }
