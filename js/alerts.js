@@ -26,15 +26,25 @@ export function periodName(period) {
 }
 
 /** "OSU 24, IOWA 6 · 2:00 - 4th": both scores, away first, and where the game is. */
-export function scoreLine(g) {
-  return `${score(g)} · ${g.detail}`;
+export function scoreLine(g, nameOf = abbr) {
+  return `${score(g, nameOf)} · ${g.detail}`;
 }
 
 /** "OSU 24, IOWA 6": both scores, away first. */
-const score = (g) => `${g.away.abbr} ${g.away.score}, ${g.home.abbr} ${g.home.score}`;
+const score = (g, nameOf) => `${nameOf(g.away)} ${g.away.score}, ${nameOf(g.home)} ${g.home.score}`;
 
 /** "CHI @ ATL": the game, away first. */
-const matchup = (g) => `${g.away.abbr} @ ${g.home.abbr}`;
+const matchup = (g, nameOf) => `${nameOf(g.away)} @ ${nameOf(g.home)}`;
+
+// What a notification calls the teams. While we try them out, each notification picks one of ESPN's names at random,
+// a third of the time each: "Bears" / "Ohio State", "Chicago" / "Ohio State", "Chicago Bears" / "Ohio State Buckeyes".
+// A team without that name (as in the tests) gets its abbreviation.
+const abbr = (t) => t.abbr;
+const NAMINGS = ["name", "location", "fullName"];
+function pickNaming() {
+  const field = NAMINGS[Math.floor(Math.random() * NAMINGS.length)];
+  return (t) => t[field] || t.abbr;
+}
 
 const seconds = (clock) => {
   const [m, s] = String(clock ?? "").split(":").map(Number);
@@ -57,7 +67,8 @@ export function gameAlerts(prev, g, memo, now = Date.now()) {
     return [];
   }
   const alerts = [];
-  const add = (title, extra, more = {}) => alerts.push({ title, body: [scoreLine(g), extra].filter(Boolean).join("\n"), ...more });
+  const nameOf = pickNaming();
+  const add = (title, extra, more = {}) => alerts.push({ title, body: [scoreLine(g, nameOf), extra].filter(Boolean).join("\n"), ...more });
   const endOf = (period) => {
     memo.ended = period;
     add(period === 2 ? "Halftime" : `End of the ${periodName(period)}`);
@@ -80,7 +91,7 @@ export function gameAlerts(prev, g, memo, now = Date.now()) {
   // Styled: the game, then what happened, then the new score ("CHI @ ATL" / "TD CHI" / "CHI 7, ATL 0"). Each score gets
   // its own tag, so it shows as a new notification: a repeated tag only replaces the earlier one, out of sight.
   const styled = (headline, t) => {
-    const alert = { title: matchup(g), body: `${headline}\n${score(g)}`, tag: `${g.key}:score:${t.id}:${now}`, headline, score: score(g), icon: t.logo };
+    const alert = { title: matchup(g, nameOf), body: `${headline}\n${score(g, nameOf)}`, tag: `${g.key}:score:${t.id}:${now}`, headline, score: score(g, nameOf), icon: t.logo };
     alerts.push(alert);
     return alert;
   };
@@ -96,13 +107,13 @@ export function gameAlerts(prev, g, memo, now = Date.now()) {
       if (tryFor) memo.pendingTry = null;
     } else if (gained === 2 && tryFor) {
       memo.pendingTry = null;
-      styled(`2-pt conversion ${t.abbr}`, t);
+      styled(`2-pt conversion ${nameOf(t)}`, t);
     } else if (SCORE_KINDS[gained] === "touchdown") {
       // +6 waits for its try; +7 already has the extra point; +8 had the 2-point conversion.
-      touchdown = styled(gained === 8 ? `TD ${t.abbr} · 2-pt conversion` : `TD ${t.abbr}`, t);
+      touchdown = styled(gained === 8 ? `TD ${nameOf(t)} · 2-pt conversion` : `TD ${nameOf(t)}`, t);
       if (gained === 6) memo.pendingTry = { team: t.id, at: now };
     } else {
-      add(`${t.abbr} ${SCORE_KINDS[gained] ?? `+${gained}`}`, play, { tag: `${g.key}:score:${t.id}:${now}`, icon: t.logo });
+      add(`${nameOf(t)} ${SCORE_KINDS[gained] ?? `+${gained}`}`, play, { tag: `${g.key}:score:${t.id}:${now}`, icon: t.logo });
     }
   }
 
@@ -119,7 +130,7 @@ export function gameAlerts(prev, g, memo, now = Date.now()) {
       touchdown.body = `${touchdown.headline}\n${touchdown.score}`;
     } else if (missed) {
       memo.pendingTry = null;
-      styled(`${missed} ${t.abbr}`, t);
+      styled(`${missed} ${nameOf(t)}`, t);
     }
   }
 
@@ -128,7 +139,7 @@ export function gameAlerts(prev, g, memo, now = Date.now()) {
   if (g.state === "in" && g.redZone && g.possession && !memo.redZoneTeam) {
     memo.redZoneTeam = g.possession;
     const t = g.possession === g.home.id ? g.home : g.away;
-    add(`${t.abbr} in the red zone`, g.ddText);
+    add(`${nameOf(t)} in the red zone`, g.ddText);
   }
 
   // The 2nd and 4th quarters' clock running past 2:00 (the NFL's two-minute warning, and college's two-minute timeout).

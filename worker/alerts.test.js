@@ -198,7 +198,7 @@ test("a touchdown reads: the game, then TD and the team, then the new score; wit
 });
 
 test("each sample kind reads exactly like a real notification of that kind, and only that one", () => {
-  const g = game({ period: 3, clock: "6:06", detail: "6:06 - 3rd", away: { id: "1", abbr: "HOU", name: "Houston", score: "31" }, home: { id: "2", abbr: "JAX", score: "28" } });
+  const g = game({ period: 3, clock: "6:06", detail: "6:06 - 3rd", away: { id: "1", abbr: "HOU", score: "31" }, home: { id: "2", abbr: "JAX", score: "28" } });
   const titles = Object.fromEntries(Object.keys(SAMPLE_KINDS).map((k) => [k, sampleAlert(g, k)?.title ?? null]));
   assert.deepEqual(titles, {
     test: null, touchdown: "HOU @ JAX", "missed-pat": "HOU @ JAX", "two-point": "HOU @ JAX", "failed-two-point": "HOU @ JAX", "field-goal": "HOU field goal", "red-zone": "HOU in the red zone",
@@ -234,4 +234,21 @@ test("a score's notification shows the scoring team's logo; others leave the pic
   const g = game({ period: 2, clock: "0:00", detail: "Halftime" });
   assert.equal(sampleAlert(g, "halftime").icon, undefined);
   assert.equal(sampleAlert(g, "field-goal").icon, "buf.png");
+});
+
+test("each notification calls the teams by one of ESPN's names, picked at random a third of the time each", (t) => {
+  const named = (over) => game({ ...over,
+    away: { name: "Bears", location: "Chicago", fullName: "Chicago Bears", ...over?.away },
+    home: { name: "Falcons", location: "Atlanta", fullName: "Atlanta Falcons", ...over?.home } });
+  const touchdown = (roll) => {
+    t.mock.method(Math, "random", () => roll);
+    const memo = {};
+    gameAlerts(undefined, named(), memo);
+    const [a] = gameAlerts(named(), named({ away: { score: "7" }, redZone: true, possession: "1" }), memo, 10_000);
+    t.mock.restoreAll();
+    return mergeAlerts([a]);
+  };
+  assert.deepEqual([touchdown(0).title, touchdown(0).body], ["Bears @ Falcons", "TD Bears\nBears 7, Falcons 0"]);
+  assert.equal(touchdown(0.5).body, "TD Chicago\nChicago 7, Atlanta 0");
+  assert.equal(touchdown(0.99).title, "Chicago Bears @ Atlanta Falcons");
 });

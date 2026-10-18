@@ -22,8 +22,6 @@
     quarters, halftime, final).
 10. **Drop "Enable notifications" when notifications go live for everyone.** The gear-menu item is the admin's switch;
     once everyone has notifications, it goes (the bells would be how people subscribe).
-11. **Team names in notifications.** Maybe use team names instead of abbreviations ("Chicago @ Atlanta",
-    "Touchdown Chicago"), so notifications read as plain English.
-12. **Score alignment in the game list.** Scores don't line up from card to card (a Final card's sit further left
+11. **Score alignment in the game list.** Scores don't line up from card to card (a Final card's sit further left
     than the live ones').
-13. **Remove "List view" and "Light mode" from the gear menu.**
+12. **Remove "List view" and "Light mode" from the gear menu.**
