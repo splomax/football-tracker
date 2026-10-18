@@ -28,3 +28,5 @@
 13. **Recap link in list view.** It looks great on grid cards but out of place in list rows.
 14. **Bigger team logos, and check their alignment.** Grid view looks bad on desktop and mobile; list view is fine on
     both.
+15. **Line-by-line code walkthrough.** Go through the code reviewing how readable it is to a person and whether its
+    organization is intuitive.

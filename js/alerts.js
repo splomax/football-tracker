@@ -25,15 +25,15 @@ export function periodName(period) {
   return period <= 4 ? `${nth(period)} quarter` : period === 5 ? "overtime" : `${nth(period - 4)} overtime`;
 }
 
-/** "OSU 24, IOWA 6 · 2:00 - 4th": both scores, away first, and where the game is. */
+/** "Ohio State 24, Iowa 6 · 2:00 - 4th": both scores, away first, and where the game is. */
 export function scoreLine(g) {
   return `${score(g)} · ${g.detail}`;
 }
 
-/** "OSU 24, IOWA 6": both scores, away first. */
+/** "Ohio State 24, Iowa 6": both scores, away first. */
 const score = (g) => `${nameOf(g.away)} ${g.away.score}, ${nameOf(g.home)} ${g.home.score}`;
 
-/** "CHI @ ATL": the game, away first. */
+/** "Cardinals @ Rams": the game, away first. */
 const matchup = (g) => `${nameOf(g.away)} @ ${nameOf(g.home)}`;
 
 // What a notification calls the teams: ESPN's short name ("Cardinals", "Ohio State"), or the abbreviation without one.
