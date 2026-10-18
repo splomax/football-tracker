@@ -12,6 +12,8 @@
   } catch {
     document.documentElement.dataset.theme = "dark";
   }
+  // Opened as the Home Screen app: show the splash screen (below) until the first scores are in (js/main.js).
+  if (matchMedia("(display-mode: standalone)").matches || navigator.standalone) document.documentElement.dataset.app = "installed";
   // The Halloween look, through October (js/season.js). A saved "halloween" (true or false) overrides the date.
   try {
     if (JSON.parse(localStorage.getItem("halloween")) ?? new Date().getMonth() === 9) document.documentElement.dataset.season = "halloween";
@@ -41,6 +43,11 @@
 <script type="module" src="js/main.js"></script>
 </head>
 <body>
+<!-- The splash screen, only for the Home Screen app (data-app, set above); js/main.js fades it out. -->
+<div id="splash" aria-hidden="true">
+  <img class="ball" src="images/favicon.svg" alt=""><img class="pumpkin" src="images/pumpkin.svg" alt="">
+  <div class="wordmark"><span class="l1">Game</span><span class="l2">Tracker <span class="live">Live</span></span></div>
+</div>
 <header>
   <button id="panel-toggle" aria-label="Hide game list" title="Hide game list" aria-expanded="true" aria-controls="picker-body">☰</button>
   <!-- Wordmark: the spinner's football, standing still (click it and it spirals once, js/logo.js), then the name on

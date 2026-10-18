@@ -468,6 +468,22 @@ test.describe("installing on a phone", () => {
     }
   });
 
+  test("opened as the Home Screen app, a splash screen shows until the first scores are in; in a browser it never shows", async ({ page }) => {
+    await page.addInitScript(() => Object.defineProperty(Navigator.prototype, "standalone", { get: () => true }));
+    let release;
+    await open(page, { gate: new Promise((r) => (release = r)), storage: { selected: ["cfb:1"] } });
+    await expect(page.locator("#splash")).toBeVisible();
+    await expect(page.locator("#splash .wordmark")).toHaveText(/Game\s*Tracker\s*Live/i);
+    release();
+    await expect(page.locator("#splash")).toHaveCount(0);  // faded out and removed
+    await expect(card(page, "cfb:1")).toBeVisible();
+  });
+
+  test("in a browser tab there's no splash screen", async ({ page }) => {
+    await open(page, { storage: { selected: ["cfb:1"] } });
+    await expect(page.locator("#splash")).toBeHidden();
+  });
+
   test("admin pages register the service worker that will receive phone notifications; other pages don't", async ({ page }) => {
     await open(page, { storage: { selected: ["cfb:1"] } });
     await expect(card(page, "cfb:1")).toBeAttached();

@@ -103,3 +103,18 @@ main:has(aside.preload), aside.preload { transition: none; }  /* no slide on fir
 #admin-login .buttons, #install-help .buttons { display: flex; justify-content: flex-end; gap: 8px; }
 #admin-login button, #install-help button { padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px; background: none; color: var(--text); font: inherit; cursor: pointer; }
 #admin-login button[value="ok"], #install-help button[value="ok"] { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+/* The Home Screen app's splash screen (index.html): the logo and wordmark on the dark background, faded out by
+   js/main.js once the first scores are in. Dark whatever the theme, matching the app's icon and launch color. */
+#splash { display: none; }
+[data-app="installed"] #splash { position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 22px; background: #0f1115; transition: opacity .4s ease; animation: splash-in .5s ease-out; }
+#splash.done { opacity: 0; pointer-events: none; }
+#splash img { width: 96px; height: 96px; }
+#splash .pumpkin, [data-season="halloween"] #splash .ball { display: none; }
+[data-season="halloween"] #splash .pumpkin { display: block; }
+#splash .wordmark { display: grid; justify-items: center; font-family: "Barlow Condensed", "Arial Narrow", sans-serif; font-weight: 700;
+  text-transform: uppercase; line-height: .92; }
+#splash .l1 { font-size: 24px; letter-spacing: .16em; color: #8b93a1; }
+#splash .l2 { display: flex; align-items: center; gap: 10px; font-size: 32px; letter-spacing: .05em; color: #e8eaed; }
+#splash .live { padding: 3px 8px 2px; border-radius: 5px; background: #e53935; color: #fff; font-size: 18px; letter-spacing: .08em; line-height: 1; }
+@keyframes splash-in { from { opacity: 0; transform: scale(.96); } }

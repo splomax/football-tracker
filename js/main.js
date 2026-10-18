@@ -18,6 +18,20 @@ import { initLogo } from "./logo.js";
 let lastUpdated = null;
 let linkPending = LINKED_GAMES.length > 0;  // a shared game link's card still needs its highlight once it first shows
 
+// The Home Screen app's splash screen (index.html): fade it out once the first scores have drawn, after at least
+// SPLASH_MIN_MS so it doesn't just flash, and after SPLASH_MAX_MS at most if ESPN is slow.
+const SPLASH_MIN_MS = 600, SPLASH_MAX_MS = 3000;
+const splashShown = performance.now();
+function hideSplash() {
+  const splash = document.getElementById("splash");
+  if (!splash || splash.classList.contains("done")) return;
+  setTimeout(() => {
+    splash.classList.add("done");
+    splash.addEventListener("transitionend", () => splash.remove(), { once: true });
+  }, Math.max(0, SPLASH_MIN_MS - (performance.now() - splashShown)));
+}
+setTimeout(hideSplash, SPLASH_MAX_MS);
+
 async function poll() {
   if (LOADING) return;
   const fromServer = serverSource() && await pollServer();
@@ -27,6 +41,7 @@ async function poll() {
   // First load renders right away; after that the list waits out LIST_REFRESH_MS so it doesn't shift under your finger.
   if (listIsStale()) renderList();
   renderBoard();
+  hideSplash();
   const linked = linkPending && LINKED_GAMES.find((k) => document.querySelector(`.card[data-key="${k}"]`));
   if (linked) { linkPending = false; highlightCard(linked); }
   if (await checkRecaps(allGames().filter((g) => state.selected.has(g.key)))) renderBoard();
