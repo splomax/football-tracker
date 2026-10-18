@@ -12,6 +12,7 @@ import { state, saveSelected } from "./state.js";
 import { renderBoard, setAdmin, highlightCard } from "./board.js";
 import { listView, renderList, setPickerAdmin } from "./picker.js";
 import { useServer, lastSource, pollNow } from "./source.js";
+import { registerServiceWorker } from "./push.js";
 
 /**
  * Check the admin login, and with ?admin turn the admin's features on (asking for the password if needed).
@@ -116,6 +117,7 @@ async function install(code) {
     alerted = hooks.onAlerts ?? alerted;
     useServer(scoresFromServer);  // from now on this page's scores come from the program on Cloudflare,
     pollNow();                    // starting now
+    registerServiceWorker();      // for phone notifications (js/push.js)
     return true;
   } catch (err) {
     console.error("admin", err);

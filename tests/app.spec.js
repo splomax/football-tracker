@@ -449,6 +449,32 @@ const serverGame = (key, away, home, over = {}) => ({ key, date: "2026-10-03T19:
 const SERVER = { games: { nfl: [], cfb: [serverGame("cfb:77", serverTeam("356", "ILL", "17"), serverTeam("130", "MICH", "14"))] }, confNames: { 5: "Big Ten" },
   alerts: [], cursor: 0 };
 
+test.describe("installing on a phone", () => {
+  test("the app manifest names the app, shows it full screen, and its icons exist", async ({ page, request }) => {
+    await open(page);
+    const href = await page.locator('link[rel="manifest"]').getAttribute("href");
+    const manifest = await (await request.get(`/${href}`)).json();
+    expect(manifest).toMatchObject({ name: "Game Tracker Live", short_name: "Game Tracker", display: "standalone" });
+    expect(manifest.start_url).toBeUndefined();  // so the app opens on the page it was added from, like /?admin
+    for (const icon of manifest.icons) {
+      const res = await request.get(`/${icon.src}`);
+      expect(res.status(), icon.src).toBe(200);
+      const png = await res.body();
+      expect(`${png.readUInt32BE(16)}x${png.readUInt32BE(20)}`, icon.src).toBe(icon.sizes);
+    }
+  });
+
+  test("admin pages register the service worker that will receive phone notifications; other pages don't", async ({ page }) => {
+    await open(page, { storage: { selected: ["cfb:1"] } });
+    await expect(card(page, "cfb:1")).toBeAttached();
+    expect(await page.evaluate(() => navigator.serviceWorker.getRegistration())).toBeUndefined();
+    await page.evaluate((token) => localStorage.setItem("adminToken", JSON.stringify(token)), ADMIN_TOKEN);
+    await page.goto("/index.html?admin");
+    await expect.poll(() => page.evaluate(async () => (await navigator.serviceWorker.getRegistration())?.active?.scriptURL ?? null))
+      .toBe("http://localhost:4173/sw.js");
+  });
+});
+
 test.describe("scores from the program on Cloudflare", () => {
   const sourceLine = async (page) => { await page.locator("#settings").click(); return page.locator("#score-source"); };
 

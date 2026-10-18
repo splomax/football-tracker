@@ -13,7 +13,9 @@ if [ $# -ge 1 ]; then OPTS+=(--resolve "$SITE:443:$1" --resolve "www.$SITE:443:$
 status() { curl "${OPTS[@]}" -o /dev/null -w '%{http_code}' "$@"; }
 
 echo "should be 200 (the site):"
-for p in / /js/main.js /images/og.png; do printf "  %-20s %s\n" "$p" "$(status "https://$SITE$p")"; done
+for p in / /js/main.js /images/og.png /manifest.webmanifest /sw.js /images/icon-512.png; do printf "  %-20s %s\n" "$p" "$(status "https://$SITE$p")"; done
+echo "content types (the manifest and service worker need these to work):"
+for p in /manifest.webmanifest /sw.js; do printf "  %-20s %s\n" "$p" "$(curl "${OPTS[@]}" -o /dev/null -w "%{content_type}" "https://$SITE$p")"; done
 echo "should be 404 (not part of the site):"
 for p in /worker/admin.js /worker/handler.js /worker/scorekeeper.js /package.json /wrangler.toml /tests/app.spec.js; do
   printf "  %-20s %s\n" "$p" "$(status "https://$SITE$p")"

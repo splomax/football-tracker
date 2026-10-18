@@ -1,5 +1,5 @@
-// Regenerates the link-preview image (images/og.png) and the home-screen icon
-// (images/apple-touch-icon.png).
+// Regenerates the link-preview image (images/og.png) and the home-screen icons: images/apple-touch-icon.png (180px,
+// iPhone) and images/icon-192.png and icon-512.png (the app manifest, manifest.webmanifest).
 //
 // Usage: start the local server (npm start), then run: node scripts/share-images.js
 //
@@ -14,12 +14,15 @@ const SITE = "http://localhost:4173";
 const IMAGES = path.join(__dirname, "..", "images");
 const PREVIEW_GAMES = ["cfb:1", "cfb:2", "cfb:4", "nfl:101", "cfb:7", "cfb:5"];
 
-async function renderIcon(browser) {
-  const page = await browser.newPage({ viewport: { width: 180, height: 180 } });
-  // The favicon is transparent; give the home-screen version the app's dark background and some padding.
-  await page.setContent(`<body style="margin: 0; background: #0f1115"><img src="${SITE}/images/favicon.svg" width="140" height="140" style="margin: 20px"></body>`);
+// The favicon is transparent; give the home-screen versions the app's dark background and some padding (the same
+// proportions at every size: the ball is 140/180 of the square).
+async function renderIcon(browser, size, file) {
+  const page = await browser.newPage({ viewport: { width: size, height: size } });
+  const ball = Math.round(size * 140 / 180), pad = (size - ball) / 2;
+  await page.setContent(`<body style="margin: 0; background: #0f1115"><img src="${SITE}/images/favicon.svg" width="${ball}" height="${ball}" style="margin: ${pad}px"></body>`);
   await page.locator("img").evaluate((img) => img.decode());
-  await page.screenshot({ path: path.join(IMAGES, "apple-touch-icon.png") });
+  await page.screenshot({ path: path.join(IMAGES, file) });
+  await page.close();
 }
 
 // A screenshot of the app filled with the test fixtures instead of live ESPN data, so it comes out the same every time.
@@ -81,7 +84,9 @@ async function renderPreview(browser) {
 (async () => {
   const browser = await chromium.launch({ channel: "chrome" });
   try {
-    await renderIcon(browser);
+    await renderIcon(browser, 180, "apple-touch-icon.png");
+    await renderIcon(browser, 192, "icon-192.png");
+    await renderIcon(browser, 512, "icon-512.png");
     await renderPreview(browser);
   } finally {
     await browser.close();
