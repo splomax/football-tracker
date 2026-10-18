@@ -95,3 +95,43 @@ test("a token gets the visit counts from the counter; the password and no token 
     globalThis.fetch = realFetch;
   }
 });
+
+// A stand-in for the GameHub Durable Object namespace: records what it's asked and answers like hub.js.
+const fakeHub = () => {
+  const asked = [];
+  return {
+    asked,
+    idFromName: (name) => name,
+    get: () => ({ fetch: async (url, init = {}) => {
+      asked.push({ url: String(url), method: init.method ?? "GET", body: init.body });
+      return Response.json(String(url).includes("/feed") ? { games: { cfb: [], nfl: [] }, confNames: {}, alerts: [], cursor: 0 } : { ok: true });
+    } }),
+  };
+};
+const api = (method, path, auth, body, envOverride) => handle(
+  new Request(`https://site.example${path}`, { method, headers: auth != null ? { Authorization: `Bearer ${auth}` } : {}, body }),
+  envOverride, "", NOW);
+
+test("a token gets the backend's game feed, passing on since; nobody else does", async () => {
+  const HUB = fakeHub(), withHub = { ...env, HUB };
+  const token = await tokenFor();
+  const res = await api("GET", "/api/games?since=12", token, undefined, withHub);
+  assert.equal(res.status, 200);
+  assert.deepEqual(Object.keys(await res.json()), ["games", "confNames", "alerts", "cursor"]);
+  assert.equal(HUB.asked[0].url, "https://hub/feed?since=12");
+  assert.equal((await api("GET", "/api/games", token, undefined, withHub)).status, 200);
+  assert.equal(HUB.asked[1].url, "https://hub/feed?since=");
+  assert.equal((await api("GET", "/api/games", null, undefined, withHub)).status, 401);
+  assert.equal((await api("GET", "/api/games", env.ADMIN_PASSWORD, undefined, withHub)).status, 401);
+  assert.equal(HUB.asked.length, 2);
+});
+
+test("a token sends a test notification for a game through the feed", async () => {
+  const HUB = fakeHub(), withHub = { ...env, HUB };
+  const token = await tokenFor();
+  assert.equal((await api("POST", "/api/test-alert", token, JSON.stringify({ key: "cfb:1" }), withHub)).status, 200);
+  assert.deepEqual(HUB.asked[0], { url: "https://hub/test", method: "POST", body: JSON.stringify({ key: "cfb:1" }) });
+  assert.equal((await api("POST", "/api/test-alert", token, "not json", withHub)).status, 400);
+  assert.equal((await api("POST", "/api/test-alert", null, JSON.stringify({ key: "cfb:1" }), withHub)).status, 401);
+  assert.equal(HUB.asked.length, 1);
+});

@@ -1,9 +1,6 @@
 // App-wide constants.
 
-export const LEAGUES = {
-  nfl: "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard",
-  cfb: "https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=80&limit=300",
-};
+export { LEAGUES } from "./leagues.js";
 
 export const POLL_MS = 10000;
 export const LIST_REFRESH_MS = 30000;  // the picker list refreshes less often than the board so it doesn't shift under your finger

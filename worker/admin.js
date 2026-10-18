@@ -2,14 +2,15 @@
 // js/admin.js. It runs from a blob: URL, so it can't import the app's modules; install() is handed what it needs.
 //
 // - "Enable notifications" in the gear menu, which puts a bell on every card and on each picked game's row in the game
-//   list, where a lit one shows at a glance. A lit bell gets desktop notifications for that game (js/alerts.js says
-//   what's news), while this page is open.
+//   list, where a lit one shows at a glance. A lit bell gets desktop notifications for that game while this page is
+//   open. The backend works out what's news (worker/hub.js, js/alerts.js) and hands it over with the games (onAlerts).
+//   Each card also gets a test button, which sends that game a notification through the backend.
 // - The visit counter's weekly, monthly and total counts atop the gear menu, fetched each time it opens.
 // - In the game list, a row of bulk buttons atop each section: Live, Upcoming and Final get "Select all" (every game
 //   the section shows) and "Remove all" (that state's picked games, which sit under Selected); Selected gets
 //   "Remove all" (every picked game in the current tab and filters).
 
-let app;  // { renderBoard, renderList, listView, state, saveSelected, visits, store, highlightCard, gameAlerts, mergeAlerts } from js/admin.js
+let app;  // { renderBoard, renderList, listView, state, saveSelected, visits, store, highlightCard, testAlert } from js/admin.js
 
 /** Returns the hooks for js/board.js's setAdmin. */
 export function install(appApi) {
@@ -33,12 +34,14 @@ export function install(appApi) {
       app.renderBoard();
       return true;
     },
-    // Left of the ✕ and styled like it, with notifications on.
-    cardExtras: (g) => (notifying() ? bellButton(g) : ""),
-    onPoll,
+    // Left of the ✕ and styled like it, with notifications on: the bell, then the test button.
+    cardExtras: (g) => (notifying() ? bellButton(g) + testButton(g) : ""),
+    onAlerts,
     onBoardClick(e) {
       const bellKey = e.target.closest("[data-bell]")?.dataset.bell;
       if (bellKey) { toggleBell(bellKey); return true; }
+      const testKey = e.target.closest("[data-test-alert]")?.dataset.testAlert;
+      if (testKey) { app.testAlert(testKey); return true; }
       return false;
     },
   };
@@ -84,8 +87,6 @@ function addVisits() {
 // less often, so they can be up to a minute late there.
 const BELL_ICON = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"
   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9M10 20a2 2 0 0 0 4 0"/></svg>`;
-const lastSeen = new Map();  // game key -> the game at the last poll
-const memos = new Map();     // game key -> js/alerts.js's memo
 
 const notifying = () => app.store.get("notify", false) && window.Notification?.permission === "granted";
 const belled = () => new Set(app.store.get("notifyGames", []));
@@ -131,15 +132,19 @@ function toggleBell(key) {
   app.renderList();
 }
 
-// Every game is followed, bell or not, so lighting a bell mid-game doesn't bring old news.
-function onPoll(games) {
-  const on = notifying(), keys = belled();
-  for (const g of games) {
-    if (!memos.has(g.key)) memos.set(g.key, {});
-    const alerts = app.gameAlerts(lastSeen.get(g.key), g, memos.get(g.key));
-    lastSeen.set(g.key, g);
-    if (on && alerts.length && keys.has(g.key) && app.state.selected.has(g.key)) show(app.mergeAlerts(alerts), g.key);
-  }
+// Notifications from the backend's feed: those for picked games with a lit bell, and any test (forced) notification.
+function onAlerts(alerts) {
+  if (!notifying()) return;
+  const keys = belled();
+  for (const a of alerts) if (a.forced || (keys.has(a.key) && app.state.selected.has(a.key))) show(a, a.key);
+}
+
+// A paper plane: send this game a test notification through the backend.
+const PLANE = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"
+  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg>`;
+
+function testButton(g) {
+  return `<button type="button" class="test-alert" data-test-alert="${g.key}" aria-label="Send a test notification" title="Send a test notification">${PLANE}</button>`;
 }
 
 // Clicking one brings this tab forward with the game's card highlighted. A tag replaces the earlier notification with

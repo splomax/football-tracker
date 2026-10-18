@@ -1,4 +1,4 @@
-// Admin login. The admin's features (hiding games, notifications, visit counts, bulk select) aren't in the public code: the Worker at
+// Admin login. The admin's features (notifications through the backend's feed, visit counts, bulk select) aren't in the public code: the Worker at
 // ADMIN_URL (worker/) hands them out only to a logged-in admin. ?admin asks for the password and trades it for a
 // token that lasts 30 days, kept in this browser's localStorage (adminToken) in place of the password. With a token
 // that still works, ?admin skips the password. ?admin=off logs out.
@@ -10,18 +10,13 @@ import { ADMIN_PARAM, ADMIN_URL } from "./config.js";
 import { store } from "./store.js";
 import { state, saveSelected } from "./state.js";
 import { renderBoard, setAdmin, highlightCard } from "./board.js";
-import { gameAlerts, mergeAlerts } from "./alerts.js";
+import { useBackend, pollNow } from "./source.js";
 import { listView, renderList, setPickerAdmin } from "./picker.js";
 
 /**
  * Check the admin login, and with ?admin turn the admin's features on (asking for the password if needed).
  * Resolves true when this browser is logged in, features on or not.
  */
-let polled = () => {};  // the admin module's onPoll, once installed
-
-/** After every poll, with every game: lets the admin's notifications see what changed. */
-export const adminPolled = (games) => polled(games);
-
 export async function loadAdmin() {
   // Older versions kept the password itself; swap it for a token once, then forget it.
   const oldPassword = store.get("adminKey");
@@ -89,15 +84,36 @@ async function visits() {
   return typeof body === "string" ? JSON.parse(body) : null;
 }
 
+// The backend's feed (worker/hub.js): every game, conference names, and the notifications since the last one this page
+// saw (none on the first ask), handed to the admin module's onAlerts. Dates arrive as text.
+let cursor = null;
+async function feed(onAlerts) {
+  const res = await fetch(`${ADMIN_URL}/games${cursor == null ? "" : `?since=${cursor}`}`, { headers: { Authorization: `Bearer ${store.get("adminToken")}` } });
+  if (!res.ok) throw new Error(`backend feed: ${res.status}`);
+  const body = await res.json();
+  for (const games of Object.values(body.games)) for (const g of games) g.date = new Date(g.date);
+  cursor = body.cursor;
+  if (body.alerts.length) onAlerts(body.alerts);
+  return body;
+}
+
+// The admin's test button: a notification for this game through the backend, then fetch the feed at once to get it.
+async function testAlert(key) {
+  const ok = await workerText(`${ADMIN_URL}/test-alert`, { method: "POST", headers: { Authorization: `Bearer ${store.get("adminToken")}`, "Content-Type": "application/json" }, body: JSON.stringify({ key }) });
+  if (typeof ok === "string") pollNow();
+  return typeof ok === "string";
+}
+
 async function install(code) {
   if (typeof code !== "string") return false;
   const blob = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
   try {
     const { install } = await import(blob);
-    const hooks = install({ renderBoard, renderList, listView, state, saveSelected, visits, store, highlightCard, gameAlerts, mergeAlerts });
+    const hooks = install({ renderBoard, renderList, listView, state, saveSelected, visits, store, highlightCard, testAlert });
     setAdmin(hooks);
     setPickerAdmin(hooks);
-    if (hooks.onPoll) polled = hooks.onPoll;
+    // From now on this page's games come from the backend's feed, which also brings its notifications.
+    useBackend(() => feed(hooks.onAlerts ?? (() => {})));
     return true;
   } catch (err) {
     console.error("admin", err);

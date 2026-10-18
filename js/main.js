@@ -2,7 +2,8 @@
 
 import { LINKED_GAMES, LOADING, MOBILE_QUERY, POLL_MS } from "./config.js";
 import { state, allGames } from "./state.js";
-import { fetchGames } from "./espn.js";
+import { fetchGames, confNames } from "./espn.js";
+import { backendFeed, setPoller } from "./source.js";
 import { checkRecaps } from "./recap.js";
 import { renderList, listIsStale, initPicker } from "./picker.js";
 import { renderBoard, highlightCard, initBoard, animateBoardLayout } from "./board.js";
@@ -11,7 +12,7 @@ import { initSettings } from "./settings.js";
 import { initTheme } from "./theme.js";
 import { initView } from "./view.js";
 import { countVisit } from "./counter.js";
-import { loadAdmin, adminPolled } from "./admin.js";
+import { loadAdmin } from "./admin.js";
 import { initLogo } from "./logo.js";
 
 let lastUpdated = null;
@@ -19,6 +20,18 @@ let linkPending = LINKED_GAMES.length > 0;  // a shared game link's card still n
 
 async function poll() {
   if (LOADING) return;
+  if (!(backendFeed() && await pollBackend())) await pollEspn();
+  renderUpdated();
+  // First load renders right away; after that the list waits out LIST_REFRESH_MS so it doesn't shift under your finger.
+  if (listIsStale()) renderList();
+  renderBoard();
+  const linked = linkPending && LINKED_GAMES.find((k) => document.querySelector(`.card[data-key="${k}"]`));
+  if (linked) { linkPending = false; highlightCard(linked); }
+  if (await checkRecaps(allGames().filter((g) => state.selected.has(g.key)))) renderBoard();
+}
+
+// Each league straight from ESPN.
+async function pollEspn() {
   await Promise.all(Object.keys(state.games).map(async (league) => {
     try {
       const games = await fetchGames(league);
@@ -32,14 +45,25 @@ async function poll() {
       console.error(league, err);
     }
   }));
-  renderUpdated();
-  // First load renders right away; after that the list waits out LIST_REFRESH_MS so it doesn't shift under your finger.
-  if (listIsStale()) renderList();
-  renderBoard();
-  adminPolled(allGames());
-  const linked = linkPending && LINKED_GAMES.find((k) => document.querySelector(`.card[data-key="${k}"]`));
-  if (linked) { linkPending = false; highlightCard(linked); }
-  if (await checkRecaps(allGames().filter((g) => state.selected.has(g.key)))) renderBoard();
+}
+
+// The backend's feed (the admin's pages, js/source.js): every game at once, already worked out, with the conference
+// names the picker needs. False if it failed, so this poll goes to ESPN instead.
+async function pollBackend() {
+  try {
+    const { games, confNames: names } = await backendFeed()();
+    Object.assign(confNames, names);
+    for (const league of Object.keys(state.games)) {
+      if (!games[league]?.length && state.games[league].length) continue;  // keep what's showing, as with ESPN
+      state.games[league] = games[league] ?? [];
+      state.loaded[league] = true;
+    }
+    lastUpdated = Date.now();
+    return true;
+  } catch (err) {
+    console.error("backend", err);
+    return false;
+  }
 }
 
 function renderUpdated() {
@@ -76,6 +100,7 @@ function pollNow() {
   pollTimer = setInterval(poll, POLL_MS);
 }
 pollNow();
+setPoller(pollNow);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) pollNow(); });
 
 // The page loads behind the admin login; once the admin's features arrive, redraw the cards with them.

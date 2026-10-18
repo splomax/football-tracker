@@ -1,6 +1,7 @@
-// Fetching and normalizing ESPN's unofficial scoreboard API into the shape the UI renders.
+// Fetching and normalizing ESPN's unofficial scoreboard API into the shape the UI renders. No browser APIs: the
+// Worker's backend (worker/hub.js) uses it too.
 
-import { LEAGUES } from "./config.js";
+import { LEAGUES } from "./leagues.js";
 
 // ESPN's NFL scoreboard doesn't say which conference or division a team is in, so keep the alignment here.
 export const NFL_DIVISIONS = {
