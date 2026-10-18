@@ -21,8 +21,9 @@ export const VISITS_URL = "https://hits.sh/api/urns/yawyawfootbaw.github.io/foot
 
 /**
  * @param {Request} request
- * @param {{ ADMIN_PASSWORD?: string, ASSETS?: { fetch: (r: Request) => Promise<Response> }, SCORES?: DurableObjectNamespace }} env
- *   the password is a Worker secret; ASSETS serves the site's files; SCORES is the program fetching the scores (index.js)
+ * @param {{ ADMIN_PASSWORD?: string, ASSETS?: { fetch: (r: Request) => Promise<Response> }, SCORES?: DurableObjectNamespace, VERSION?: { id: string } }} env
+ *   the password is a Worker secret; ASSETS serves the site's files; SCORES is the program fetching the scores (index.js);
+ *   VERSION is the deployed version (wrangler.toml)
  * @param {string} code  admin.js's source
  * @param {number} [now]  for tests
  */
@@ -56,7 +57,9 @@ export async function handle(request, env, code, now = Date.now()) {
     const { weekly, monthly, total } = await res.json();
     return reply(JSON.stringify({ weekly, monthly, total }), 200, { "Content-Type": "application/json" });
   }
-  const keeper = () => env.SCORES.get(env.SCORES.idFromName("scores"));  // one, found by name
+  // One copy of the program per deployed version, found by name. A copy that admin pages keep asking never restarts, so
+  // it would go on running the code it started with; a new deploy starts a new copy instead, and the old one goes idle.
+  const keeper = () => env.SCORES.get(env.SCORES.idFromName(`scores-${env.VERSION?.id ?? "dev"}`));
   if (route === "GET /api/games") {
     if (!(await validToken(given, env.ADMIN_PASSWORD, now))) return reply("Log in again", 401);
     const since = url.searchParams.get("since");

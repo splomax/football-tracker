@@ -114,7 +114,7 @@ test("a token gets the games and notifications from the program, passing on sinc
   const res = await api("GET", "/api/games?since=12", token, undefined, withScores);
   assert.equal(res.status, 200);
   assert.deepEqual(Object.keys(await res.json()), ["games", "confNames", "alerts", "cursor"]);
-  assert.deepEqual([SCORES.asked[0].id, SCORES.asked[0].url], ["scores", "https://scorekeeper/?since=12"]);
+  assert.deepEqual([SCORES.asked[0].id, SCORES.asked[0].url], ["scores-dev", "https://scorekeeper/?since=12"]);
   await api("GET", "/api/games", token, undefined, withScores);
   assert.equal(SCORES.asked[1].url, "https://scorekeeper/");
   assert.equal((await api("GET", "/api/games", null, undefined, withScores)).status, 401);
@@ -126,8 +126,16 @@ test("a token sends a game a test notification through the program", async () =>
   const SCORES = fakeScores(), withScores = { ...env, SCORES };
   const token = await tokenFor();
   assert.equal((await api("POST", "/api/test-alert", token, JSON.stringify({ key: "cfb:1" }), withScores)).status, 200);
-  assert.deepEqual(SCORES.asked[0], { id: "scores", url: "https://scorekeeper/test", method: "POST", body: JSON.stringify({ key: "cfb:1" }) });
+  assert.deepEqual(SCORES.asked[0], { id: "scores-dev", url: "https://scorekeeper/test", method: "POST", body: JSON.stringify({ key: "cfb:1" }) });
   assert.equal((await api("POST", "/api/test-alert", token, "not json", withScores)).status, 400);
   assert.equal((await api("POST", "/api/test-alert", null, JSON.stringify({ key: "cfb:1" }), withScores)).status, 401);
   assert.equal(SCORES.asked.length, 1);
+});
+
+test("each deployed version gets its own copy of the program, so a deploy never leaves old code running", async () => {
+  const SCORES = fakeScores();
+  const token = await tokenFor();
+  await api("GET", "/api/games", token, undefined, { ...env, SCORES, VERSION: { id: "v1" } });
+  await api("GET", "/api/games", token, undefined, { ...env, SCORES, VERSION: { id: "v2" } });
+  assert.deepEqual(SCORES.asked.map((a) => a.id), ["scores-v1", "scores-v2"]);
 });
