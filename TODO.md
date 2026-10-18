@@ -30,3 +30,4 @@
     both.
 15. **Line-by-line code walkthrough.** Go through the code reviewing how readable it is to a person and whether its
     organization is intuitive.
+16. **Upcoming games in list view on desktop.** Their rows look out of place.
