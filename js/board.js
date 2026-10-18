@@ -42,7 +42,13 @@ export function renderBoard() {
     return games.length ? `<section class="board-group ${st === "in" ? "live" : "compact"}" data-section="${st}">
       <h2 class="board-section">${label}</h2><div class="cards">${games.map(list ? lineCard : card).join("")}</div></section>` : "";
   }).join("");
-  $("board").innerHTML = list ? `<div class="line-grid">${sections}</div>` : sections;
+  // Safari (WebKit) loses the scroll position when the board's contents are swapped: laying out the new sections, which
+  // are CSS size containers, briefly makes the page (and on desktop, the board) too short, which clamps the scroll to
+  // the top. Every poll redraws, so put both back before the next paint.
+  const board = $("board"), pageY = scrollY, boardY = board.scrollTop;
+  board.innerHTML = list ? `<div class="line-grid">${sections}</div>` : sections;
+  if (scrollY !== pageY) scrollTo(0, pageY);
+  if (board.scrollTop !== boardY) board.scrollTop = boardY;
   animateSectionChanges(before);
 }
 

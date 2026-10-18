@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require("@playwright/test");
+const { test, expect, devices } = require("@playwright/test");
 const { LONG_PLAY, cfbGames, nflGames, scoreboard, summary, PNG } = require("./fixtures");
 
 const CORS = { "access-control-allow-origin": "*" };
@@ -211,6 +211,38 @@ test.describe("?game= links", () => {
     await open(page, { query: "?game=cfb:1,nfl:101&game=cfb:3&game=hockey:9" });
     await expect(page.locator("#board .card")).toHaveCount(3);
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem("selected")).sort())).toEqual(["cfb:1", "cfb:3", "nfl:101"]);
+  });
+});
+
+test.describe("Safari keeps the scroll position through refreshes @webkit", () => {
+  // WebKit (Safari) clamps the scroll to the top while it lays out the board's new contents (CSS size containers), so
+  // every 10-second redraw used to jump a phone scrolled to the bottom back to the top, and the board on desktop. Chrome
+  // never did, so these run in the webkit project (playwright.config.js).
+  const picks = [...ALL_CFB, "nfl:101", "nfl:102"];
+
+  test.describe("on a phone", () => {
+    const { defaultBrowserType, ...iPhone } = devices["iPhone 13"];
+    test.use(iPhone);
+    for (const view of ["list", "grid"]) {
+      test(`scrolled to the bottom, it stays there (${view} view)`, async ({ page }) => {
+        await page.clock.install({ time: new Date("2026-10-03T20:00:00Z") });
+        await open(page, { storage: { selected: picks, pickerOpen: false, view } });
+        const y = await page.evaluate(() => { scrollTo(0, document.documentElement.scrollHeight); return scrollY; });
+        expect(y).toBeGreaterThan(300);
+        await page.clock.runFor(20_000);  // two polls
+        await expect.poll(() => page.evaluate(() => scrollY)).toBe(y);
+      });
+    }
+  });
+
+  test("the desktop board scrolled to the bottom stays there", async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 500 });
+    await page.clock.install({ time: new Date("2026-10-03T20:00:00Z") });
+    await open(page, { storage: { selected: picks, view: "grid" } });
+    const y = await page.locator("#board").evaluate((b) => { b.scrollTop = b.scrollHeight; return b.scrollTop; });
+    expect(y).toBeGreaterThan(300);
+    await page.clock.runFor(20_000);
+    await expect.poll(() => page.locator("#board").evaluate((b) => b.scrollTop)).toBe(y);
   });
 });
 

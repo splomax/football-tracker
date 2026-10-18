@@ -21,7 +21,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # GitHub's Ubuntu runners ship Google Chrome, which playwright.config.js uses (channel: "chrome").
+      # GitHub's Ubuntu runners ship Google Chrome, which playwright.config.js uses (channel: "chrome"). A few tests also
+      # run in Playwright's WebKit, for Safari-only bugs.
+      - run: npx playwright install --with-deps webkit
       - run: npm test
       - run: npm run test:worker
   deploy:
