@@ -132,7 +132,7 @@ test("since(id) lists the notifications after id, for sending to phones", async 
   espn.nfl = [live("nfl:1", { home: { id: "2", abbr: "NE", score: "7" } })];
   tick(POLL_MS);
   await keeper.poll();
-  assert.deepEqual(keeper.since(0).map((a) => a.title), ["BUF @ NE"]);
+  assert.deepEqual(keeper.since(0).map((a) => a.title), ["TD NE"]);
   assert.deepEqual(keeper.since(1), []);
 });
 
@@ -164,5 +164,5 @@ test("after a touchdown it keeps reading the touchdown's play, so a missed extra
   espn.nfl = [live("nfl:1", { home: { id: "2", abbr: "NE", score: "6" }, lastPlay: "Kickoff", lastPlayScored: false })];
   tick(POLL_MS);
   const { alerts } = await keeper.ask(cursor);
-  assert.deepEqual(alerts.map((a) => a.body), ["TD NE\nBUF 0, NE 6", "Missed PAT NE\nBUF 0, NE 6"]);
+  assert.deepEqual(alerts.map((a) => a.body), ["BUF @ NE\nBUF 0, NE 6", "BUF @ NE\nBUF 0, NE 6"]);
 });

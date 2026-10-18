@@ -80,10 +80,11 @@ export function gameAlerts(prev, g, memo, now = Date.now()) {
   // the last play if it scored, else nothing rather than the wrong play. After a touchdown it also says how the try
   // went: ESPN adds "(J.Bates Kick)", "(J.Bates PAT failed)" and so on to the touchdown's play.
   const play = g.scoringPlay ?? (g.lastPlayScored ? g.lastPlay : undefined);
-  // Styled: the game, then what happened, then the new score ("CHI @ ATL" / "TD CHI" / "CHI 7, ATL 0"). Each score gets
-  // its own tag, so it shows as a new notification: a repeated tag only replaces the earlier one, out of sight.
-  const styled = (headline, t) => {
-    const alert = { title: matchup(g), body: `${headline}\n${score(g)}`, tag: `${g.key}:score:${t.id}:${now}`, headline, score: score(g), icon: t.logo };
+  // Styled: what happened as the title (shown bold), then the game, then the new score ("TD Cardinals" /
+  // "Cardinals @ Rams" / "Cardinals 7, Rams 0"). Each score gets its own tag, so it shows as a new notification: a
+  // repeated tag only replaces the earlier one, out of sight.
+  const styled = (title, t) => {
+    const alert = { title, body: `${matchup(g)}\n${score(g)}`, tag: `${g.key}:score:${t.id}:${now}`, styled: true, icon: t.logo };
     alerts.push(alert);
     return alert;
   };
@@ -118,8 +119,7 @@ export function gameAlerts(prev, g, memo, now = Date.now()) {
       memo.pendingTry = null;
     } else if (missed && touchdown) {
       memo.pendingTry = null;
-      touchdown.headline = `${touchdown.headline} · ${missed}`;
-      touchdown.body = `${touchdown.headline}\n${touchdown.score}`;
+      touchdown.title = `${touchdown.title} · ${missed}`;
     } else if (missed) {
       memo.pendingTry = null;
       styled(`${missed} ${nameOf(t)}`, t);
@@ -157,12 +157,9 @@ export function gameAlerts(prev, g, memo, now = Date.now()) {
 export function mergeAlerts(alerts) {
   if (alerts.length < 2) return alerts[0];
   const scored = alerts.find((a) => a.tag);
-  // A styled one (a touchdown or a try) sets the layout: the game, everything that happened, the new score.
-  const styled = alerts.find((a) => a.headline);
-  if (styled) {
-    const happened = alerts.map((a) => a.headline ?? a.title).join(" · ");
-    return { title: styled.title, body: `${happened}\n${styled.score}`, tag: scored.tag, icon: styled.icon };
-  }
+  // A styled one (a touchdown or a try) sets the layout: everything that happened, then the game and the new score.
+  const styled = alerts.find((a) => a.styled);
+  if (styled) return { title: alerts.map((a) => a.title).join(" · "), body: styled.body, tag: scored.tag, icon: styled.icon };
   const [line] = alerts[0].body.split("\n");
   return {
     title: alerts.map((a) => a.title).join(" · "),
