@@ -6,7 +6,8 @@
 //   GET  /api/visits    Authorization: Bearer <token>     ->  { weekly, monthly, total } from the visit counter
 //   GET  /api/games?since=<n>  Authorization: Bearer <token>  ->  { games: { cfb, nfl }, confNames, alerts, cursor } from
 //                       the program on Cloudflare (scorekeeper.js): the notifications after number n (none without it)
-//   POST /api/test-alert  Authorization: Bearer <token>, { key }  ->  a test notification for that game (phones get it
+//   POST /api/test-alert  Authorization: Bearer <token>, { key, kind? }  ->  a test notification for that game, or a
+//                       sample of one kind (js/alerts.js SAMPLE_KINDS) for styling them (phones get it
 //                       about 5 seconds later, time to lock the phone)
 //   POST /api/push/subscribe    Authorization: Bearer <token>, { subscription, bells }  ->  a phone turning on notifications
 //   POST /api/push/bells        Authorization: Bearer <token>, { endpoint, bells }      ->  a phone's lit bells changed
@@ -18,6 +19,7 @@
 // put ADMIN_PASSWORD) signs everyone out at once.
 
 import { savePhone, setBells, removePhone } from "./phones.js";
+import { SAMPLE_KINDS } from "../js/alerts.js";
 
 export const TOKEN_DAYS = 30;
 
@@ -71,9 +73,10 @@ export async function handle(request, env, code, now = Date.now()) {
   }
   if (route === "POST /api/test-alert") {
     if (!(await validToken(given, env.ADMIN_PASSWORD, now))) return reply("Log in again", 401);
-    const { key } = await request.json().catch(() => ({}));
+    const { key, kind } = await request.json().catch(() => ({}));
     if (typeof key !== "string") return reply("Which game?", 400);
-    const res = await keeperFetch(env, "/test", { method: "POST", body: JSON.stringify({ key }) });
+    if (kind != null && !(kind in SAMPLE_KINDS)) return reply("Which kind?", 400);
+    const res = await keeperFetch(env, "/test", { method: "POST", body: JSON.stringify({ key, kind }) });
     return reply(await res.text(), res.status, { "Content-Type": "application/json" });
   }
   // Phones turning notifications on and off, and their bells (worker/phones.js).

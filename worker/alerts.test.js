@@ -1,7 +1,7 @@
 // Run with: npm run test:worker
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { gameAlerts, mergeAlerts, periodName } from "../js/alerts.js";
+import { gameAlerts, mergeAlerts, periodName, sampleAlert, SAMPLE_KINDS } from "../js/alerts.js";
 
 // A live game as js/espn.js normalizes it; override what each step changes.
 const game = (over = {}) => ({
@@ -135,4 +135,16 @@ test("a score notification quotes the scoring play: the one looked up by the sco
     "BUF 0, NE 7 · 10:00 - 1st\nTravis Hunter 7 Yd pass from Trevor Lawrence (Cam Little Kick)");
   assert.equal(body({ lastPlay: "T.Lawrence pass to T.Hunter for 7 yards, TOUCHDOWN", lastPlayScored: true }),
     "BUF 0, NE 7 · 10:00 - 1st\nT.Lawrence pass to T.Hunter for 7 yards, TOUCHDOWN");
+});
+
+test("each sample kind reads exactly like a real notification of that kind, and only that one", () => {
+  const g = game({ period: 3, clock: "6:06", detail: "6:06 - 3rd", away: { id: "1", abbr: "HOU", name: "Houston", score: "31" }, home: { id: "2", abbr: "JAX", score: "28" } });
+  const titles = Object.fromEntries(Object.keys(SAMPLE_KINDS).map((k) => [k, sampleAlert(g, k)?.title ?? null]));
+  assert.deepEqual(titles, {
+    test: null, touchdown: "HOU touchdown", "field-goal": "HOU field goal", "red-zone": "HOU in the red zone",
+    "two-minute": "Two-minute warning", kickoff: "Kickoff", "quarter-start": "Start of the 3rd quarter",
+    "quarter-end": "End of the 1st quarter", halftime: "Halftime", final: "Final",
+  });
+  assert.equal(sampleAlert(g, "touchdown").body, "HOU 38, JAX 28 · 8:00 - 2nd\nHouston 25 Yd pass (sample)");
+  assert.equal(sampleAlert(g, "nonsense"), null);
 });

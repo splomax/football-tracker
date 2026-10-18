@@ -105,3 +105,69 @@ export function mergeAlerts(alerts) {
   };
 }
 
+
+/** The kinds of sample notification the admin's test button can send (sampleAlert), in the order its chooser lists them. */
+export const SAMPLE_KINDS = {
+  test: "Test", touchdown: "Touchdown", "field-goal": "Field goal", "red-zone": "Red zone", "two-minute": "Two-minute warning",
+  kickoff: "Kickoff", "quarter-start": "Start of quarter", "quarter-end": "End of quarter", halftime: "Halftime", final: "Final",
+};
+
+/**
+ * A sample notification of one kind for game g, for styling them: a made-up moment in the game (the away team scores,
+ * the clock crosses 2:00, the 1st quarter ends...) run through gameAlerts, so it reads exactly like a real one. Null
+ * for "test" or a kind it doesn't know.
+ */
+export function sampleAlert(g, kind) {
+  const away = Number(g.away.score) || 0, home = Number(g.home.score) || 0;
+  const base = { ...g, state: "in", period: 2, clock: "8:00", detail: "8:00 - 2nd", redZone: false, possession: g.away.id,
+    ddText: "1st & 10", lastPlayScored: false, scoringPlay: undefined, away: { ...g.away, score: String(away) }, home: { ...g.home, score: String(home) } };
+  const at = (period, clock, detail) => ({ ...base, period, clock, detail: detail ?? `${clock} - ${periodName(period).split(" ")[0]}` });
+  const memo = { started: 2, ended: 1, redZoneTeam: g.away.id };  // nothing else pending, so only the sample fires
+  let prev = base, now;
+  switch (kind) {
+    case "touchdown":
+      now = { ...base, away: { ...base.away, score: String(away + 7) }, scoringPlay: `${g.away.name ?? g.away.abbr} 25 Yd pass (sample)` };
+      break;
+    case "field-goal":
+      now = { ...base, away: { ...base.away, score: String(away + 3) }, scoringPlay: `${g.away.name ?? g.away.abbr} 42 Yd Field Goal (sample)` };
+      break;
+    case "red-zone":
+      memo.redZoneTeam = null;
+      prev = { ...base, possession: g.home.id };
+      now = { ...base, redZone: true, ddText: `1st & 10 at ${g.home.abbr} 15` };
+      break;
+    case "two-minute":
+      Object.assign(memo, { started: 4, ended: 3 });
+      prev = at(4, "2:05");
+      now = at(4, "2:00");
+      break;
+    case "kickoff":
+      Object.assign(memo, { started: 0, ended: 0 });
+      prev = at(1, "15:00");
+      now = at(1, "14:52");
+      break;
+    case "quarter-start":
+      Object.assign(memo, { started: 2, ended: 2 });
+      prev = at(3, "15:00");
+      now = at(3, "14:52");
+      break;
+    case "quarter-end":
+      Object.assign(memo, { started: 1, ended: 0 });
+      prev = at(1, "0:04");
+      now = at(1, "0:00", "End of 1st Quarter");
+      break;
+    case "halftime":
+      prev = at(2, "0:04");
+      now = at(2, "0:00", "Halftime");
+      break;
+    case "final":
+      Object.assign(memo, { started: 4, ended: 3 });
+      prev = at(4, "0:04");
+      now = { ...at(4, "0:00", "Final"), state: "post" };
+      break;
+    default:
+      return null;
+  }
+  const alerts = gameAlerts(prev, now, memo);
+  return alerts.length ? mergeAlerts(alerts) : null;
+}

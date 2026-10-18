@@ -145,3 +145,11 @@ test("when the scoreboard's last play isn't the scoring one, the score notificat
   const [alert] = (await keeper.ask(cursor)).alerts;
   assert.equal(alert.body, "BUF 0, NE 7 · 10:00 - 1st\nR.Stevenson 4 Yd Run (A.Borregales Kick)");
 });
+
+test("the test button can send a sample of one kind instead of the plain test", async () => {
+  const { keeper } = keeperWith({ cfb: [live("cfb:9")] });
+  const { cursor } = await keeper.ask(null);
+  assert.equal(keeper.test("cfb:9", "halftime").title, "Halftime");
+  assert.equal(keeper.test("cfb:9").title, "Test notification");
+  assert.deepEqual((await keeper.ask(cursor)).alerts.map((a) => [a.title, a.forced]), [["Halftime", true], ["Test notification", true]]);
+});

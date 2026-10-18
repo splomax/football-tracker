@@ -9,7 +9,7 @@
 // SOON_MS; every IDLE_CHECK_MS while phones have bells on later games (to notice kickoffs); otherwise not at all.
 
 import { fetchGames, fetchScoringPlay, confNames } from "../js/espn.js";
-import { gameAlerts, mergeAlerts, scoreLine } from "../js/alerts.js";
+import { gameAlerts, mergeAlerts, scoreLine, sampleAlert } from "../js/alerts.js";
 
 export const POLL_MS = 10_000;
 export const IDLE_MS = 2 * 60_000;
@@ -92,13 +92,15 @@ export class ScoreKeeper {
   }
 
   /**
-   * The admin's test button: a notification for this game, sent the same way as real ones, bell or not. Returns it
-   * (the Durable Object also pushes it to phones, worker/index.js), or null for a game it doesn't know.
+   * The admin's test button: a notification for this game, sent the same way as real ones, bell or not: a sample of
+   * `kind` (js/alerts.js SAMPLE_KINDS, for styling them) or, by default, a plain test. Returns it (the Durable Object
+   * also pushes it to phones, worker/scorekeeper-object.js), or null for a game it doesn't know.
    */
-  test(key) {
+  test(key, kind = "test") {
     const g = [...this.games.cfb, ...this.games.nfl].find((x) => x.key === key);
     if (!g) return null;
-    this.add({ key, title: "Test notification", body: `${scoreLine(g)}\nSent through the Game Tracker server`, forced: true });
+    const sample = sampleAlert(g, kind) ?? { title: "Test notification", body: `${scoreLine(g)}\nSent through the Game Tracker server` };
+    this.add({ key, ...sample, forced: true });
     return this.alerts.at(-1);
   }
 

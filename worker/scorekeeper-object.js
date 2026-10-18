@@ -27,7 +27,10 @@ export class ScoreKeeper {
     const wanted = request.headers.get("X-Version"), running = this.env.VERSION?.id;
     if (wanted && running && wanted !== running) this.ctx.abort("newer code deployed");  // throws; handler.js retries
     const url = new URL(request.url);
-    if (request.method === "POST" && url.pathname === "/test") return this.test((await request.json()).key);
+    if (request.method === "POST" && url.pathname === "/test") {
+      const { key, kind } = await request.json();
+      return this.test(key, kind);
+    }
     if (url.pathname === "/phones" || url.pathname === "/wake") {
       await this.loadPhones();
       await this.schedule();
@@ -83,8 +86,8 @@ export class ScoreKeeper {
     if (gone.length) this.phones = this.phones.filter((p) => !gone.includes(p.subscription.endpoint));
   }
 
-  test(key) {
-    const alert = this.keeper.test(key);
+  test(key, kind) {
+    const alert = this.keeper.test(key, kind);
     if (!alert) return Response.json({ ok: false }, { status: 404 });
     // Pages pick it up with their next update; every phone gets it pushed, a little later.
     this.ctx.waitUntil((async () => {

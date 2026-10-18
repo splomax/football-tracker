@@ -12,6 +12,7 @@ import { state, saveSelected } from "./state.js";
 import { renderBoard, setAdmin, highlightCard } from "./board.js";
 import { listView, renderList, setPickerAdmin } from "./picker.js";
 import { useServer, lastSource, pollNow } from "./source.js";
+import { SAMPLE_KINDS } from "./alerts.js";
 import { registerServiceWorker, needsInstall, pushApplies, turnOn, turnOff, sendBells, showHere } from "./push.js";
 
 /**
@@ -103,9 +104,10 @@ async function scoresFromServer() {
   return body;
 }
 
-// The admin's test button: a notification for this game through the program, then an update right away to get it.
-async function testAlert(key) {
-  const ok = await workerText(`${ADMIN_URL}/test-alert`, { method: "POST", headers: { Authorization: `Bearer ${store.get("adminToken")}`, "Content-Type": "application/json" }, body: JSON.stringify({ key }) });
+// The admin's test button: a notification for this game through the program (a plain test, or a sample of one kind,
+// js/alerts.js SAMPLE_KINDS), then an update right away to get it.
+async function testAlert(key, kind) {
+  const ok = await workerText(`${ADMIN_URL}/test-alert`, { method: "POST", headers: { Authorization: `Bearer ${store.get("adminToken")}`, "Content-Type": "application/json" }, body: JSON.stringify({ key, kind }) });
   if (typeof ok === "string") pollNow();
 }
 
@@ -114,7 +116,7 @@ async function install(code) {
   const blob = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
   try {
     const { install } = await import(blob);
-    const hooks = install({ renderBoard, renderList, listView, state, saveSelected, visits, store, highlightCard, lastSource, testAlert,
+    const hooks = install({ renderBoard, renderList, listView, state, saveSelected, visits, store, highlightCard, lastSource, testAlert, sampleKinds: SAMPLE_KINDS,
       push: { needsInstall, applies: pushApplies, turnOn, turnOff, sendBells, showHere } });
     setAdmin(hooks);
     setPickerAdmin(hooks);

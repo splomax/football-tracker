@@ -19,7 +19,7 @@ async function open(page, opts = {}) {
   const state = { cfb: opts.cfb ?? cfbGames(), nfl: opts.nfl ?? nflGames(), hits: 0, espnRequests: 0, adminRequests: 0, gate: opts.gate,
     visits: { weekly: 12, monthly: 345, total: 6789 }, visitsRequests: 0,
     recaps: new Set(opts.recaps ?? ["7", "8"]), summaryRequests: {}, failScoreboards: opts.failScoreboards ?? 0,
-    scores: opts.scores, scoresAsks: 0, sinces: [], testAlerts: [], pushPosts: [] };
+    scores: opts.scores, scoresAsks: 0, sinces: [], testAlerts: [], testKinds: [], pushPosts: [] };
   await page.route("https://site.api.espn.com/**", async (route) => {
     const id = route.request().url().match(/summary\?event=(\w+)/)?.[1];
     if (id) {
@@ -66,7 +66,9 @@ async function open(page, opts = {}) {
       return route.fulfill({ json: { ok: true }, headers });
     }
     if (req.url().endsWith("/test-alert") && req.method() === "POST" && auth === `Bearer ${ADMIN_TOKEN}`) {
-      state.testAlerts.push(JSON.parse(req.postData()).key);
+      const { key, kind } = JSON.parse(req.postData());
+      state.testAlerts.push(key);
+      state.testKinds.push(kind ?? null);
       return route.fulfill({ json: { ok: true }, headers });
     }
     return route.fulfill({ status: 401, body: "Nope", headers });
@@ -503,6 +505,7 @@ test.describe("iPhone notifications", () => {
     await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:1"], notify: true, pickerOpen: false } });
     await expect(card(page, "cfb:1").locator(".bell")).toBeAttached();
     await expect(card(page, "cfb:1").locator(".test-alert")).toBeHidden();
+    await expect(card(page, "cfb:1").locator(".test-kind")).toBeHidden();
   });
 
   test("in Safari on an iPhone, Enable notifications explains how to add the app first, and stays off", async ({ page }) => {
@@ -617,6 +620,24 @@ test.describe("notifications", () => {
     games: { nfl: [], cfb: [serverGame("cfb:77", serverTeam("356", "ILL", "17"), serverTeam("130", "MICH", "14")),
       serverGame("cfb:78", serverTeam("194", "OSU", "24"), serverTeam("2294", "IOWA", "6"))] },
     alerts: since == null ? [] : alerts.map((a, i) => ({ id: i + 1, at: 0, ...a })).filter((a) => a.id > Number(since)) });
+
+  test("beside the paper plane, a chooser picks which kind of notification it sends; the choice is remembered", async ({ page }) => {
+    await page.clock.install({ time: new Date("2026-10-03T20:00:00Z") });
+    await fakeNotifications(page, "granted", "granted");
+    const state = await open(page, { query: "?admin", scores: withAlerts([]), storage: { ...admin, selected: ["cfb:77"], notify: true } });
+    await expect(card(page, "cfb:77")).toBeAttached();
+    await card(page, "cfb:77").hover();
+    const chooser = card(page, "cfb:77").locator(".test-kind");
+    await expect(chooser).toHaveCSS("opacity", "1");
+    expect(await chooser.locator("option").allTextContents()).toEqual(["Test", "Touchdown", "Field goal", "Red zone", "Two-minute warning",
+      "Kickoff", "Start of quarter", "End of quarter", "Halftime", "Final"]);
+    await chooser.selectOption("halftime");
+    await card(page, "cfb:77").hover();
+    await card(page, "cfb:77").locator(".test-alert").click();
+    await expect.poll(() => state.testKinds).toEqual(["halftime"]);
+    await page.reload();
+    await expect(card(page, "cfb:77").locator(".test-kind")).toHaveValue("halftime");
+  });
 
   test("the program's notifications show for a lit bell's game, not an unlit one's; a test notification always shows", async ({ page }) => {
     await page.clock.install({ time: new Date("2026-10-03T20:00:00Z") });

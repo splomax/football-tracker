@@ -24,6 +24,8 @@ export function setAdmin(hooks) {
 const SECTIONS = [["in", "Live"], ["post", "Final"], ["pre", "Upcoming"]];
 
 export function renderBoard() {
+  // The admin's test-kind chooser is a native dropdown: redrawing the board would close it, so wait while it's open.
+  if (document.activeElement?.matches?.("#board select")) return;
   const picked = allGames().filter((g) => state.selected.has(g.key)).sort((a, b) => a.date - b.date);
   $("picker-count").textContent = picked.length ? `${picked.length} selected` : "";
   if (!picked.length) {
