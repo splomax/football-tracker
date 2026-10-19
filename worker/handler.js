@@ -83,9 +83,8 @@ export async function handle(request, env, code, now = Date.now()) {
   if (route.startsWith("POST /api/push/")) {
     if (!(await validToken(given, env.ADMIN_PASSWORD, now))) return reply("Log in again", 401);
     const body = await request.json().catch(() => ({}));
-    // Logged in as admin (above), so these phones are admins' and get test notifications (worker/phones.js).
-    const ok = route === "POST /api/push/subscribe" ? await savePhone(env.PUSH, body.subscription, body.bells, now, true)
-      : route === "POST /api/push/bells" ? await setBells(env.PUSH, body.endpoint, body.bells, now, true)
+    const ok = route === "POST /api/push/subscribe" ? await savePhone(env.PUSH, body.subscription, body.bells, now)
+      : route === "POST /api/push/bells" ? await setBells(env.PUSH, body.endpoint, body.bells, now)
       : route === "POST /api/push/unsubscribe" ? (await removePhone(env.PUSH, body.endpoint), true)
       : null;
     if (ok === null) return reply("Not found", 404);

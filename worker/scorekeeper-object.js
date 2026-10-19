@@ -95,7 +95,7 @@ export class ScoreKeeper {
     this.ctx.waitUntil((async () => {
       await new Promise((resolve) => setTimeout(resolve, this.testDelay));
       if (!this.phones) await this.loadPhones();
-      const belled = this.phones.filter((p) => p.admin && p.bells.includes(key));
+      const belled = this.phones.filter((p) => !p.public && p.bells.includes(key));
       if (belled.length) await this.send({ title: alert.title, body: alert.body, key, icon: alert.icon }, belled);
     })());
     return Response.json({ ok: true });
