@@ -199,7 +199,7 @@ function dropUnpickedBells() {
 // on the Home Screen, so this walks through adding it, one step at a time. Opened by Enable notifications in Safari, or
 // the gear menu's "Get notifications on iPhone".
 const INSTALL_STEPS = [
-  "Tap the Share button: the square with an arrow, at the bottom of Safari. Don't see it? Tap <b>⋯</b> first.",
+  "Tap <b>⋯</b> at the bottom right of Safari, next to the address, then tap <b>Share</b>.",
   "Scroll down, tap <b>Add to Home Screen</b>, then <b>Add</b>.",
   "Open Game Tracker from your Home Screen, log in, then tap ⚙ → <b>Enable notifications</b> and <b>Allow</b>.",
 ];
