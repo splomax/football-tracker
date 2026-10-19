@@ -16,18 +16,16 @@
    (scripts/check-timeouts.js). Check whether ESPN's NFL timeout counts are reliable enough to show.
 7. **Bell click makes the card's buttons blink.** Clicking the hover bell on a card flickers the buttons around it.
 
-8. **Test notifications only to admins.** Make sure test notifications (the paper plane and its samples) only ever
-    reach admin devices, once phones other than admins' can subscribe.
-9. **Notification settings.** Let people choose which events notify them (scores, red zone, two-minute warning,
+8. **Notification settings.** Let people choose which events notify them (scores, red zone, two-minute warning,
     quarters, halftime, final).
-10. **Drop "Enable notifications" when notifications go live for everyone.** The gear-menu item is the admin's switch;
+9. **Drop "Enable notifications" when notifications go live for everyone.** The gear-menu item is the admin's switch;
     once everyone has notifications, it goes (the bells would be how people subscribe).
-11. **Score alignment in the game list.** Scores don't line up from card to card (a Final card's sit further left
+10. **Score alignment in the game list.** Scores don't line up from card to card (a Final card's sit further left
     than the live ones').
-12. **Remove "List view" and "Light mode" from the gear menu.**
-13. **Recap link in list view.** It looks great on grid cards but out of place in list rows.
-14. **Bigger team logos, and check their alignment.** Grid view looks bad on desktop and mobile; list view is fine on
+11. **Remove "List view" and "Light mode" from the gear menu.**
+12. **Recap link in list view.** It looks great on grid cards but out of place in list rows.
+13. **Bigger team logos, and check their alignment.** Grid view looks bad on desktop and mobile; list view is fine on
     both.
-15. **Line-by-line code walkthrough.** Go through the code reviewing how readable it is to a person and whether its
+14. **Line-by-line code walkthrough.** Go through the code reviewing how readable it is to a person and whether its
     organization is intuitive.
-16. **Upcoming games in list view on desktop.** Their rows look out of place.
+15. **Upcoming games in list view on desktop.** Their rows look out of place.

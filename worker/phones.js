@@ -1,6 +1,7 @@
 // The phones that turned on notifications, kept in Workers KV (the PUSH namespace, wrangler.toml) so they survive
-// deploys: each under "phone:" + a hash of its push address, as { subscription, bells, at }. bells are that phone's
-// lit games (each device has its own). sendToPhones sends a notification (worker/webpush.js) and forgets a phone its
+// deploys: each under "phone:" + a hash of its push address, as { subscription, bells, admin, at }. bells are that
+// phone's lit games (each device has its own); admin marks a phone saved by a logged-in admin, the only ones that get
+// test notifications. sendToPhones sends a notification (worker/webpush.js) and forgets a phone its
 // push service says is gone.
 
 import { sendPush } from "./webpush.js";
@@ -17,20 +18,20 @@ const validSubscription = (s) => typeof s?.endpoint === "string" && s.endpoint.s
 const validBells = (b) => Array.isArray(b) && b.length <= 500 && b.every((k) => typeof k === "string" && k.length < 40);
 
 /** Save a phone (or update it). False if what was sent isn't a subscription and list of bells. */
-export async function savePhone(kv, subscription, bells, now = Date.now()) {
+export async function savePhone(kv, subscription, bells, now = Date.now(), admin = false) {
   if (!validSubscription(subscription) || !validBells(bells)) return false;
   const { endpoint, keys } = subscription;
-  await kv.put(await keyFor(endpoint), JSON.stringify({ subscription: { endpoint, keys: { p256dh: keys.p256dh, auth: keys.auth } }, bells, at: now }));
+  await kv.put(await keyFor(endpoint), JSON.stringify({ subscription: { endpoint, keys: { p256dh: keys.p256dh, auth: keys.auth } }, bells, admin, at: now }));
   return true;
 }
 
 /** Change a saved phone's bells. False if the phone isn't saved (or the bells aren't a list). */
-export async function setBells(kv, endpoint, bells, now = Date.now()) {
+export async function setBells(kv, endpoint, bells, now = Date.now(), admin = false) {
   if (typeof endpoint !== "string" || !validBells(bells)) return false;
   const key = await keyFor(endpoint);
   const phone = await kv.get(key, "json");
   if (!phone) return false;
-  await kv.put(key, JSON.stringify({ ...phone, bells, at: now }));
+  await kv.put(key, JSON.stringify({ ...phone, bells, admin: phone.admin || admin, at: now }));
   return true;
 }
 
@@ -38,7 +39,7 @@ export async function removePhone(kv, endpoint) {
   if (typeof endpoint === "string") await kv.delete(await keyFor(endpoint));
 }
 
-/** Every saved phone: [{ subscription, bells, at }]. */
+/** Every saved phone: [{ subscription, bells, admin, at }]. */
 export async function listPhones(kv) {
   const phones = [];
   let cursor;
