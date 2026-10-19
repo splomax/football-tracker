@@ -1,7 +1,7 @@
 // The phones that turned on notifications, kept in Workers KV (the PUSH namespace, wrangler.toml) so they survive
 // deploys: each under "phone:" + a hash of its push address, as { subscription, bells, at }. bells are that phone's
-// lit games (each device has its own). Every phone so far was turned on by an admin; a public sign-up, once there is
-// one, should save its phones with public: true, which keeps test notifications away from them. sendToPhones sends a notification (worker/webpush.js) and forgets a phone its
+// lit games (each device has its own). Every phone so far was turned on by an admin; once everyone gets
+// notifications, a non-admin's phone should be saved with public: true, which keeps test notifications away from it. sendToPhones sends a notification (worker/webpush.js) and forgets a phone its
 // push service says is gone.
 
 import { sendPush } from "./webpush.js";
