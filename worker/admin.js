@@ -31,6 +31,7 @@ export function install(appApi) {
   app.store.set("hiddenGames", null);  // left behind by two hide features since removed
   app.store.set("hiddenFromList", null);
   addNotifyToggle();
+  addInstallHelpItem();
   addVisits();
   addScoreSource();
   return {
@@ -194,21 +195,51 @@ function dropUnpickedBells() {
 }
 
 // On an iPhone in Safari: notifications only work in the Home Screen app, so say how to get there.
+// iPhone only (app.push.needsInstall() is false on Android and laptops): iPhones only allow notifications from an app
+// on the Home Screen, so this walks through adding it, one step at a time. Opened by Enable notifications in Safari, or
+// the gear menu's "Get notifications on iPhone".
+const INSTALL_STEPS = [
+  "Tap the Share button: the square with an arrow, at the bottom of Safari. Don't see it? Tap <b>⋯</b> first.",
+  "Scroll down, tap <b>Add to Home Screen</b>, then <b>Add</b>.",
+  "Open Game Tracker from your Home Screen, log in, then tap ⚙ → <b>Enable notifications</b> and <b>Allow</b>.",
+];
+
 function explainInstall() {
   const dialog = document.createElement("dialog");
   dialog.id = "install-help";
-  dialog.innerHTML = `<form method="dialog">
-    <label>Notifications need the Game Tracker app</label>
-    <ol class="steps">
-      <li>Tap the Share button (the square with an arrow, at the bottom of Safari).</li>
-      <li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li>
-      <li>Open Game Tracker from your Home Screen and turn on notifications there.</li>
-    </ol>
-    <div class="buttons"><button value="ok">OK</button></div>
-  </form>`;
+  let step = 0;
+  const render = () => {
+    const last = step === INSTALL_STEPS.length - 1;
+    dialog.innerHTML = `<form method="dialog">
+      <label>Notifications on iPhone</label>
+      ${step === 0 ? `<p class="note">iPhones only allow notifications from apps on the Home Screen. Here's how to add Game Tracker.</p>` : ""}
+      <p class="step-count">Step ${step + 1} of ${INSTALL_STEPS.length}</p>
+      <p class="step">${INSTALL_STEPS[step]}</p>
+      <div class="buttons">
+        ${step > 0 ? `<button type="button" data-step="-1">Back</button>` : `<button value="cancel">Not now</button>`}
+        ${last ? `<button value="ok" autofocus>Done</button>` : `<button type="button" value="ok" data-step="1" autofocus>Next</button>`}
+      </div>
+    </form>`;
+  };
+  render();
+  dialog.addEventListener("click", (e) => {
+    const move = e.target.closest("[data-step]")?.dataset.step;
+    if (move) { step += Number(move); render(); dialog.querySelector("[autofocus]").focus(); }
+  });
   document.body.append(dialog);
   dialog.addEventListener("close", () => dialog.remove());
   dialog.showModal();
+}
+
+/** The gear menu's "Get notifications on iPhone", in Safari on an iPhone only. */
+function addInstallHelpItem() {
+  const menu = document.getElementById("settings-menu");
+  if (!menu || !app.push.needsInstall() || document.getElementById("install-help-item")) return;
+  const button = document.createElement("button");
+  button.id = "install-help-item";
+  button.innerHTML = `<span class="check"></span>Get notifications on iPhone`;
+  button.addEventListener("click", explainInstall);
+  document.getElementById("notify").after(button);
 }
 
 // Notifications from the program on Cloudflare, tests included: those for picked games with a lit bell.

@@ -45,6 +45,14 @@ const STATES = {
   "admin-game-list": { query: "?admin", storage: { selected: PICKS, view: "grid", pickerOpen: true, ...ADMIN } },
   "admin-gear-menu": { query: "?admin", storage: { selected: PICKS, view: "grid", pickerOpen: false, ...ADMIN },
     run: async (page) => { await page.click("#settings"); await settle(page, 300); } },
+  // iPhone only (Safari, not the Home Screen app): the gear menu's walkthrough, first and last steps.
+  "iphone-install-help": { query: "?admin", storage: { selected: PICKS, view: "grid", pickerOpen: false, ...ADMIN },
+    run: async (page) => { await page.click("#settings"); await page.click("#install-help-item"); await settle(page, 300); } },
+  "iphone-install-help-last": { query: "?admin", storage: { selected: PICKS, view: "grid", pickerOpen: false, ...ADMIN },
+    run: async (page) => {
+      await page.click("#settings"); await page.click("#install-help-item");
+      await page.click('#install-help [data-step="1"]'); await page.click('#install-help [data-step="1"]'); await settle(page, 300);
+    } },
   "admin-login": { query: "?admin", storage: { selected: PICKS, view: "grid", pickerOpen: false }, loggedOut: true },
   "halloween": { storage: { selected: PICKS, view: "grid", pickerOpen: false, halloween: true } },
   "mds-blue": { storage: { selected: PICKS, view: "grid", pickerOpen: false, mdsBlue: true } },

@@ -104,7 +104,9 @@ main:has(aside.preload), aside.preload { transition: none; }  /* no slide on fir
 #admin-login input { width: 100%; padding: 8px 10px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; font: inherit; font-size: 16px; }
 #admin-login input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 #admin-login .error { min-height: 18px; margin: 6px 0 10px; color: var(--red); font-size: 12px; }
-#install-help .steps { margin: 0 0 14px; padding-left: 20px; line-height: 1.5; }
+#install-help .note { margin: 0 0 12px; color: var(--muted); line-height: 1.4; }
+#install-help .step-count { margin: 0 0 4px; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+#install-help .step { margin: 0 0 16px; line-height: 1.5; }
 #admin-login .buttons, #install-help .buttons { display: flex; justify-content: flex-end; gap: 8px; }
 #admin-login button, #install-help button { padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px; background: none; color: var(--text); font: inherit; cursor: pointer; }
 #admin-login button[value="ok"], #install-help button[value="ok"] { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
