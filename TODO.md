@@ -29,3 +29,8 @@
 14. **Line-by-line code walkthrough.** Go through the code reviewing how readable it is to a person and whether its
     organization is intuitive.
 15. **Upcoming games in list view on desktop.** Their rows look out of place.
+16. **Blocked notifications.** If someone taps "Don't Allow", the browser never asks again. Detect it (the page can
+    tell allowed, blocked and not asked yet) and, when they light a bell, tell them notifications are blocked with
+    the steps for their device (iPhone: Settings → Notifications → Game Tracker; desktop Chrome: the icon left of the
+    address → Notifications). Check again whenever the app opens, in case they changed it in Settings. Not tied to the
+    gear menu's Enable notifications, which is going away (#9).
