@@ -96,6 +96,9 @@ svg.field { width: 100%; display: block; border-radius: 4px; }
 .last { flex: 1; min-width: 0; color: var(--muted); font-size: 12px; height: 17px; line-height: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .recap { color: var(--accent); font-weight: 600; text-decoration: none; }
 .recap:hover, .recap:focus-visible { text-decoration: underline; }
+/* Stats mode: a finished game's "Stats" link, a button styled like Recap, just before it. */
+.stats-link { padding: 0; border: 0; background: none; font: inherit; cursor: pointer; }
+.last .stats-link { margin-right: 12px; }
 .last[data-play] { cursor: pointer; }
 .last[data-play]:hover { color: var(--text); }
 /* Full last-play text floats over the bottom of the card, so opening it never shifts the layout. */
@@ -141,6 +144,8 @@ svg.field { width: 100%; display: block; border-radius: 4px; }
 .card.line .net { grid-row: 2; grid-column: 1; justify-self: start; max-width: 8rem; padding-left: 12px; font-size: 10px; line-height: 16px; }
 .card.line .net:empty { display: none; }
 .card.line .net .recap { margin-left: 6px; color: var(--muted); font-weight: 400; }
+.card.line .net .stats-link { margin-left: 6px; color: var(--muted); font-weight: 400; font-size: inherit; }
+.card.line .net:has(.recap) { max-width: none; }  /* a finished game: nothing under the scores to run into */
 .card.line .line-tools { grid-column: 5; display: flex; gap: 4px; }
 .card.line .dd { grid-row: 2; grid-column: 1 / 4; height: auto; margin: 0; font-size: 12px; line-height: 16px; }
 .card.line .dd:empty { display: none; }

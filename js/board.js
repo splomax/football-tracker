@@ -106,26 +106,42 @@ const STAT_ROWS = [["Total yards", "totalYards"], ["Passing", "netPassingYards"]
 const CHEVRON = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3"
   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>`;
 function statsBar(g) {
-  if (!STATS_BETA || g.state !== "in") return "";
+  if (!STATS_BETA) return "";
+  const open = openStats.has(g.key);
+  // A finished game has no bar, only the detailed stats, opened by the Stats link next to Recap (statsLink).
+  if (g.state === "post") return open ? statsDetail(g, statsFor(g, renderBoard)) : "";
+  if (g.state !== "in") return "";
   const s = statsFor(g, renderBoard);
   if (!s) return "";
-  const open = openStats.has(g.key);
   const who = (side) => (s[side].top ? short(s[side].top) : "");
-  const row = (label, a, h) => `<tr><td>${a ?? ""}</td><th>${label}</th><td>${h ?? ""}</td></tr>`;
-  // "Mateer<br>21/33 254 yds 1 TD 1 INT": the name, then ESPN's line without commas, in lowercase but TD and INT.
-  const lead = (p) => (p ? `${p.name}<br><span class="stat">${p.value.replace(/,/g, "").replace(/\b(YDS|CAR|REC)\b/g, (w) => w.toLowerCase())}</span>` : "");
   return `<div class="stats">
       <span class="stats-away">${who("away")}</span><span class="stats-home">${who("home")}</span>
       <button type="button" class="stats-more ${open ? "open" : ""}" data-stats="${g.key}" aria-expanded="${open}"
         aria-label="${open ? "Hide" : "Show"} detailed stats" title="${open ? "Hide" : "Show"} detailed stats">${CHEVRON}</button>
     </div>
-    ${open ? `<table class="stats-detail">
+    ${open ? statsDetail(g, s) : ""}`;
+}
+
+// Both teams' passing, rushing and receiving leaders, then team stats, away on the left and home on the right.
+function statsDetail(g, s) {
+  if (!s) return "";
+  const row = (label, a, h) => `<tr><td>${a ?? ""}</td><th>${label}</th><td>${h ?? ""}</td></tr>`;
+  // "Mateer<br>21/33 254 yds 1 TD 1 INT": the name, then ESPN's line without commas, in lowercase but TD and INT.
+  const lead = (p) => (p ? `${p.name}<br><span class="stat">${p.value.replace(/,/g, "").replace(/\b(YDS|CAR|REC)\b/g, (w) => w.toLowerCase())}</span>` : "");
+  return `<table class="stats-detail">
       <tr><td>${g.away.abbr}</td><th></th><td>${g.home.abbr}</td></tr>
       ${row("Passing", lead(s.away.pass), lead(s.home.pass))}
       ${row("Rushing", lead(s.away.rush), lead(s.home.rush))}
       ${row("Receiving", lead(s.away.rec), lead(s.home.rec))}
       ${STAT_ROWS.map(([label, k]) => row(label, s.away.box[k], s.home.box[k])).join("")}
-    </table>` : ""}`;
+    </table>`;
+}
+
+// A finished game's "Stats" link, styled like Recap, which opens its detailed stats.
+function statsLink(g) {
+  if (!STATS_BETA || g.state !== "post") return "";
+  const open = openStats.has(g.key);
+  return `<button type="button" class="recap stats-link" data-stats="${g.key}" aria-expanded="${open}">Stats</button>`;
 }
 
 function card(g) {
@@ -134,11 +150,11 @@ function card(g) {
     <div class="score">${team(g, g.away, "away", g.home)}<div class="clock">${statusLines(g)}</div>${team(g, g.home, "home", g.away)}</div>
     ${live ? `<div class="dd">${g.ddText || "&nbsp;"}</div>${field(g)}` : ""}
     ${statsBar(g)}
-    <div class="card-foot ${(live && g.lastPlay) || recap || g.network ? "" : "bare"}">
+    <div class="card-foot ${(live && g.lastPlay) || recap || statsLink(g) || g.network ? "" : "bare"}">
       ${live && g.lastPlay
         ? `<div class="last" data-play="${g.key}" title="${escapeAttr(g.lastPlay)}">${g.lastPlay}</div>`
-        : recap
-          ? `<div class="last"><a class="recap" href="${escapeAttr(recap)}" target="_blank" rel="noopener">Recap ↗</a></div>`
+        : recap || statsLink(g)
+          ? `<div class="last">${statsLink(g)}${recap ? `<a class="recap" href="${escapeAttr(recap)}" target="_blank" rel="noopener">Recap ↗</a>` : ""}</div>`
           : `<div class="last">&nbsp;</div>`}
       ${g.network ? `<span class="net" title="Broadcast on ${escapeAttr(g.network)}">${g.network}</span>` : ""}
       ${admin.cardExtras(g)}
@@ -156,7 +172,7 @@ function lineCard(g) {
   return `${cardOpen(g, "line")}
     ${team(g, g.away, "away", g.home)}<span class="at">@</span>${team(g, g.home, "home", g.away)}
     <div class="clock">${statusLines(g).replace("<br>", " ")}</div>
-    <span class="net" ${g.network ? `title="Broadcast on ${escapeAttr(g.network)}"` : ""}>${g.network}${recap
+    <span class="net" ${g.network ? `title="Broadcast on ${escapeAttr(g.network)}"` : ""}>${g.network} ${statsLink(g)}${recap
       ? ` <a class="recap" href="${escapeAttr(recap)}" target="_blank" rel="noopener">Recap ↗</a>` : ""}</span>
     <span class="line-tools">${admin.cardExtras(g)}<button class="remove" data-remove="${g.key}" aria-label="Remove game" title="Remove game">✕</button></span>
     <div class="dd">${g.state === "in" && g.ddText ? g.ddText : ""}</div>

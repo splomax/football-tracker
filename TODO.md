@@ -15,7 +15,7 @@
 
 7. **Notification settings.** Let people choose which events notify them (scores, red zone, two-minute warning,
     quarters, halftime, final).
-8. **Drop "Enable notifications" when notifications go live for everyone.** The gear-menu item is the admin's switch;
+8. **Drop "Enable notifications" when notifications go live for everyone (Saturday, Oct 24).** Everyone gets the feature. The gear-menu item is the admin's switch;
     once everyone has notifications, it goes (the bells would be how people subscribe). The iPhone walkthrough
     (worker/admin.js explainInstall) opens from it in Safari; move that to tapping a bell, and fix its step 3 wording.
 9. **Score alignment in the game list.** Scores don't line up from card to card (a Final card's sit further left
@@ -31,4 +31,6 @@
     tell allowed, blocked and not asked yet) and, when they light a bell, tell them notifications are blocked with
     the steps for their device (iPhone: Settings → Notifications → Game Tracker; desktop Chrome: the icon left of the
     address → Notifications). Check again whenever the app opens, in case they changed it in Settings. Not tied to the
-    gear menu's Enable notifications, which is going away (#9).
+    gear menu's Enable notifications, which is going away (#8).
+16. **Stats mode's arrow button.** It works but still feels clunky; find a better way to open a live game's detailed
+    stats.
