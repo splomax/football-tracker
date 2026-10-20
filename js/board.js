@@ -97,13 +97,13 @@ function cardOpen(g, kind = "") {
     style="${glowing ? `animation-delay: -${glowAge}ms;` : ""}${flashing ? `--flash-delay: -${flashAge}ms;` : ""}">`;
 }
 
-// The stats bar, for now only with ?stats-mode-beta in the address: the game's leading passer, rusher and receiver
+// The stats bar, for now only with ?stats-mode-beta in the address and on live games: the game's leading passer, rusher and receiver
 // on one line, or one at a time where the line doesn't fit (css/board.css). The rotation's offset comes from the clock,
 // so a board redraw (every poll) carries on mid-cycle instead of starting over.
 const STATS_BETA = new URLSearchParams(location.search).has("stats-mode-beta");
 const STATS_CYCLE_MS = 12_000;
 function statsBar(g) {
-  if (!STATS_BETA || !g.leaders?.length) return "";
+  if (!STATS_BETA || g.state !== "in" || !g.leaders?.length) return "";  // live games only, for now
   return `<div class="stats"><div class="stats-in" style="--cycle-at: -${Date.now() % STATS_CYCLE_MS}ms">${g.leaders.map((l, i) =>
     `<span style="--i: ${i}">${l}</span>`).join("")}</div></div>`;
 }
