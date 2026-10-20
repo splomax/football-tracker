@@ -103,7 +103,7 @@ function cardOpen(g, kind = "") {
 const openStats = new Set();  // game keys with detailed stats open; survives board refreshes
 const STAT_ROWS = [["Total yards", "totalYards"], ["Passing", "netPassingYards"], ["Rushing", "rushingYards"],
   ["Turnovers", "turnovers"], ["3rd down", "thirdDownEff"], ["Possession", "possessionTime"]];
-const CHEVRON = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"
+const CHEVRON = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="3"
   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>`;
 function statsBar(g) {
   if (!STATS_BETA || g.state !== "in") return "";
@@ -117,7 +117,7 @@ function statsBar(g) {
   return `<div class="stats">
       <span class="stats-away">${who("away")}</span><span class="stats-home">${who("home")}</span>
       <button type="button" class="stats-more ${open ? "open" : ""}" data-stats="${g.key}" aria-expanded="${open}"
-        title="${open ? "Hide" : "Show"} detailed stats">Stats${CHEVRON}</button>
+        aria-label="${open ? "Hide" : "Show"} detailed stats" title="${open ? "Hide" : "Show"} detailed stats">${CHEVRON}</button>
     </div>
     ${open ? `<table class="stats-detail">
       <tr><td>${g.away.abbr}</td><th></th><td>${g.home.abbr}</td></tr>

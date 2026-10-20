@@ -186,12 +186,12 @@ svg.field { width: 100%; display: block; border-radius: 4px; }
 .stats { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: center; gap: 8px; margin: 6px 0 2px; font-size: 12px; line-height: 18px; color: var(--muted); }
 .stats > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stats-home { text-align: right; }
-/* "Stats ⌄": a labeled pill, so it reads as a button on a phone; its arrow flips once open. */
-.stats-more { display: inline-flex; align-items: center; gap: 3px; height: 22px; padding: 0 8px; border: 1px solid var(--border); border-radius: 11px; background: var(--panel); color: var(--text); font: 600 11px/1 inherit; cursor: pointer; }
-.stats-more:hover { border-color: var(--muted); }
+/* The arrow that opens the detailed stats: a round button, bright on the card, flipped once open. */
+.stats-more { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 1px solid var(--muted); border-radius: 50%; background: var(--panel); color: var(--strong); cursor: pointer; }
+.stats-more:hover { background: var(--border); }
 .stats-more svg { transition: transform .15s; }
 .stats-more.open svg { transform: rotate(180deg); }
-@media (pointer: coarse) { .stats-more { height: 28px; padding: 0 12px; border-radius: 14px; font-size: 12px; } }
+@media (pointer: coarse) { .stats-more { width: 30px; height: 30px; } .stats-more svg { width: 18px; height: 18px; } }
 .stats-detail { width: 100%; margin: 4px 0 2px; border-collapse: collapse; font-size: 12px; line-height: 18px; }
 .stats-detail td { width: 42%; vertical-align: top; }
 .stats-detail td:last-child { text-align: right; }
