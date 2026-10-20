@@ -186,9 +186,12 @@ svg.field { width: 100%; display: block; border-radius: 4px; }
 .stats { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: center; gap: 8px; margin: 6px 0 2px; font-size: 12px; line-height: 18px; color: var(--muted); }
 .stats > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stats-home { text-align: right; }
-.stats-more { width: 22px; height: 18px; padding: 0; border: 1px solid var(--border); border-radius: 5px; background: none; color: var(--muted); font-size: 11px; line-height: 16px; cursor: pointer; }
-.stats-more:hover { color: var(--text); }
-.stats-more.open { transform: rotate(180deg); }
+/* "Stats ⌄": a labeled pill, so it reads as a button on a phone; its arrow flips once open. */
+.stats-more { display: inline-flex; align-items: center; gap: 3px; height: 22px; padding: 0 8px; border: 1px solid var(--border); border-radius: 11px; background: var(--panel); color: var(--text); font: 600 11px/1 inherit; cursor: pointer; }
+.stats-more:hover { border-color: var(--muted); }
+.stats-more svg { transition: transform .15s; }
+.stats-more.open svg { transform: rotate(180deg); }
+@media (pointer: coarse) { .stats-more { height: 28px; padding: 0 12px; border-radius: 14px; font-size: 12px; } }
 .stats-detail { width: 100%; margin: 4px 0 2px; border-collapse: collapse; font-size: 12px; line-height: 18px; }
 .stats-detail td { width: 42%; vertical-align: top; }
 .stats-detail td:last-child { text-align: right; }
