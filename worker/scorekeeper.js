@@ -8,24 +8,30 @@
 // an admin page has asked within IDLE_MS, or while a phone has a lit bell on a game that's live or starts within
 // SOON_MS; every IDLE_CHECK_MS while phones have bells on later games (to notice kickoffs); otherwise not at all.
 
-import { fetchGames, fetchScoringPlay, confNames } from "../js/espn.js";
-import { gameAlerts, mergeAlerts, scoreLine, sampleAlert } from "../js/alerts.js";
+import { fetchGames, fetchScoringPlays, confNames } from "../js/espn.js";
+import { gameAlerts, mergeAlerts, needsScoringPlays, scoreLine, sampleAlert } from "../js/alerts.js";
 
 export const POLL_MS = 10_000;
 export const IDLE_MS = 2 * 60_000;
 export const SOON_MS = 15 * 60_000;
 export const IDLE_CHECK_MS = 15 * 60_000;
 const KEEP_ALERTS = 200;  // the most recent notifications kept for pages to catch up on
+const MAX_PLAY_FETCHES = 30;  // per update: Cloudflare allows 50 outside requests per run, and the scoreboards take 2
 
 export class ScoreKeeper {
-  /** @param {{ fetchGames?: typeof fetchGames, fetchScoringPlay?: typeof fetchScoringPlay, now?: () => number }} [deps]  stand-ins for tests */
+  /**
+   * @param {{ fetchGames?: typeof fetchGames, fetchScoringPlays?: typeof fetchScoringPlays, now?: () => number,
+   *   storage?: { get, put, delete, list } }} [deps]  storage: where each game's memo is saved (the Durable Object's
+   *   storage), so a restart picks up where it left off; left out, memos are only kept in memory. Others: for tests.
+   */
   constructor(deps = {}) {
     this.fetch = deps.fetchGames ?? fetchGames;
-    this.fetchScoringPlay = deps.fetchScoringPlay ?? fetchScoringPlay;
+    this.fetchScoringPlays = deps.fetchScoringPlays ?? fetchScoringPlays;
+    this.storage = deps.storage ?? null;
     this.now = deps.now ?? Date.now;
     this.games = { cfb: [], nfl: [] };
     this.last = new Map();   // game key -> the game at the last update
-    this.memos = new Map();  // game key -> what js/alerts.js remembers about it between updates
+    this.memos = null;       // game key -> what js/alerts.js remembers about it (saved as "memo:<key>"), loaded on the first update
     this.alerts = [];        // { id, key, title, body, tag?, icon?, test?, at }, oldest first (test: from the test button)
     this.nextId = 1;
     this.polledAt = -Infinity;  // never
@@ -39,6 +45,8 @@ export class ScoreKeeper {
   async poll() {
     const now = this.now();
     this.polledAt = now;
+    if (!this.memos) await this.loadMemos();
+    let playFetches = 0;
     await Promise.all(Object.keys(this.games).map(async (league) => {
       let games;
       try {
@@ -50,27 +58,41 @@ export class ScoreKeeper {
       if (!games.length && this.games[league].length) return;
       this.games[league] = games;
       for (const g of games) {
-        if (!this.memos.has(g.key)) this.memos.set(g.key, {});
-        await this.findScoringPlay(this.last.get(g.key), g, this.memos.get(g.key));
-        const news = gameAlerts(this.last.get(g.key), g, this.memos.get(g.key), now);
+        const memo = this.memos.get(g.key) ?? {};
+        const before = JSON.stringify(memo);
+        if (needsScoringPlays(g, memo) && playFetches++ < MAX_PLAY_FETCHES) {
+          try {
+            g.scoringPlays = await this.fetchScoringPlays(g);
+          } catch (err) {
+            console.error("scoring plays", g.key, err);
+          }
+        }
+        const news = gameAlerts(this.last.get(g.key), g, memo, now);
+        delete g.scoringPlays;  // pages don't need them
         this.last.set(g.key, g);
+        if (JSON.stringify(memo) !== before) await this.saveMemo(g.key, memo);
         if (news.length) this.add({ key: g.key, ...mergeAlerts(news) });  // one notification per game per update
       }
+      // Games ESPN no longer lists are done with.
+      const listed = new Set(games.map((g) => g.key));
+      for (const key of this.memos.keys()) if (key.startsWith(`${league}:`) && !listed.has(key)) await this.dropMemo(key);
     }));
   }
 
-  // When the score changed but the scoreboard's last play isn't the scoring one (ESPN updates the score first), look
-  // the scoring play up by the new score, for the notification's description (js/alerts.js). While a touchdown's try
-  // is pending, look every time: a missed try doesn't move the score, only the touchdown's play says so.
-  async findScoringPlay(prev, g, memo) {
-    if (!prev) return;
-    const changed = g.away.score !== prev.away.score || g.home.score !== prev.home.score;
-    if (!memo?.pendingTry && (!changed || g.lastPlayScored)) return;
-    try {
-      g.scoringPlay = (await this.fetchScoringPlay(g)) ?? undefined;
-    } catch (err) {
-      console.error("scoring play", g.key, err);
-    }
+  async loadMemos() {
+    this.memos = new Map();
+    if (!this.storage) return;
+    for (const [name, memo] of await this.storage.list({ prefix: "memo:" })) this.memos.set(name.slice(5), memo);
+  }
+
+  async saveMemo(key, memo) {
+    this.memos.set(key, memo);
+    await this.storage?.put(`memo:${key}`, memo);
+  }
+
+  async dropMemo(key) {
+    this.memos.delete(key);
+    await this.storage?.delete(`memo:${key}`);
   }
 
   add(alert) {

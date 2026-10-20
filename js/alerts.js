@@ -1,10 +1,14 @@
-// What happened in a game between two polls, as notifications: scores, trips inside the red zone, two-minute
-// warnings, and the start and end of each quarter. Every one carries the game's score. No browser APIs here: it runs
-// in the program on Cloudflare (worker/scorekeeper.js), and the tests (worker/alerts.test.js) drive it directly.
+// What happened in a game, as notifications: scores (and how each touchdown's try went), trips inside the red zone,
+// two-minute warnings, and the start and end of each quarter. Every one carries the score. No browser APIs here: it
+// runs in the program on Cloudflare (worker/scorekeeper.js), and the tests (worker/alerts.test.js) drive it directly.
+//
+// Each event has a fixed name: "score:<ESPN's id for the scoring play>", "try:<id>", "start-3", "end-2", "two-minute-4",
+// "final". The game's memo lists the names already sent, and the program saves the memo, so after a restart nothing
+// is sent twice or lost: whatever hasn't been sent yet still goes out.
 
 const TRY_GIVE_UP_MS = 4 * 60_000;  // after a touchdown, how long to watch for how its try went
-
-const SCORE_KINDS = { 2: "2 points", 3: "field goal", 6: "touchdown", 7: "touchdown", 8: "touchdown" };
+const TRY_RESULTS = { "missed-pat": "Missed PAT", "two-point": "2-pt conversion", "failed-two-point": "Failed 2-pt" };
+const SCORE_NAMES = { "field-goal": "field goal", safety: "safety" };
 
 /**
  * How a touchdown's try went, from ESPN's wording on the touchdown's play: "kick", "missed-pat", "two-point",
@@ -46,85 +50,42 @@ const seconds = (clock) => {
 // Between quarters: ESPN's "End of 1st Quarter", or halftime.
 const between = (g) => g.state === "in" && /^End of|Halftime/i.test(g.detail ?? "");
 
+
+const total = (p) => p.awayScore + p.homeScore;
+const endName = (period) => (period === 2 ? "Halftime" : `End of the ${periodName(period)}`);
+
 /**
- * The notifications for game g, given how it looked at the last poll (prev; undefined the first time it's seen) and
- * memo, an object kept per game between calls (start it as {}). The first look only fills memo: something already
- * under way when the page opens isn't news.
+ * The notifications for game g, given how it looked at the last poll (prev; undefined right after a restart) and its
+ * memo (start it as {}; the program saves it between polls). g.scoringPlays (js/espn.js fetchScoringPlays) is there
+ * when the program fetched them: whenever the score is ahead of the plays it last saw, or a try is pending
+ * (needsScoringPlays). The very first look only fills the memo: what already happened before then isn't news.
  * @returns {{ title: string, body: string, tag?: string, icon?: string }[]}
  */
 export function gameAlerts(prev, g, memo, now = Date.now()) {
-  if (!prev) {
-    memo.started = g.state === "pre" ? 0 : g.period;
-    memo.ended = g.state === "post" ? Infinity : between(g) ? g.period : g.period - 1;
-    memo.redZoneTeam = g.redZone ? g.possession : null;
+  const sent = new Set(memo.sent);
+  const fire = (name) => !sent.has(name) && sent.add(name);
+  if (!memo.sent) {
+    firstLook(g, memo, sent);
     return [];
   }
   const alerts = [];
-  const add = (title, extra, more = {}) => alerts.push({ title, body: [scoreLine(g), extra].filter(Boolean).join("\n"), ...more });
-  const endOf = (period) => {
-    memo.ended = period;
-    add(period === 2 ? "Halftime" : `End of the ${periodName(period)}`);
-  };
+  const add = (title, extra, more = {}, at = g) => alerts.push({ title, body: [scoreLine(at), extra].filter(Boolean).join("\n"), ...more });
+  // Styled: what happened as the title (shown bold), then the game, then the score ("TD Cardinals" / "Cardinals @
+  // Rams" / "Cardinals 7, Rams 0"). Each has its own tag, so it shows as a new notification: a repeated tag only
+  // replaces the earlier one, out of sight.
+  const styled = (title, t, at, tag) => alerts.push({ title, body: `${matchup(at)}\n${score(at)}`, tag, styled: true, icon: t.logo });
 
   // A new quarter counts once two polls in a row show it under way: ESPN sometimes reports the next period for a
   // single poll before the quarter has ended, then goes back to "End of 1st". A quarter that ended between polls
   // without us seeing its "End of" status still gets its notification first.
-  const underWay = (x) => x.state === "in" && x.period === g.period && !between(x);
-  if (underWay(g) && underWay(prev) && g.period > memo.started) {
-    if (g.period > 1 && memo.ended < g.period - 1) endOf(g.period - 1);
-    memo.started = g.period;
+  const underWay = (x) => x?.state === "in" && x.period === g.period && !between(x);
+  if (underWay(g) && underWay(prev) && !sent.has(`start-${g.period}`)) {
+    if (g.period > 1 && fire(`end-${g.period - 1}`)) add(endName(g.period - 1));
+    fire(`start-${g.period}`);
     add(g.period === 1 ? "Kickoff" : `Start of the ${periodName(g.period)}`);
   }
 
-  // The scoring play: looked up by the score when the scoreboard's last play isn't it yet (worker/scorekeeper.js), else
-  // the last play if it scored, else nothing rather than the wrong play. After a touchdown it also says how the try
-  // went: ESPN adds "(J.Bates Kick)", "(J.Bates PAT failed)" and so on to the touchdown's play.
-  const play = g.scoringPlay ?? (g.lastPlayScored ? g.lastPlay : undefined);
-  // Styled: what happened as the title (shown bold), then the game, then the new score ("TD Cardinals" /
-  // "Cardinals @ Rams" / "Cardinals 7, Rams 0"). Each score gets its own tag, so it shows as a new notification: a
-  // repeated tag only replaces the earlier one, out of sight.
-  const styled = (title, t) => {
-    const alert = { title, body: `${matchup(g)}\n${score(g)}`, tag: `${g.key}:score:${t.id}:${now}`, styled: true, icon: t.logo };
-    alerts.push(alert);
-    return alert;
-  };
-  let touchdown;  // this poll's touchdown notification, which a try seen in the same poll joins
-  for (const side of ["away", "home"]) {
-    const gained = Number(g[side].score) - Number(prev[side].score);
-    if (gained <= 0) continue;
-    const t = g[side];
-    const tryFor = memo.pendingTry?.team === t.id;
-    if (memo.pendingTry && !tryFor) memo.pendingTry = null;  // the other team scored: that try is long over
-    if (gained === 1) {
-      // A made extra point is expected, so it's skipped; a missed one is the news (below).
-      if (tryFor) memo.pendingTry = null;
-    } else if (gained === 2 && tryFor) {
-      memo.pendingTry = null;
-      styled(`2-pt conversion ${nameOf(t)}`, t);
-    } else if (SCORE_KINDS[gained] === "touchdown") {
-      // +6 waits for its try; +7 already has the extra point; +8 had the 2-point conversion.
-      touchdown = styled(gained === 8 ? `TD ${nameOf(t)} · 2-pt conversion` : `TD ${nameOf(t)}`, t);
-      if (gained === 6) memo.pendingTry = { team: t.id, at: now };
-    } else {
-      add(`${nameOf(t)} ${SCORE_KINDS[gained] ?? `+${gained}`}`, play, { tag: `${g.key}:score:${t.id}:${now}`, icon: t.logo });
-    }
-  }
-
-  // A touchdown whose try failed: the score doesn't move, so the touchdown's play says so (or, after a while, nothing will).
-  if (memo.pendingTry) {
-    const t = memo.pendingTry.team === g.home.id ? g.home : g.away;
-    const result = classifyTry(play);
-    const missed = { "missed-pat": "Missed PAT", "failed-two-point": "Failed 2-pt" }[result];
-    if (now - memo.pendingTry.at > TRY_GIVE_UP_MS) {
-      memo.pendingTry = null;
-    } else if (missed && touchdown) {
-      memo.pendingTry = null;
-      touchdown.title = `${touchdown.title} · ${missed}`;
-    } else if (missed) {
-      memo.pendingTry = null;
-      styled(`${missed} ${nameOf(t)}`, t);
-    }
-  }
+  if (g.scoringPlays) scoringAlerts(g, memo, sent, now, add, styled);
 
   // One per trip: it resets only once the other team has the ball (possession can drop out between plays).
   if (g.possession && g.possession !== memo.redZoneTeam) memo.redZoneTeam = null;
@@ -135,19 +96,79 @@ export function gameAlerts(prev, g, memo, now = Date.now()) {
   }
 
   // The 2nd and 4th quarters' clock running past 2:00 (the NFL's two-minute warning, and college's two-minute timeout).
-  const was = seconds(prev.clock), is = seconds(g.clock);
-  // Not once the quarter is over: its clock reaching 0:00 between polls isn't a warning.
-  if (g.state === "in" && !between(g) && (g.period === 2 || g.period === 4) && prev.period === g.period && was > 120 && is !== null && is <= 120) {
+  // Right after a restart (no prev), only if it's still close to 2:00. Not once the quarter is over.
+  const is = seconds(g.clock), was = prev?.period === g.period ? seconds(prev.clock) : null;
+  if (g.state === "in" && !between(g) && (g.period === 2 || g.period === 4) && is !== null && is <= 120
+      && (prev ? was > 120 : is >= 100) && fire(`two-minute-${g.period}`)) {
     add("Two-minute warning");
   }
 
-  if (g.state === "post" && memo.ended !== Infinity) {
-    memo.ended = Infinity;
-    add("Final");
-  } else if (between(g) && memo.ended < g.period) {
-    endOf(g.period);
+  if (g.state === "post") {
+    if (fire("final")) add("Final");
+  } else if (between(g) && fire(`end-${g.period}`)) {
+    add(endName(g.period));
   }
+  memo.sent = [...sent];
   return alerts;
+}
+
+// The first look at a game: everything that already happened counts as sent.
+function firstLook(g, memo, sent) {
+  const period = g.state === "pre" ? 0 : g.period;
+  const ended = g.state === "post" || between(g) ? period : period - 1;
+  for (let n = 1; n <= period; n++) sent.add(`start-${n}`);
+  for (let n = 1; n <= ended; n++) sent.add(`end-${n}`);
+  for (const n of [2, 4]) if (n < period || (n === period && (g.state !== "in" || between(g) || seconds(g.clock) <= 120))) sent.add(`two-minute-${n}`);
+  if (g.state === "post") sent.add("final");
+  memo.seenTotal = Number(g.away.score) + Number(g.home.score);  // the score its scoring plays have reached
+  memo.redZoneTeam = g.redZone ? g.possession : null;
+  memo.sent = [...sent];
+}
+
+/** Whether the program should fetch g's scoring plays for gameAlerts: the score is ahead of them, or a try is pending. */
+export function needsScoringPlays(g, memo) {
+  if (!memo.sent) return false;  // the first look sends nothing
+  return Number(g.away.score) + Number(g.home.score) !== memo.seenTotal || Object.keys(memo.tries ?? {}).length > 0;
+}
+
+// Each scoring play not sent yet; then each touchdown still waiting on its try, which shows up in the touchdown's text.
+function scoringAlerts(g, memo, sent, now, add, styled) {
+  const plays = g.scoringPlays;
+  if (!memo.playsSeen) {
+    // The first list since the first look: the plays that started before then (the one before them had left a lower
+    // score than the first look saw) were already old news.
+    plays.forEach((p, i) => {
+      if ((i ? total(plays[i - 1]) : 0) < memo.seenTotal) sent.add(`score:${p.id}`).add(`try:${p.id}`);
+    });
+    memo.playsSeen = true;
+  }
+  if (plays.length) memo.seenTotal = total(plays.at(-1));
+  const tries = { ...memo.tries };
+  for (const p of plays) {
+    const t = p.teamId === g.home.id ? g.home : g.away;
+    // The score this play left (ESPN's scoreboard can be a moment ahead or behind).
+    const at = { ...g, away: { ...g.away, score: String(p.awayScore) }, home: { ...g.home, score: String(p.homeScore) } };
+    const tried = classifyTry(p.text);
+    if (!sent.has(`score:${p.id}`)) {
+      sent.add(`score:${p.id}`);
+      if (p.kind === "touchdown") {
+        // A try already in comes with it ("TD Cardinals · 2-pt conversion"); otherwise watch for it.
+        if (tried) sent.add(`try:${p.id}`);
+        else tries[p.id] = now;
+        styled(`TD ${nameOf(t)}${TRY_RESULTS[tried] ? ` · ${TRY_RESULTS[tried]}` : ""}`, t, at, `${g.key}:score:${p.id}`);
+      } else {
+        sent.add(`try:${p.id}`);
+        add(`${nameOf(t)} ${SCORE_NAMES[p.kind] ?? "score"}`, p.text, { tag: `${g.key}:score:${p.id}`, icon: t.logo }, at);
+      }
+    } else if (tries[p.id] !== undefined && (tried || now - tries[p.id] > TRY_GIVE_UP_MS)) {
+      // A made extra point is expected, so it's skipped; a missed one, or a 2-point try either way, is news.
+      delete tries[p.id];
+      sent.add(`try:${p.id}`);
+      if (TRY_RESULTS[tried]) styled(`${TRY_RESULTS[tried]} ${nameOf(t)}`, t, at, `${g.key}:try:${p.id}`);
+    }
+  }
+  if (Object.keys(tries).length) memo.tries = tries;
+  else delete memo.tries;
 }
 
 /**
@@ -158,7 +179,7 @@ export function mergeAlerts(alerts) {
   if (alerts.length < 2) return alerts[0];
   const scored = alerts.find((a) => a.tag);
   // A styled one (a touchdown or a try) sets the layout: everything that happened, then the game and the new score.
-  const styled = alerts.find((a) => a.styled);
+  const styled = alerts.findLast((a) => a.styled);  // the latest, for the latest score
   if (styled) return { title: alerts.map((a) => a.title).join(" · "), body: styled.body, tag: scored.tag, icon: styled.icon };
   const [line] = alerts[0].body.split("\n");
   return {
@@ -184,26 +205,34 @@ export const SAMPLE_KINDS = {
 export function sampleAlert(g, kind) {
   const away = Number(g.away.score) || 0, home = Number(g.home.score) || 0;
   const base = { ...g, state: "in", period: 2, clock: "8:00", detail: "8:00 - 2nd", redZone: false, possession: g.away.id,
-    ddText: "1st & 10", lastPlayScored: false, scoringPlay: undefined, away: { ...g.away, score: String(away) }, home: { ...g.home, score: String(home) } };
+    ddText: "1st & 10", scoringPlays: undefined, away: { ...g.away, score: String(away) }, home: { ...g.home, score: String(home) } };
   const at = (period, clock, detail) => ({ ...base, period, clock, detail: detail ?? `${clock} - ${periodName(period).split(" ")[0]}` });
-  const memo = { started: 2, ended: 1, redZoneTeam: g.away.id };  // nothing else pending, so only the sample fires
+  // Everything already sent but the sample's own event, so only the sample fires.
+  const sent = ["start-1", "start-2", "start-3", "start-4", "end-1", "end-2", "end-3", "end-4", "two-minute-2", "two-minute-4", "final"];
+  const memo = { sent, seenTotal: away + home, playsSeen: true, redZoneTeam: g.away.id };
+  const unsent = (name) => { memo.sent = sent.filter((n) => n !== name); };
+  const who = g.away.name ?? g.away.abbr;
+  const play = (kind, points, text) => [{ id: "sample", kind, teamId: g.away.id, text, awayScore: away + points, homeScore: home }];
+  const tryPending = () => { memo.sent = [...sent, "score:sample"]; memo.tries = { sample: Date.now() }; };
   let prev = base, now;
   switch (kind) {
     case "touchdown":
-      now = { ...base, away: { ...base.away, score: String(away + 7) }, scoringPlay: `${g.away.name ?? g.away.abbr} 25 Yd pass (sample)` };
+      now = { ...base, scoringPlays: play("touchdown", 7, `${who} 25 Yd pass (sample Kick)`) };
       break;
     case "missed-pat":
-    case "failed-two-point":
-      // The touchdown came a poll earlier; its play now says the try failed.
-      memo.pendingTry = { team: g.away.id, at: Date.now() };
-      prev = now = { ...base, scoringPlay: `${g.away.name ?? g.away.abbr} 25 Yd pass (${kind === "missed-pat" ? "sample PAT failed" : "Two-Point Pass Conversion Failed"})` };
+      tryPending();
+      now = { ...base, scoringPlays: play("touchdown", 6, `${who} 25 Yd pass (sample PAT failed)`) };
       break;
     case "two-point":
-      memo.pendingTry = { team: g.away.id, at: Date.now() };
-      now = { ...base, away: { ...base.away, score: String(away + 2) } };
+      tryPending();
+      now = { ...base, scoringPlays: play("touchdown", 8, `${who} 25 Yd pass (sample Pass to ${who} for Two-Point Conversion)`) };
+      break;
+    case "failed-two-point":
+      tryPending();
+      now = { ...base, scoringPlays: play("touchdown", 6, `${who} 25 Yd pass (Two-Point Pass Conversion Failed)`) };
       break;
     case "field-goal":
-      now = { ...base, away: { ...base.away, score: String(away + 3) }, scoringPlay: `${g.away.name ?? g.away.abbr} 42 Yd Field Goal (sample)` };
+      now = { ...base, scoringPlays: play("field-goal", 3, `${who} 42 Yd Field Goal (sample)`) };
       break;
     case "red-zone":
       memo.redZoneTeam = null;
@@ -211,31 +240,32 @@ export function sampleAlert(g, kind) {
       now = { ...base, redZone: true, ddText: `1st & 10 at ${g.home.abbr} 15` };
       break;
     case "two-minute":
-      Object.assign(memo, { started: 4, ended: 3 });
+      unsent("two-minute-4");
       prev = at(4, "2:05");
       now = at(4, "2:00");
       break;
     case "kickoff":
-      Object.assign(memo, { started: 0, ended: 0 });
+      unsent("start-1");
       prev = at(1, "15:00");
       now = at(1, "14:52");
       break;
     case "quarter-start":
-      Object.assign(memo, { started: 2, ended: 2 });
+      unsent("start-3");
       prev = at(3, "15:00");
       now = at(3, "14:52");
       break;
     case "quarter-end":
-      Object.assign(memo, { started: 1, ended: 0 });
+      unsent("end-1");
       prev = at(1, "0:04");
       now = at(1, "0:00", "End of 1st Quarter");
       break;
     case "halftime":
+      unsent("end-2");
       prev = at(2, "0:04");
       now = at(2, "0:00", "Halftime");
       break;
     case "final":
-      Object.assign(memo, { started: 4, ended: 3 });
+      unsent("final");
       prev = at(4, "0:04");
       now = { ...at(4, "0:00", "Final"), state: "post" };
       break;

@@ -38,15 +38,15 @@ function yardsToGoal(s, possession, home, away) {
 }
 
 /**
- * The text of the scoring play that left the game at this score ("Travis Hunter 7 Yd pass from Trevor Lawrence (Cam
- * Little Kick)"), from ESPN's game detail, or null if it isn't listed yet. For score notifications, when the last play
- * the scoreboard reports isn't the scoring one (worker/scorekeeper.js).
+ * The game's scoring plays so far, oldest first, from ESPN's game detail: [{ id, kind ("touchdown", "field-goal",
+ * "safety"...), teamId, text, awayScore, homeScore }], each with the score it left. A touchdown's text grows the try's
+ * result ("(Cam Little Kick)", "(... PAT failed)") once it's in. For notifications (js/alerts.js, worker/scorekeeper.js).
  */
-export async function fetchScoringPlay(g) {
+export async function fetchScoringPlays(g) {
   const [league, id] = g.key.split(":");
   const { scoringPlays = [] } = await (await fetch(LEAGUES[league].replace(/scoreboard.*$/, `summary?event=${id}`))).json();
-  const play = scoringPlays.findLast((p) => String(p.awayScore) === String(g.away.score) && String(p.homeScore) === String(g.home.score));
-  return play?.text ?? null;
+  return scoringPlays.map((p) => ({ id: String(p.id), kind: p.scoringType?.name, teamId: String(p.team?.id), text: p.text,
+    awayScore: Number(p.awayScore), homeScore: Number(p.homeScore) }));
 }
 
 export async function fetchGames(league) {
@@ -89,7 +89,6 @@ function parseEvent(league, e) {
     lastPlay: lp?.text,
     // Whether that last play scored. ESPN often updates the score a moment before the last play, so a score
     // notification only quotes the last play when it's the scoring one (js/alerts.js).
-    lastPlayScored: (lp?.scoreValue ?? 0) > 0,
     // Where to watch, e.g. "ABC" or "CBS / Paramount+".
     network: [...new Set((comp.broadcasts || []).flatMap((b) => b.names || []))].join(" / "),
     // Link to ESPN's written recap, once the game is over. js/recap.js checks that the story actually exists.

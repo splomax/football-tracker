@@ -17,7 +17,7 @@ export class ScoreKeeper {
   constructor(ctx, env, deps = {}) {
     this.ctx = ctx;
     this.env = env;
-    this.keeper = new Keeper(deps);
+    this.keeper = new Keeper({ storage: ctx.storage, ...deps });
     this.testDelay = deps.testDelay ?? PHONE_TEST_DELAY_MS;
     this.phones = null;  // [{ subscription, bells }], loaded from KV on first need, on /phones and on /wake
     this.sentThrough = 0;  // the last notification sent to phones
