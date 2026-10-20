@@ -137,11 +137,11 @@ function statsDetail(g, s) {
     </table>`;
 }
 
-// A finished game's "Stats" link, styled like Recap, which opens its detailed stats.
+// A finished game's "Stats" link, styled like Recap, which opens its detailed stats ("Hide stats" once open).
 function statsLink(g) {
   if (!STATS_BETA || g.state !== "post") return "";
   const open = openStats.has(g.key);
-  return `<button type="button" class="recap stats-link" data-stats="${g.key}" aria-expanded="${open}">Stats</button>`;
+  return `<button type="button" class="recap stats-link" data-stats="${g.key}" aria-expanded="${open}">${open ? "Hide stats" : "Stats"}</button>`;
 }
 
 function card(g) {

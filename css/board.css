@@ -203,6 +203,8 @@ svg.field { width: 100%; display: block; border-radius: 4px; }
 .stats-detail { width: 100%; margin: 4px 0 2px; border-collapse: collapse; font-size: 12px; line-height: 18px; }
 .stats-detail td { width: 42%; vertical-align: top; }
 .stats-detail td:last-child { text-align: right; }
+/* An open stats table makes its card taller; the cards beside it keep their own height instead of stretching. */
+.cards:has(.stats-detail) > .card { align-self: start; }
 .stats-detail th { padding: 0 6px; color: var(--muted); font-weight: 400; white-space: nowrap; }
 .stats-detail tr:first-child td { font-weight: 700; }
 .stats-detail .stat { color: var(--muted); }
