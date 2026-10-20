@@ -17,7 +17,7 @@ const IMAGES = path.join(__dirname, "..", "images");
 const PREVIEW_GAMES = ["cfb:1", "cfb:2", "cfb:4", "nfl:101", "cfb:7", "cfb:5"];
 
 // The home-screen icon: the wordmark over a football field (green stripes, white yard lines), the words outlined in
-// dark green and shadowed so they stand out, laid out at 180px and scaled to each size, at 80% so TRACKER has room on both sides. Drawn on the site's
+// dark green and shadowed so they stand out, laid out at 180px and scaled to each size, at 86% so TRACKER has a little room on both sides. Drawn on the site's
 // own page so it gets the wordmark's font. Square: the phone rounds the corners itself.
 async function renderBrandIcon(browser, size, file) {
   const page = await browser.newPage({ viewport: { width: size, height: size } });
@@ -30,7 +30,7 @@ async function renderBrandIcon(browser, size, file) {
         background: linear-gradient(rgba(0, 0, 0, .15), rgba(0, 0, 0, .15)),
           repeating-linear-gradient(90deg, transparent 0 29px, rgba(255, 255, 255, .55) 29px 31px),
           repeating-linear-gradient(90deg, #2f8a36 0 30px, #2a7c31 30px 60px)">
-        <div style="zoom: .8; display: grid; justify-items: center; gap: 8px; font-family: 'Barlow Condensed'; font-weight: 700;
+        <div style="zoom: .86; display: grid; justify-items: center; gap: 8px; font-family: 'Barlow Condensed'; font-weight: 700;
           text-transform: uppercase; line-height: .92; text-shadow: 0 2px 8px rgba(0, 0, 0, .75);
           -webkit-text-stroke: 4px #0d2b12; paint-order: stroke fill">
           <span style="font-size: 50px; letter-spacing: .04em; color: #fff">Game</span>
