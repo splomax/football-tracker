@@ -121,11 +121,13 @@ export class ScoreKeeper {
     if (this.watched) return POLL_MS;
     const bells = new Set(phones.flatMap((p) => p.bells));
     if (!bells.size) return null;
+    // Just started (after a deploy, or Cloudflare unloading it while idle), it knows no games yet: fetch right away.
+    if (this.polledAt === -Infinity) return 0;
     const known = [...this.games.cfb, ...this.games.nfl].filter((g) => bells.has(g.key));
-    if (known.length < bells.size) return IDLE_CHECK_MS;  // some it hasn't seen: fetch to find out
     const now = this.now();
     if (known.some((g) => g.state === "in" || (g.state === "pre" && new Date(g.date) - now < SOON_MS))) return POLL_MS;
-    return known.some((g) => g.state === "pre") ? IDLE_CHECK_MS : null;
+    // Later games, or bells on games ESPN doesn't list (yet, or any more): look again now and then.
+    return known.length < bells.size || known.some((g) => g.state === "pre") ? IDLE_CHECK_MS : null;
   }
 
   /** The notifications after `id`, for sending to phones. */
