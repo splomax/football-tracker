@@ -16,22 +16,28 @@ const SITE = "http://localhost:4173";
 const IMAGES = path.join(__dirname, "..", "images");
 const PREVIEW_GAMES = ["cfb:1", "cfb:2", "cfb:4", "nfl:101", "cfb:7", "cfb:5"];
 
-// The home-screen icon: the wordmark on the app's dark background, laid out at 180px and scaled to each size, at 80%
-// so TRACKER has room on both sides. Drawn on
-// the site's own page so it gets the wordmark's font. Square: the phone rounds the corners itself.
+// The home-screen icon: the wordmark over a football field (green stripes, white yard lines, darkened so the words
+// stand out), laid out at 180px and scaled to each size, at 80% so TRACKER has room on both sides. Drawn on the site's
+// own page so it gets the wordmark's font. Square: the phone rounds the corners itself.
 async function renderBrandIcon(browser, size, file) {
   const page = await browser.newPage({ viewport: { width: size, height: size } });
   await page.route("https://**", (route) => route.abort());  // no ESPN or visit counter
   await page.goto(SITE);
-  const live = "padding: 6px 9px; text-box: trim-both cap alphabetic; border-radius: 5px; background: #e53935; color: #fff; font-size: 28px; letter-spacing: .08em; line-height: 1";
-  await page.evaluate(({ size, live }) => {
-    document.body.outerHTML = `<body style="margin: 0; width: ${size}px; height: ${size}px; background: #0f1115; display: flex; align-items: center; justify-content: center">
-      <div style="zoom: ${(size / 180) * 0.8}; display: grid; justify-items: center; gap: 8px; font-family: 'Barlow Condensed'; font-weight: 700; text-transform: uppercase; line-height: .92">
-        <span style="font-size: 34px; letter-spacing: .16em; color: #8b93a1">Game</span>
-        <span style="font-size: 50px; letter-spacing: .04em; color: #e8eaed">Tracker</span>
-        <span style="${live}">Live</span>
+  await page.evaluate((size) => {
+    const live = "padding: 7px 11px; text-box: trim-both cap alphabetic; border-radius: 6px; background: #e53935; color: #fff; font-size: 36px; letter-spacing: .08em; line-height: 1";
+    document.body.outerHTML = `<body style="margin: 0; width: ${size}px; height: ${size}px; overflow: hidden">
+      <div style="zoom: ${size / 180}; position: relative; width: 180px; height: 180px; display: flex; align-items: center; justify-content: center;
+        background: linear-gradient(rgba(0, 0, 0, .15), rgba(0, 0, 0, .15)),
+          repeating-linear-gradient(90deg, transparent 0 29px, rgba(255, 255, 255, .55) 29px 31px),
+          repeating-linear-gradient(90deg, #2f8a36 0 30px, #2a7c31 30px 60px)">
+        <div style="zoom: .8; display: grid; justify-items: center; gap: 8px; font-family: 'Barlow Condensed'; font-weight: 700;
+          text-transform: uppercase; line-height: .92; text-shadow: 0 2px 6px rgba(0, 0, 0, .6)">
+          <span style="font-size: 34px; letter-spacing: .16em; color: #dfe4ea">Game</span>
+          <span style="font-size: 50px; letter-spacing: .04em; color: #fff">Tracker</span>
+          <span style="${live}">Live</span>
+        </div>
       </div></body>`;
-  }, { size, live });
+  }, size);
   await page.evaluate(() => document.fonts.load("700 50px 'Barlow Condensed'"));
   if (!(await page.evaluate(() => document.fonts.check("700 50px 'Barlow Condensed'")))) throw new Error("wordmark font didn't load");
   await page.screenshot({ path: path.join(IMAGES, file) });
