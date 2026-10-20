@@ -33,7 +33,7 @@ async function renderBrandIcon(browser, size, file) {
         <div style="zoom: .8; display: grid; justify-items: center; gap: 8px; font-family: 'Barlow Condensed'; font-weight: 700;
           text-transform: uppercase; line-height: .92; text-shadow: 0 2px 8px rgba(0, 0, 0, .75);
           -webkit-text-stroke: 4px #0d2b12; paint-order: stroke fill">
-          <span style="font-size: 34px; letter-spacing: .16em; color: #dfe4ea">Game</span>
+          <span style="font-size: 50px; letter-spacing: .04em; color: #fff">Game</span>
           <span style="font-size: 50px; letter-spacing: .04em; color: #fff">Tracker</span>
           <span style="${live}">Live</span>
         </div>
