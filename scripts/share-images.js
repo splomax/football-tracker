@@ -16,7 +16,8 @@ const SITE = "http://localhost:4173";
 const IMAGES = path.join(__dirname, "..", "images");
 const PREVIEW_GAMES = ["cfb:1", "cfb:2", "cfb:4", "nfl:101", "cfb:7", "cfb:5"];
 
-// The home-screen icon: the wordmark on the app's dark background, laid out at 180px and scaled to each size. Drawn on
+// The home-screen icon: the wordmark on the app's dark background, laid out at 180px and scaled to each size, at 80%
+// so TRACKER has room on both sides. Drawn on
 // the site's own page so it gets the wordmark's font. Square: the phone rounds the corners itself.
 async function renderBrandIcon(browser, size, file) {
   const page = await browser.newPage({ viewport: { width: size, height: size } });
@@ -25,7 +26,7 @@ async function renderBrandIcon(browser, size, file) {
   const live = "padding: 6px 9px; text-box: trim-both cap alphabetic; border-radius: 5px; background: #e53935; color: #fff; font-size: 28px; letter-spacing: .08em; line-height: 1";
   await page.evaluate(({ size, live }) => {
     document.body.outerHTML = `<body style="margin: 0; width: ${size}px; height: ${size}px; background: #0f1115; display: flex; align-items: center; justify-content: center">
-      <div style="zoom: ${size / 180}; display: grid; justify-items: center; gap: 8px; font-family: 'Barlow Condensed'; font-weight: 700; text-transform: uppercase; line-height: .92">
+      <div style="zoom: ${(size / 180) * 0.8}; display: grid; justify-items: center; gap: 8px; font-family: 'Barlow Condensed'; font-weight: 700; text-transform: uppercase; line-height: .92">
         <span style="font-size: 34px; letter-spacing: .16em; color: #8b93a1">Game</span>
         <span style="font-size: 50px; letter-spacing: .04em; color: #e8eaed">Tracker</span>
         <span style="${live}">Live</span>
