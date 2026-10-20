@@ -63,12 +63,16 @@ function cardSpots() {
 }
 
 /**
- * When a game changes section (it kicked off, or it ended), grow or shrink its card from its old spot and size
- * into the new one, and glide the cards it pushed around. Renders where nothing changed section don't animate.
+ * When a game changes section (it kicked off, or it ended), or its stats open or close (which moves it to or from the
+ * front of its section), grow or shrink its card from its old spot and size into the new one, and glide the cards it
+ * pushed around. Renders where nothing like that happened don't animate.
  */
 function animateSectionChanges(before) {
   const cards = [...document.querySelectorAll("#board .card")];
-  const changed = (c) => before.has(c.dataset.key) && before.get(c.dataset.key).section !== c.closest(".board-group").dataset.section;
+  const toggled = statsToggled;
+  statsToggled = null;
+  const changed = (c) => c.dataset.key === toggled
+    || (before.has(c.dataset.key) && before.get(c.dataset.key).section !== c.closest(".board-group").dataset.section);
   if (!cards.some(changed)) return;
   for (const c of cards) {
     const was = before.get(c.dataset.key)?.box, now = c.getBoundingClientRect();
@@ -102,6 +106,7 @@ function cardOpen(g, kind = "") {
 // Stats mode (?stats-mode-beta): under a live game, each team's leading offensive player, away on the left and home on
 // the right, and a button that opens both teams' passing, rushing and receiving leaders and team stats (js/stats.js).
 const openStats = new Set();  // game keys with detailed stats open; survives board refreshes
+let statsToggled = null;      // the game whose stats were just opened or closed, for the next render to animate
 const STAT_ROWS = [["Total yards", "totalYards"], ["Passing", "netPassingYards"], ["Rushing", "rushingYards"],
   ["Turnovers", "turnovers"], ["3rd down", "thirdDownEff"], ["Possession", "possessionTime"]];
 const CHEVRON = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3"
@@ -246,6 +251,7 @@ export function initBoard({ onSelectionChanged }) {
     const stats = e.target.closest("[data-stats]")?.dataset.stats;
     if (stats) {
       openStats.has(stats) ? openStats.delete(stats) : openStats.add(stats);
+      statsToggled = stats;
       return renderBoard();
     }
     const key = e.target.closest("[data-remove]")?.dataset.remove;
