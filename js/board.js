@@ -103,7 +103,7 @@ function cardOpen(g, kind = "") {
 const openStats = new Set();  // game keys with detailed stats open; survives board refreshes
 const STAT_ROWS = [["Total yards", "totalYards"], ["Passing", "netPassingYards"], ["Rushing", "rushingYards"],
   ["Turnovers", "turnovers"], ["3rd down", "thirdDownEff"], ["Possession", "possessionTime"]];
-const CHEVRON = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="3"
+const CHEVRON = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3"
   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>`;
 function statsBar(g) {
   if (!STATS_BETA || g.state !== "in") return "";

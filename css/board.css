@@ -186,12 +186,11 @@ svg.field { width: 100%; display: block; border-radius: 4px; }
 .stats { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: center; gap: 8px; margin: 6px 0 2px; font-size: 12px; line-height: 18px; color: var(--muted); }
 .stats > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stats-home { text-align: right; }
-/* The arrow that opens the detailed stats: a round button, bright on the card, flipped once open. */
-.stats-more { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 1px solid var(--muted); border-radius: 50%; background: var(--panel); color: var(--strong); cursor: pointer; }
-.stats-more:hover { background: var(--border); }
+/* The arrow that opens the detailed stats: styled like the card's ✕ (always shown, though), flipped once open. */
+.stats-more { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: var(--remove-bg); color: #000; cursor: pointer; }
+.stats-more:hover, .stats-more:focus-visible { background: var(--remove-hover); }
 .stats-more svg { transition: transform .15s; }
 .stats-more.open svg { transform: rotate(180deg); }
-@media (pointer: coarse) { .stats-more { width: 30px; height: 30px; } .stats-more svg { width: 18px; height: 18px; } }
 .stats-detail { width: 100%; margin: 4px 0 2px; border-collapse: collapse; font-size: 12px; line-height: 18px; }
 .stats-detail td { width: 42%; vertical-align: top; }
 .stats-detail td:last-child { text-align: right; }
