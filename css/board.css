@@ -149,10 +149,9 @@ svg.field { width: 100%; display: block; border-radius: 4px; }
 .card.line .stats-detail { grid-row: 4; grid-column: 1 / -1; width: calc(100% - 12px); margin-left: 12px; }
 .card.line .team .pts { font-size: 18px; line-height: 24px; }
 .card.line .team .sub { display: none; }
-/* With a mouse the buttons float over the row's right end on hover, centered on it, like the cards' corner ✕. */
+/* With a mouse the buttons float in the row's top-right corner on hover, like the cards' corner ✕. */
 @media (hover: hover) {
   .card.line { padding-right: 40px; }  /* room for the floating ✕ */
-  .card.line :is(.remove, .bell, .test-alert, .test-kind) { top: 50%; translate: 0 -50%; }
 }
 @container board (max-width: 640px) {
   .line-grid { display: block; width: auto; }
