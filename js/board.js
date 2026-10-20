@@ -41,7 +41,8 @@ export function renderBoard() {
   // so all rows share one width and their columns line up (css/board.css .line-grid).
   const list = isListView();
   const sections = SECTIONS.map(([st, label]) => {
-    const games = picked.filter((g) => g.state === st);
+    // Games with their stats open go first in their section (stats mode), the rest by start time.
+    const games = picked.filter((g) => g.state === st).sort((a, b) => openStats.has(b.key) - openStats.has(a.key));
     return games.length ? `<section class="board-group ${st === "in" ? "live" : "compact"}" data-section="${st}">
       <h2 class="board-section">${label}</h2><div class="cards">${games.map(list ? lineCard : card).join("")}</div></section>` : "";
   }).join("");
