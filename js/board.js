@@ -97,11 +97,23 @@ function cardOpen(g, kind = "") {
     style="${glowing ? `animation-delay: -${glowAge}ms;` : ""}${flashing ? `--flash-delay: -${flashAge}ms;` : ""}">`;
 }
 
+// The stats bar, for now only with ?stats-mode-beta in the address: the game's leading passer, rusher and receiver
+// on one line, or one at a time where the line doesn't fit (css/board.css). The rotation's offset comes from the clock,
+// so a board redraw (every poll) carries on mid-cycle instead of starting over.
+const STATS_BETA = new URLSearchParams(location.search).has("stats-mode-beta");
+const STATS_CYCLE_MS = 12_000;
+function statsBar(g) {
+  if (!STATS_BETA || !g.leaders?.length) return "";
+  return `<div class="stats"><div class="stats-in" style="--cycle-at: -${Date.now() % STATS_CYCLE_MS}ms">${g.leaders.map((l, i) =>
+    `<span style="--i: ${i}">${l}</span>`).join("")}</div></div>`;
+}
+
 function card(g) {
   const live = g.state === "in", recap = g.state === "post" && recapUrl(g.key);
   return `${cardOpen(g)}
     <div class="score">${team(g, g.away, "away", g.home)}<div class="clock">${statusLines(g)}</div>${team(g, g.home, "home", g.away)}</div>
     ${live ? `<div class="dd">${g.ddText || "&nbsp;"}</div>${field(g)}` : ""}
+    ${statsBar(g)}
     <div class="card-foot ${(live && g.lastPlay) || recap || g.network ? "" : "bare"}">
       ${live && g.lastPlay
         ? `<div class="last" data-play="${g.key}" title="${escapeAttr(g.lastPlay)}">${g.lastPlay}</div>`
@@ -128,6 +140,7 @@ function lineCard(g) {
       ? ` <a class="recap" href="${escapeAttr(recap)}" target="_blank" rel="noopener">Recap ↗</a>` : ""}</span>
     <span class="line-tools">${admin.cardExtras(g)}<button class="remove" data-remove="${g.key}" aria-label="Remove game" title="Remove game">✕</button></span>
     <div class="dd">${g.state === "in" && g.ddText ? g.ddText : ""}</div>
+    ${statsBar(g)}
   </div>`;
 }
 

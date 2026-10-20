@@ -48,6 +48,12 @@ function game({ id, league = "cfb", away, home, awayOpts, homeOpts, state, detai
     competitors: [competitor(home, "home", homeOpts, league), competitor(away, "away", awayOpts, league)],
     situation,
     broadcasts: networks.length ? [{ market: "national", names: networks }] : [],
+    // The game's leaders (ESPN lists season leaders before kickoff; the app ignores those).
+    leaders: [
+      { name: "passingYards", leaders: [{ displayValue: "18/26, 231 YDS, 2 TD", athlete: { shortName: "W. Howard" } }] },
+      { name: "rushingYards", leaders: [{ displayValue: "14 CAR, 88 YDS, 1 TD", athlete: { shortName: "Q. Judkins" } }] },
+      { name: "receivingYards", leaders: [{ displayValue: "6 REC, 97 YDS", athlete: { shortName: "J. Smith" } }] },
+    ],
   };
   // ESPN only attaches the conference to conference games.
   if (league === "cfb" && conferenceGame && away.conf === home.conf && CONF_NAMES[home.conf]) {

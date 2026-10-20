@@ -54,6 +54,9 @@ const STATES = {
       await page.click('#install-help [data-step="1"]'); await page.click('#install-help [data-step="1"]'); await settle(page, 300);
     } },
   "admin-login": { query: "?admin", storage: { selected: PICKS, view: "grid", pickerOpen: false }, loggedOut: true },
+  // The stats bar (?stats-mode-beta), in both views.
+  "stats-grid": { query: "?stats-mode-beta", storage: { selected: PICKS, view: "grid", pickerOpen: false } },
+  "stats-list": { query: "?stats-mode-beta", storage: { selected: PICKS, view: "list", pickerOpen: false } },
   "halloween": { storage: { selected: PICKS, view: "grid", pickerOpen: false, halloween: true } },
   "mds-blue": { storage: { selected: PICKS, view: "grid", pickerOpen: false, mdsBlue: true } },
 };
