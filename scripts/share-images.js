@@ -16,22 +16,23 @@ const SITE = "http://localhost:4173";
 const IMAGES = path.join(__dirname, "..", "images");
 const PREVIEW_GAMES = ["cfb:1", "cfb:2", "cfb:4", "nfl:101", "cfb:7", "cfb:5"];
 
-// The home-screen icon: the wordmark over a football field (green stripes, white yard lines, darkened so the words
-// stand out), laid out at 180px and scaled to each size, at 80% so TRACKER has room on both sides. Drawn on the site's
+// The home-screen icon: the wordmark over a football field (green stripes, white yard lines), the words outlined in
+// dark green and shadowed so they stand out, laid out at 180px and scaled to each size, at 80% so TRACKER has room on both sides. Drawn on the site's
 // own page so it gets the wordmark's font. Square: the phone rounds the corners itself.
 async function renderBrandIcon(browser, size, file) {
   const page = await browser.newPage({ viewport: { width: size, height: size } });
   await page.route("https://**", (route) => route.abort());  // no ESPN or visit counter
   await page.goto(SITE);
   await page.evaluate((size) => {
-    const live = "padding: 7px 11px; text-box: trim-both cap alphabetic; border-radius: 6px; background: #e53935; color: #fff; font-size: 36px; letter-spacing: .08em; line-height: 1";
+    const live = "padding: 8px 13px; text-box: trim-both cap alphabetic; border-radius: 7px; background: #e53935; color: #fff; font-size: 44px; -webkit-text-stroke: 0; box-shadow: 0 2px 8px rgba(0, 0, 0, .45); letter-spacing: .08em; line-height: 1";
     document.body.outerHTML = `<body style="margin: 0; width: ${size}px; height: ${size}px; overflow: hidden">
       <div style="zoom: ${size / 180}; position: relative; width: 180px; height: 180px; display: flex; align-items: center; justify-content: center;
         background: linear-gradient(rgba(0, 0, 0, .15), rgba(0, 0, 0, .15)),
           repeating-linear-gradient(90deg, transparent 0 29px, rgba(255, 255, 255, .55) 29px 31px),
           repeating-linear-gradient(90deg, #2f8a36 0 30px, #2a7c31 30px 60px)">
         <div style="zoom: .8; display: grid; justify-items: center; gap: 8px; font-family: 'Barlow Condensed'; font-weight: 700;
-          text-transform: uppercase; line-height: .92; text-shadow: 0 2px 6px rgba(0, 0, 0, .6)">
+          text-transform: uppercase; line-height: .92; text-shadow: 0 2px 8px rgba(0, 0, 0, .75);
+          -webkit-text-stroke: 4px #0d2b12; paint-order: stroke fill">
           <span style="font-size: 34px; letter-spacing: .16em; color: #dfe4ea">Game</span>
           <span style="font-size: 50px; letter-spacing: .04em; color: #fff">Tracker</span>
           <span style="${live}">Live</span>
