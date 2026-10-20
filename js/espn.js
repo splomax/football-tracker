@@ -49,17 +49,6 @@ export async function fetchScoringPlays(g) {
     awayScore: Number(p.awayScore), homeScore: Number(p.homeScore) }));
 }
 
-// "Purdy 214 yds 1 TD" from ESPN's leader entry ("B. Purdy", "17/22, 214 YDS, 1 TD").
-function leaderLine(category) {
-  const top = category.leaders?.[0];
-  if (!top?.athlete) return null;
-  const v = top.displayValue ?? "";
-  const n = (label) => v.match(new RegExp(`(-?\\d+) ${label}\\b`))?.[1];
-  const yds = n("YDS"), td = n("TD"), int = n("INT");
-  const name = (top.athlete.shortName ?? top.athlete.displayName ?? "").replace(/^\S+\.\s+/, "");
-  return [name, yds && `${yds} yds`, td && `${td} TD`, int && `${int} INT`].filter(Boolean).join(" ");
-}
-
 export async function fetchGames(league) {
   const data = await (await fetch(LEAGUES[league])).json();
   return data.events.map((e) => parseEvent(league, e));
@@ -98,9 +87,6 @@ function parseEvent(league, e) {
     ddText: s.downDistanceText, redZone,
     // No timeouts: ESPN's college counts don't reset at halftime (scripts/check-timeouts.js), so they're often wrong.
     lastPlay: lp?.text,
-    // The game's leading passer, rusher and receiver, for the stats bar (?stats-mode-beta, js/board.js). Before kickoff
-    // ESPN lists season leaders instead, so only once the game is under way.
-    leaders: e.status.type.state === "pre" ? [] : (comp.leaders || []).map(leaderLine).filter(Boolean),
     // Where to watch, e.g. "ABC" or "CBS / Paramount+".
     network: [...new Set((comp.broadcasts || []).flatMap((b) => b.names || []))].join(" / "),
     // Link to ESPN's written recap, once the game is over. js/recap.js checks that the story actually exists.

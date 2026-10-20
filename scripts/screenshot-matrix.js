@@ -57,9 +57,33 @@ const STATES = {
   // The stats bar (?stats-mode-beta), in both views.
   "stats-grid": { query: "?stats-mode-beta", storage: { selected: PICKS, view: "grid", pickerOpen: false } },
   "stats-list": { query: "?stats-mode-beta", storage: { selected: PICKS, view: "list", pickerOpen: false } },
+  "stats-open": { query: "?stats-mode-beta", storage: { selected: PICKS, view: "grid", pickerOpen: false },
+    run: async (page) => { await page.click('.card[data-key="cfb:1"] [data-stats]'); await settle(page, 300); } },
+  "stats-list-open": { query: "?stats-mode-beta", storage: { selected: PICKS, view: "list", pickerOpen: false },
+    run: async (page) => { await page.click('.card[data-key="cfb:1"] [data-stats]'); await settle(page, 300); } },
   "halloween": { storage: { selected: PICKS, view: "grid", pickerOpen: false, halloween: true } },
   "mds-blue": { storage: { selected: PICKS, view: "grid", pickerOpen: false, mdsBlue: true } },
 };
+
+// ESPN's game detail for the stats mode: made-up leaders and team stats for both teams of the fixture game asked for.
+function sampleSummary(url) {
+  const id = new URL(url).searchParams.get("event");
+  const e = [...cfbGames(), ...nflGames()].find((x) => x.id === id);
+  if (!e) return {};
+  const teams = e.competitions[0].competitors.map((c) => c.team.id);  // home first
+  const lead = (name, who, value) => ({ name, leaders: [{ displayValue: value, athlete: { shortName: who } }] });
+  return {
+    leaders: teams.map((id, i) => ({ team: { id }, leaders: [
+      lead("passingYards", ["C. Mateer", "W. Howard"][i], ["21/33, 254 YDS, 1 TD, 1 INT", "18/26, 231 YDS, 2 TD"][i]),
+      lead("rushingYards", ["D. Smith", "Q. Judkins"][i], ["9 CAR, 41 YDS", "14 CAR, 88 YDS, 1 TD"][i]),
+      lead("receivingYards", ["I. Teslaa", "J. Smith"][i], ["7 REC, 112 YDS, 1 TD", "6 REC, 97 YDS"][i]),
+    ] })),
+    boxscore: { teams: teams.map((id, i) => ({ team: { id }, statistics: Object.entries({
+      totalYards: ["305", "412"][i], netPassingYards: ["254", "231"][i], rushingYards: ["51", "181"][i],
+      turnovers: ["2", "0"][i], thirdDownEff: ["3-10", "6-11"][i], possessionTime: ["27:50", "32:10"][i],
+    }).map(([name, displayValue]) => ({ name, displayValue })) })) },
+  };
+}
 
 async function shoot(device, name, state, file = path.join(OUT, `${name}-${device}.png`)) {
   const browser = await DEVICES[device].launch();
@@ -73,7 +97,7 @@ async function shoot(device, name, state, file = path.join(OUT, `${name}-${devic
     }, { halloween: false, ...state.storage });
     await page.route("https://site.api.espn.com/**", (route) => {
       const url = route.request().url();
-      if (url.includes("/summary")) return route.fulfill({ json: {}, headers: CORS });
+      if (url.includes("/summary")) return route.fulfill({ json: sampleSummary(url), headers: CORS });
       route.fulfill({ json: scoreboard(url.includes("college-football") ? cfbGames() : nflGames()), headers: CORS });
     });
     await page.route("https://a.espncdn.com/**", (route) => route.continue());

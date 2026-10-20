@@ -6,6 +6,7 @@ import { logoImg, rankBadge, statusLines, escapeAttr, leads } from "./format.js"
 import { field } from "./field.js";
 import { recapUrl } from "./recap.js";
 import { isListView } from "./view.js";
+import { STATS_BETA, statsFor, short } from "./stats.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -97,15 +98,32 @@ function cardOpen(g, kind = "") {
     style="${glowing ? `animation-delay: -${glowAge}ms;` : ""}${flashing ? `--flash-delay: -${flashAge}ms;` : ""}">`;
 }
 
-// The stats bar, for now only with ?stats-mode-beta in the address and on live games: the game's leading passer, rusher and receiver
-// on one line, or one at a time where the line doesn't fit (css/board.css). The rotation's offset comes from the clock,
-// so a board redraw (every poll) carries on mid-cycle instead of starting over.
-const STATS_BETA = new URLSearchParams(location.search).has("stats-mode-beta");
-const STATS_CYCLE_MS = 12_000;
+// Stats mode (?stats-mode-beta): under a live game, each team's leading offensive player, away on the left and home on
+// the right, and a button that opens both teams' passing, rushing and receiving leaders and team stats (js/stats.js).
+const openStats = new Set();  // game keys with detailed stats open; survives board refreshes
+const STAT_ROWS = [["Total yards", "totalYards"], ["Passing", "netPassingYards"], ["Rushing", "rushingYards"],
+  ["Turnovers", "turnovers"], ["3rd down", "thirdDownEff"], ["Possession", "possessionTime"]];
 function statsBar(g) {
-  if (!STATS_BETA || g.state !== "in" || !g.leaders?.length) return "";  // live games only, for now
-  return `<div class="stats"><div class="stats-in" style="--cycle-at: -${Date.now() % STATS_CYCLE_MS}ms">${g.leaders.map((l, i) =>
-    `<span style="--i: ${i}">${l}</span>`).join("")}</div></div>`;
+  if (!STATS_BETA || g.state !== "in") return "";
+  const s = statsFor(g, renderBoard);
+  if (!s) return "";
+  const open = openStats.has(g.key);
+  const who = (side) => (s[side].top ? short(s[side].top) : "");
+  const row = (label, a, h) => `<tr><td>${a ?? ""}</td><th>${label}</th><td>${h ?? ""}</td></tr>`;
+  // "Mateer<br>21/33 254 yds 1 TD 1 INT": the name, then ESPN's line without commas, in lowercase but TD and INT.
+  const lead = (p) => (p ? `${p.name}<br><span class="stat">${p.value.replace(/,/g, "").replace(/\b(YDS|CAR|REC)\b/g, (w) => w.toLowerCase())}</span>` : "");
+  return `<div class="stats">
+      <span class="stats-away">${who("away")}</span><span class="stats-home">${who("home")}</span>
+      <button type="button" class="stats-more ${open ? "open" : ""}" data-stats="${g.key}" aria-expanded="${open}"
+        aria-label="${open ? "Hide" : "Show"} detailed stats" title="${open ? "Hide" : "Show"} detailed stats">▾</button>
+    </div>
+    ${open ? `<table class="stats-detail">
+      <tr><td>${g.away.abbr}</td><th></th><td>${g.home.abbr}</td></tr>
+      ${row("Passing", lead(s.away.pass), lead(s.home.pass))}
+      ${row("Rushing", lead(s.away.rush), lead(s.home.rush))}
+      ${row("Receiving", lead(s.away.rec), lead(s.home.rec))}
+      ${STAT_ROWS.map(([label, k]) => row(label, s.away.box[k], s.home.box[k])).join("")}
+    </table>` : ""}`;
 }
 
 function card(g) {
@@ -206,6 +224,11 @@ export function initBoard({ onSelectionChanged }) {
 
   $("board").addEventListener("click", (e) => {
     if (admin.onBoardClick(e)) return;
+    const stats = e.target.closest("[data-stats]")?.dataset.stats;
+    if (stats) {
+      openStats.has(stats) ? openStats.delete(stats) : openStats.add(stats);
+      return renderBoard();
+    }
     const key = e.target.closest("[data-remove]")?.dataset.remove;
     if (!key) return;
     state.selected.delete(key);

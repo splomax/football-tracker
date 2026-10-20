@@ -145,7 +145,8 @@ svg.field { width: 100%; display: block; border-radius: 4px; }
 .card.line .dd { grid-row: 2; grid-column: 1 / 4; height: auto; margin: 0; font-size: 12px; line-height: 16px; }
 .card.line .dd:empty { display: none; }
 .card.line .team img { width: 22px; height: 22px; }
-.card.line .stats { grid-row: 3; grid-column: 1 / -1; margin: 2px 0 0; padding-left: 12px; text-align: left; }
+.card.line .stats { grid-row: 3; grid-column: 1 / -1; padding-left: 12px; }
+.card.line .stats-detail { grid-row: 4; grid-column: 1 / -1; width: calc(100% - 12px); margin-left: 12px; }
 .card.line .team .pts { font-size: 18px; line-height: 24px; }
 .card.line .team .sub { display: none; }
 /* With a mouse the buttons float over the row's right end on hover, centered on it, like the cards' corner ✕. */
@@ -171,25 +172,26 @@ svg.field { width: 100%; display: block; border-radius: 4px; }
   .card.line .net { grid-area: net; justify-self: end; max-width: none; padding-left: 0; text-align: right; }
   .card.line .line-tools { grid-area: tools; align-self: start; }
   .card.line .dd { grid-area: dd; text-align: left; }
-  .card.line { grid-template-areas: "away clock tools" "home clock tools" "dd net net" "stats stats stats"; }
-  .card.line .stats { grid-area: stats; padding-left: 0; }
+  .card.line { grid-template-areas: "away clock tools" "home clock tools" "dd net net" "stats stats stats" "detail detail detail"; }
+  .card.line .stats { grid-area: stats; padding: 0; }
+  .card.line .stats-detail { grid-area: detail; width: 100%; margin-left: 0; }
 }
 /* A narrow board with a mouse (a small window): leave room for the floating ✕, as on wide boards. */
 @media (hover: hover) {
   @container board (max-width: 640px) { .card.line { padding-right: 40px; } }
 }
 
-/* The stats bar (?stats-mode-beta): the game's leaders on one line, " · " between them. Its own container, so the
-   rotation below goes by the bar's width, in a card or a list row. */
-.stats { container-type: inline-size; margin: 6px 0 2px; font-size: 12px; line-height: 16px; color: var(--muted); }
-.stats-in { height: 16px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.card.line .stats-in { text-align: left; }
-.stats span + span::before { content: " · "; }
-/* Too narrow for all three (cards, phones): one at a time, each for a third of the cycle (js/board.js). */
-@container (max-width: 380px) {
-  .stats-in { position: relative; text-overflow: clip; }
-  .stats span { position: absolute; inset: 0; overflow: hidden; text-overflow: ellipsis; opacity: 0;
-    animation: stats-cycle 12s linear infinite; animation-delay: calc(var(--cycle-at) + var(--i) * 4s); }
-  .stats span + span::before { content: none; }
-}
-@keyframes stats-cycle { 0%, 30% { opacity: 1; } 33.3%, 100% { opacity: 0; } }
+/* Stats mode (?stats-mode-beta, js/board.js): each team's leading offensive player, away left and home right, then
+   the button that opens the detailed stats below. */
+.stats { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: center; gap: 8px; margin: 6px 0 2px; font-size: 12px; line-height: 18px; color: var(--muted); }
+.stats > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stats-home { text-align: right; }
+.stats-more { width: 22px; height: 18px; padding: 0; border: 1px solid var(--border); border-radius: 5px; background: none; color: var(--muted); font-size: 11px; line-height: 16px; cursor: pointer; }
+.stats-more:hover { color: var(--text); }
+.stats-more.open { transform: rotate(180deg); }
+.stats-detail { width: 100%; margin: 4px 0 2px; border-collapse: collapse; font-size: 12px; line-height: 18px; }
+.stats-detail td { width: 42%; vertical-align: top; }
+.stats-detail td:last-child { text-align: right; }
+.stats-detail th { padding: 0 6px; color: var(--muted); font-weight: 400; white-space: nowrap; }
+.stats-detail tr:first-child td { font-weight: 700; }
+.stats-detail .stat { color: var(--muted); }
