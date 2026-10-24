@@ -1,5 +1,5 @@
-// What happened in a game, as notifications: scores (and how each touchdown's try went), trips inside the red zone,
-// two-minute warnings, and the start and end of each quarter. Every one carries the score. No browser APIs here: it
+// What happened in a game, as notifications: scores (and how each touchdown's try went), two-minute warnings, and the
+// start and end of each quarter. Every one carries the score. No browser APIs here: it
 // runs in the program on Cloudflare (worker/scorekeeper.js), and the tests (worker/alerts.test.js) drive it directly.
 //
 // Each event has a fixed name: "score:<ESPN's id for the scoring play>", "try:<id>", "start-3", "end-2", "two-minute-4",
@@ -49,6 +49,9 @@ const seconds = (clock) => {
 };
 // Between quarters: ESPN's "End of 1st Quarter", or halftime.
 const between = (g) => g.state === "in" && /^End of|Halftime/i.test(g.detail ?? "");
+// Which quarter just ended, from the words: ESPN's scoreboard can already say period 2 while its detail still reads
+// "End of 1st Quarter", which once sent "Halftime" at the start of the 2nd.
+const endedPeriod = (g) => (/Halftime/i.test(g.detail) ? 2 : Number(g.detail.match(/^End of (\d)/i)?.[1]) || g.period);
 
 
 const total = (p) => p.awayScore + p.homeScore;
@@ -87,14 +90,6 @@ export function gameAlerts(prev, g, memo, now = Date.now()) {
 
   if (g.scoringPlays) scoringAlerts(g, memo, sent, now, add, styled);
 
-  // One per trip: it resets only once the other team has the ball (possession can drop out between plays).
-  if (g.possession && g.possession !== memo.redZoneTeam) memo.redZoneTeam = null;
-  if (g.state === "in" && g.redZone && g.possession && !memo.redZoneTeam) {
-    memo.redZoneTeam = g.possession;
-    const t = g.possession === g.home.id ? g.home : g.away;
-    add(`${nameOf(t)} in the red zone`, g.ddText);
-  }
-
   // The 2nd and 4th quarters' clock running past 2:00 (the NFL's two-minute warning, and college's two-minute timeout).
   // Right after a restart (no prev), only if it's still close to 2:00. Not once the quarter is over.
   const is = seconds(g.clock), was = prev?.period === g.period ? seconds(prev.clock) : null;
@@ -105,8 +100,8 @@ export function gameAlerts(prev, g, memo, now = Date.now()) {
 
   if (g.state === "post") {
     if (fire("final")) add("Final");
-  } else if (between(g) && fire(`end-${g.period}`)) {
-    add(endName(g.period));
+  } else if (between(g) && fire(`end-${endedPeriod(g)}`)) {
+    add(endName(endedPeriod(g)));
   }
   memo.sent = [...sent];
   return alerts;
@@ -115,13 +110,12 @@ export function gameAlerts(prev, g, memo, now = Date.now()) {
 // The first look at a game: everything that already happened counts as sent.
 function firstLook(g, memo, sent) {
   const period = g.state === "pre" ? 0 : g.period;
-  const ended = g.state === "post" || between(g) ? period : period - 1;
+  const ended = g.state === "post" ? period : between(g) ? endedPeriod(g) : period - 1;
   for (let n = 1; n <= period; n++) sent.add(`start-${n}`);
   for (let n = 1; n <= ended; n++) sent.add(`end-${n}`);
   for (const n of [2, 4]) if (n < period || (n === period && (g.state !== "in" || between(g) || seconds(g.clock) <= 120))) sent.add(`two-minute-${n}`);
   if (g.state === "post") sent.add("final");
   memo.seenTotal = Number(g.away.score) + Number(g.home.score);  // the score its scoring plays have reached
-  memo.redZoneTeam = g.redZone ? g.possession : null;
   memo.sent = [...sent];
 }
 
@@ -195,7 +189,7 @@ export function mergeAlerts(alerts) {
 /** The kinds of sample notification the admin's test button can send (sampleAlert), in the order its chooser lists them. */
 export const SAMPLE_KINDS = {
   test: "Test", touchdown: "Touchdown", "missed-pat": "Missed PAT", "two-point": "2-pt conversion",
-  "failed-two-point": "Failed 2-pt", "field-goal": "Field goal", "red-zone": "Red zone", "two-minute": "Two-minute warning",
+  "failed-two-point": "Failed 2-pt", "field-goal": "Field goal", "two-minute": "Two-minute warning",
   kickoff: "Kickoff", "quarter-start": "Start of quarter", "quarter-end": "End of quarter", halftime: "Halftime", final: "Final",
 };
 
@@ -211,7 +205,7 @@ export function sampleAlert(g, kind) {
   const at = (period, clock, detail) => ({ ...base, period, clock, detail: detail ?? `${clock} - ${periodName(period).split(" ")[0]}` });
   // Everything already sent but the sample's own event, so only the sample fires.
   const sent = ["start-1", "start-2", "start-3", "start-4", "end-1", "end-2", "end-3", "end-4", "two-minute-2", "two-minute-4", "final"];
-  const memo = { sent, seenTotal: away + home, playsSeen: true, redZoneTeam: g.away.id };
+  const memo = { sent, seenTotal: away + home, playsSeen: true };
   const unsent = (name) => { memo.sent = sent.filter((n) => n !== name); };
   const who = g.away.name ?? g.away.abbr;
   const play = (kind, points, text) => [{ id: "sample", kind, teamId: g.away.id, text, awayScore: away + points, homeScore: home }];
@@ -235,11 +229,6 @@ export function sampleAlert(g, kind) {
       break;
     case "field-goal":
       now = { ...base, scoringPlays: play("field-goal", 3, `${who} 42 Yd Field Goal (sample)`) };
-      break;
-    case "red-zone":
-      memo.redZoneTeam = null;
-      prev = { ...base, possession: g.home.id };
-      now = { ...base, redZone: true, ddText: `1st & 10 at ${g.home.abbr} 15` };
       break;
     case "two-minute":
       unsent("two-minute-4");

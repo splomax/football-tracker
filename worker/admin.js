@@ -3,7 +3,7 @@
 //
 // - On each card (on a computer), a paper-plane button that sends that game a test notification through the program on
 //   Cloudflare, to the admins' devices whose bell for that game is lit (everyone's bells are in js/notify.js), and
-//   beside it a chooser for which kind: a plain test, or a sample touchdown, red zone, halftime... for styling them.
+//   beside it a chooser for which kind: a plain test, or a sample touchdown, field goal, halftime... for styling them.
 // - "Scores from:" atop the gear menu: whether this page's last update came from the program on Cloudflare
 //   (worker/scorekeeper.js), which the admin's pages use, or from ESPN directly because the program couldn't be reached.
 // - The visit counter's weekly, monthly and total counts atop the gear menu, fetched each time it opens.

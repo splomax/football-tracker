@@ -35,7 +35,7 @@ function feed(...polls) {
 }
 
 test("the first look is never news", () => {
-  assert.deepEqual(run(game({ redZone: true, away: { score: "7" } })), [[]]);
+  assert.deepEqual(run(game({ away: { score: "7" } })), [[]]);
   assert.deepEqual(run(game({ detail: "End of 1st Quarter", clock: "0:00" })), [[]]);
 });
 
@@ -126,16 +126,12 @@ test("classifyTry reads ESPN's wording for each kind of try", () => {
   assert.equal(classifyTry(undefined), null);
 });
 
-test("one red-zone notification per trip, until the other team has had the ball", () => {
+test("ESPN's scoreboard saying period 2 while its detail still reads End of 1st: End of the 1st quarter, not Halftime", () => {
   assert.deepEqual(run(
-    game(),
-    game({ redZone: true, ddText: "1st & 10 at BUF 15" }),
-    game({ redZone: true, possession: undefined }),  // ESPN drops possession between plays
-    game({ redZone: false }),                         // pushed back out by a penalty
-    game({ redZone: true }),
-    game({ possession: "1" }),                        // turnover
-    game({ possession: "2", redZone: true }),
-  ), [[], ["NE in the red zone"], [], [], [], [], ["NE in the red zone"]]);
+    game({ period: 1, clock: "0:20", detail: "0:20 - 1st" }),
+    game({ period: 2, clock: "15:00", detail: "End of 1st Quarter" }),
+    game({ period: 2, clock: "15:00", detail: "End of 1st Quarter" }),
+  ), [[], ["End of the 1st quarter"], []]);
 });
 
 test("the two-minute warning, in the 2nd and 4th quarters only", () => {
@@ -222,7 +218,7 @@ test("each sample kind reads exactly like a real notification of that kind, and 
   const g = game({ period: 3, clock: "6:06", detail: "6:06 - 3rd", away: { id: "1", abbr: "HOU", score: "31" }, home: { id: "2", abbr: "JAX", score: "28" } });
   const titles = Object.fromEntries(Object.keys(SAMPLE_KINDS).map((k) => [k, sampleAlert(g, k)?.title ?? null]));
   assert.deepEqual(titles, {
-    test: null, touchdown: "TD HOU", "missed-pat": "Missed PAT HOU", "two-point": "2-pt conversion HOU", "failed-two-point": "Failed 2-pt HOU", "field-goal": "HOU field goal", "red-zone": "HOU in the red zone",
+    test: null, touchdown: "TD HOU", "missed-pat": "Missed PAT HOU", "two-point": "2-pt conversion HOU", "failed-two-point": "Failed 2-pt HOU", "field-goal": "HOU field goal",
     "two-minute": "Two-minute warning", kickoff: "Kickoff", "quarter-start": "Start of the 3rd quarter",
     "quarter-end": "End of the 1st quarter", halftime: "Halftime", final: "Final",
   });

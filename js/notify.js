@@ -1,7 +1,7 @@
 // Notifications, for everyone: a bell on every card (shown on hover with a mouse) and on every game's row in the game
 // list. Lighting one asks the browser's permission the first time, then hands this device's subscription and lit
-// bells to the server (js/push.js, worker/phones.js), which pushes that game's scores, red-zone trips, two-minute
-// warnings and quarters even while the page is closed. Lighting an unpicked game's row bell picks the game too.
+// bells to the server (js/push.js, worker/phones.js), which pushes that game's scores, two-minute warnings and
+// quarters even while the page is closed. Lighting an unpicked game's row bell picks the game too.
 //
 // Where push can't work, lighting a bell explains instead: on an iPhone in Safari (notifications need the Home Screen
 // app, so a step-by-step walkthrough, also in the gear menu), in a browser without push, or once notifications have
@@ -85,7 +85,7 @@ async function toggleBell(key) {
       return lighting;
     }
     store.set("pushOn", true);
-    showHere("Notifications are on", { body: "You'll get scores, red-zone trips, two-minute warnings and quarters for the games you ring.", icon: "images/notification-icon.png" });
+    showHere("Notifications are on", { body: "You'll get scores, two-minute warnings and quarters for the games you ring.", icon: "images/notification-icon.png" });
   } else {
     sendBells(lit);
   }

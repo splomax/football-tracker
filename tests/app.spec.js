@@ -623,7 +623,7 @@ test.describe("notifications", () => {
     await card(page, "cfb:77").hover();
     const chooser = card(page, "cfb:77").locator(".test-kind");
     await expect(chooser).toHaveCSS("opacity", "1");
-    expect(await chooser.locator("option").allTextContents()).toEqual(["Test", "Touchdown", "Missed PAT", "2-pt conversion", "Failed 2-pt", "Field goal", "Red zone", "Two-minute warning",
+    expect(await chooser.locator("option").allTextContents()).toEqual(["Test", "Touchdown", "Missed PAT", "2-pt conversion", "Failed 2-pt", "Field goal", "Two-minute warning",
       "Kickoff", "Start of quarter", "End of quarter", "Halftime", "Final"]);
     await chooser.selectOption("halftime");
     await card(page, "cfb:77").hover();
