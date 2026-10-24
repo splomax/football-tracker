@@ -69,7 +69,8 @@ const STATES = {
   "mds-blue": { storage: { selected: PICKS, view: "grid", pickerOpen: false, mdsBlue: true } },
 };
 
-// ESPN's game detail for the stats mode: made-up leaders and team stats for both teams of the fixture game asked for.
+// ESPN's game detail: made-up leaders and team stats (stats mode) for both teams of the fixture game asked for, and a
+// finished game's recap.
 function sampleSummary(url) {
   const id = new URL(url).searchParams.get("event");
   const e = [...cfbGames(), ...nflGames()].find((x) => x.id === id);
@@ -77,6 +78,8 @@ function sampleSummary(url) {
   const teams = e.competitions[0].competitors.map((c) => c.team.id);  // home first
   const lead = (name, who, value) => ({ name, leaders: [{ displayValue: value, athlete: { shortName: who } }] });
   return {
+    // A finished game has its written recap (js/recap.js), so its Recap link shows.
+    ...(e.status.type.state === "post" && { article: { type: "Recap", links: { web: { href: `http://www.espn.com/ncf/recap?gameId=${id}` } } } }),
     leaders: teams.map((id, i) => ({ team: { id }, leaders: [
       lead("passingYards", ["C. Mateer", "W. Howard"][i], ["21/33, 254 YDS, 1 TD, 1 INT", "18/26, 231 YDS, 2 TD"][i]),
       lead("rushingYards", ["D. Smith", "Q. Judkins"][i], ["9 CAR, 41 YDS", "14 CAR, 88 YDS, 1 TD"][i]),

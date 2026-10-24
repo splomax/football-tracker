@@ -11,12 +11,10 @@
    (scripts/check-timeouts.js). Check whether ESPN's NFL timeout counts are reliable enough to show.
 4. **Notification settings.** Let people choose which events notify them (scores, red zone, two-minute warning,
     quarters, halftime, final).
-5. **Remove "List view" and "Light mode" from the gear menu.**
-6. **Recap link in list view.** It looks great on grid cards but out of place in list rows.
-7. **Bigger team logos, and check their alignment.** Grid view looks bad on desktop and mobile; list view is fine on
+5. **Bigger team logos, and check their alignment.** Grid view looks bad on desktop and mobile; list view is fine on
     both.
-8. **Line-by-line code walkthrough.** Go through the code reviewing how readable it is to a person and whether its
+6. **Line-by-line code walkthrough.** Go through the code reviewing how readable it is to a person and whether its
     organization is intuitive.
-9. **Upcoming games in list view on desktop.** Their rows look out of place.
-10. **Stats mode's arrow button.** It works but still feels clunky; find a better way to open a live game's detailed
+7. **Upcoming games in list view on desktop.** Their rows look out of place.
+8. **Stats mode's arrow button.** It works but still feels clunky; find a better way to open a live game's detailed
     stats.

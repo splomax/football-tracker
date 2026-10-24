@@ -175,14 +175,14 @@ function card(g) {
 
 // List view: one row per game. The same parts as a card (so highlighting and the buttons all work),
 // minus the field and last play: away and home around an "@" with the down & distance centered under the scores, then
-// the clock, and the network (with the recap link, once there is one).
+// the clock (a finished game's Recap link, and Stats in stats mode, under its "Final"), and the network.
 function lineCard(g) {
   const recap = g.state === "post" && recapUrl(g.key);
   return `${cardOpen(g, "line")}
     ${team(g, g.away, "away", g.home)}<span class="at">@</span>${team(g, g.home, "home", g.away)}
-    <div class="clock">${statusLines(g).replace("<br>", " ")}</div>
-    <span class="net" ${g.network ? `title="Broadcast on ${escapeAttr(g.network)}"` : ""}>${g.network} ${statsLink(g)}${recap
-      ? ` <a class="recap" href="${escapeAttr(recap)}" target="_blank" rel="noopener">Recap ↗</a>` : ""}</span>
+    <div class="clock">${statusLines(g).replace("<br>", " ")}${recap || statsLink(g) ? `<span class="line-links">${statsLink(g)}${recap
+      ? `<a class="recap" href="${escapeAttr(recap)}" target="_blank" rel="noopener">Recap ↗</a>` : ""}</span>` : ""}</div>
+    <span class="net" ${g.network ? `title="Broadcast on ${escapeAttr(g.network)}"` : ""}>${g.network}</span>
     <span class="line-tools">${admin.cardExtras(g)}${bellButton(g)}<button class="remove" data-remove="${g.key}" aria-label="Remove game" title="Remove game">✕</button></span>
     <div class="dd">${g.state === "in" && g.ddText ? g.ddText : ""}</div>
     ${statsBar(g)}

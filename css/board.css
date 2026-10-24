@@ -145,11 +145,9 @@ svg.field { width: 100%; display: block; border-radius: 4px; }
 .card.line .clock { grid-column: 4; height: auto; }
 .card.line .net { grid-row: 2; grid-column: 1; justify-self: start; max-width: 8rem; padding-left: 12px; font-size: 10px; line-height: 16px; }
 .card.line .net:empty { display: none; }
-.card.line .net .recap { margin-left: 6px; color: var(--muted); font-weight: 400; }
-.card.line .net .stats-link { margin-left: 6px; color: var(--muted); font-weight: 400; font-size: inherit; }
-/* A finished game's network, Stats and Recap: nothing under the scores to run into, so it takes the row's width under
-   both teams. Its size is contained, so a long line never widens the columns the other rows share; it trails off. */
-.card.line .net:has(.recap, .stats-link) { grid-column: 1 / 4; justify-self: stretch; max-width: none; contain: inline-size; text-overflow: ellipsis; }
+/* A finished game's Recap (and Stats, in stats mode) under its "Final", styled like the cards' footer link. */
+.card.line .line-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 8px; font-size: 12px; line-height: 16px; }
+.card.line .line-links .stats-link { margin: 0; }
 .card.line .line-tools { grid-column: 5; display: flex; gap: 4px; }
 .card.line .dd { grid-row: 2; grid-column: 1 / 4; height: auto; margin: 0; font-size: 12px; line-height: 16px; }
 .card.line .dd:empty { display: none; }
@@ -179,8 +177,7 @@ svg.field { width: 100%; display: block; border-radius: 4px; }
   .card.line .clock { grid-area: clock; white-space: normal; }
   /* Contained, so a long network line (Prime Video, Stats, Recap) doesn't widen the right-hand columns and push this
      row's scores out of line with the others'; it trails off instead. */
-  .card.line .net, .card.line .net:has(.recap, .stats-link) { grid-area: net; justify-self: stretch; max-width: none; padding-left: 0; text-align: right; contain: inline-size; }
-  .card.line .net:has(.recap, .stats-link) { grid-column: 1 / -1; }  /* a finished game: the whole row, nothing under the teams */
+  .card.line .net { grid-area: net; justify-self: stretch; max-width: none; padding-left: 0; text-align: right; contain: inline-size; }
   .card.line .line-tools { grid-area: tools; align-self: start; }
   .card.line .dd { grid-area: dd; text-align: left; }
   .card.line { grid-template-areas: "away clock tools" "home clock tools" "dd net net" "stats stats stats" "detail detail detail"; }
