@@ -1,4 +1,4 @@
-// Admin login. The admin's features (test notifications, visit counts, bulk select) aren't in the public code: the Worker at
+// Admin login. The admin's features (test notifications, visit counts, bulk select on every section) aren't in the public code: the Worker at
 // ADMIN_URL (worker/) hands them out only to a logged-in admin. ?admin asks for the password and trades it for a
 // token that lasts 30 days, kept in this browser's localStorage (adminToken) in place of the password. With a token
 // that still works, ?admin skips the password. ?admin=off logs out.
@@ -10,7 +10,7 @@ import { ADMIN_PARAM, ADMIN_URL } from "./config.js";
 import { store } from "./store.js";
 import { state, saveSelected } from "./state.js";
 import { renderBoard, setAdmin } from "./board.js";
-import { listView, renderList, setPickerAdmin } from "./picker.js";
+import { renderList, setPickerAdmin } from "./picker.js";
 import { useServer, lastSource, pollNow } from "./source.js";
 import { SAMPLE_KINDS } from "./alerts.js";
 
@@ -109,7 +109,7 @@ async function install(code) {
   const blob = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
   try {
     const { install } = await import(blob);
-    const hooks = install({ renderBoard, renderList, listView, state, saveSelected, visits, store, lastSource, testAlert, sampleKinds: SAMPLE_KINDS });
+    const hooks = install({ renderBoard, renderList, state, saveSelected, visits, store, lastSource, testAlert, sampleKinds: SAMPLE_KINDS });
     setAdmin(hooks);
     setPickerAdmin(hooks);
     useServer(scoresFromServer);  // from now on this page's scores come from the program on Cloudflare,

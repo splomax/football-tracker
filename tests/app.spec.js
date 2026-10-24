@@ -748,6 +748,18 @@ test.describe("bulk select in the game list", () => {
   });
 
   const actions = (page, group) => page.locator(`#list .group-label[data-group="${group}"] + .group-body .group-actions`);
+
+  test("everyone gets them while Top 25 or a conference narrows the list; the admin always", async ({ page }) => {
+    await open(page, { storage: { selected: [], pickerOpen: true } });
+    await expect(page.locator("#list label.game").first()).toBeAttached();
+    await expect(page.locator(".group-actions")).toHaveCount(0);
+    await page.locator("#top25").click();
+    await expect(actions(page, "Live")).toBeVisible();
+    await actions(page, "Live").locator('[data-bulk="add"]').click();
+    await expect(page.locator("#board .card").first()).toBeAttached();  // picked, and on the board
+    await page.locator("#top25").click();
+    await expect(page.locator(".group-actions")).toHaveCount(0);
+  });
   const picked = (page) => page.evaluate(() => JSON.parse(localStorage.getItem("selected")).sort());
 
   test("regular visitors don't get the bulk buttons", async ({ page }) => {
@@ -873,7 +885,7 @@ test.describe("admin login", () => {
     const sources = await page.evaluate(async () => Promise.all(performance.getEntriesByType("resource")
       .filter((r) => r.name.endsWith(".js")).map(async (r) => (await fetch(r.name)).text())));
     expect(sources.length).toBeGreaterThan(5);
-    for (const src of sources) expect(src).not.toMatch(/data-test-alert|data-bulk/);
+    for (const src of sources) expect(src).not.toMatch(/data-test-alert|addVisits|kindChooser/);
   });
 });
 

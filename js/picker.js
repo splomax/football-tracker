@@ -16,10 +16,10 @@ let lastListRender = -Infinity;
 let lastListEmpty = true;  // the last render had no rows (or was still loading)
 let spinner;               // the list's loading spinner from index.html, shown until ESPN has answered for the tab
 
-// Extra controls for a logged-in admin (js/admin.js). Regular visitors never load that code, so these stay empty.
-let admin = { groupExtras: () => "", onListClick: () => false };
+// A logged-in admin (js/admin.js) gets the bulk buttons on every section, not only while filtered.
+let admin = { bulkAlways: false };
 
-/** @param {{ groupExtras?: (group: string) => string, onListClick?: (e) => boolean }} hooks */
+/** @param {{ bulkAlways?: boolean }} hooks */
 export function setPickerAdmin(hooks) {
   admin = { ...admin, ...hooks };
 }
@@ -57,6 +57,7 @@ export function renderList() {
   const counts = {};
   for (const g of ordered) counts[groupOf(g)] = (counts[groupOf(g)] || 0) + 1;
 
+  const filtered = f.confs.length || f.top25;
   let html = "", lastGroup;
   for (const g of ordered) {
     const group = groupOf(g);
@@ -64,15 +65,30 @@ export function renderList() {
       if (lastGroup) html += `</div></div>`;
       const open = !state.collapsedGroups.has(group);
       html += `<button class="group-label ${group.toLowerCase()}" data-group="${group}" aria-expanded="${open}">${group}<span class="n">${counts[group]}</span>${CHEVRON}</button>
-        <div class="group-body ${open ? "" : "collapsed"}"><div class="group-clip">${admin.groupExtras(group)}`;
+        <div class="group-body ${open ? "" : "collapsed"}"><div class="group-clip">${filtered || admin.bulkAlways ? groupActions(group) : ""}`;
     }
     lastGroup = group;
     html += row(g);
   }
   if (lastGroup) html += `</div></div>`;
-  const filtered = f.confs.length || f.top25;
   lastListEmpty = !html;
   $("list").innerHTML = html || (state.loaded[tab] ? `<div class="empty">${filtered ? "No matching games." : "No games this week."}</div>` : spinner);
+}
+
+// Select all / Remove all atop a section, while Top 25 or a conference narrows the list (always, for the admin). A
+// state's "Remove all" only shows while some of its games are picked (they sit under Selected).
+const STATE_OF = { Live: "in", Upcoming: "pre", Final: "post" };
+function groupActions(group) {
+  const button = (action, label) => `<button type="button" data-bulk="${action}" data-group="${group}">${label}</button>`;
+  if (group === "Selected") return `<div class="group-actions">${button("remove", "Remove all")}</div>`;
+  return `<div class="group-actions">${button("add", "Select all")}${bulkGames(group, false).length ? button("remove", "Remove all") : ""}</div>`;
+}
+
+// The games a bulk button acts on, worked out from the games as they are now rather than when the list was drawn
+// (it redraws only every LIST_REFRESH_MS, and a game can kick off or end in between). Within the current tab and
+// filters: unpicked games of the section's state to add, picked ones to remove; Selected removes every picked game.
+function bulkGames(group, add) {
+  return listView().filter((g) => (group === "Selected" || g.state === STATE_OF[group]) && state.selected.has(g.key) !== add);
 }
 
 // One picker row, styled like a TV score bug: two stacked team lines, then the game status.
@@ -185,7 +201,17 @@ export function initPicker({ onSelectionChanged, onHighlight }) {
     renderList();
   });
 
-  $("list").addEventListener("click", (e) => { if (onListBell(e) || admin.onListClick(e)) e.stopImmediatePropagation(); });
+  $("list").addEventListener("click", (e) => {
+    if (onListBell(e)) return e.stopImmediatePropagation();
+    const bulk = e.target.closest("[data-bulk]");
+    if (!bulk) return;
+    e.stopImmediatePropagation();
+    const add = bulk.dataset.bulk === "add";
+    bulkGames(bulk.dataset.group, add).forEach((g) => (add ? state.selected.add(g.key) : state.selected.delete(g.key)));
+    saveSelected();
+    renderList();
+    onSelectionChanged();
+  });
 
   // Section headers minimize their section. Toggle the existing element (no re-render) so the slide animates.
   $("list").addEventListener("click", (e) => {

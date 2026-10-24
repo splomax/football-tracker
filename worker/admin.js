@@ -7,11 +7,10 @@
 // - "Scores from:" atop the gear menu: whether this page's last update came from the program on Cloudflare
 //   (worker/scorekeeper.js), which the admin's pages use, or from ESPN directly because the program couldn't be reached.
 // - The visit counter's weekly, monthly and total counts atop the gear menu, fetched each time it opens.
-// - In the game list, a row of bulk buttons atop each section: Live, Upcoming and Final get "Select all" (every game
-//   the section shows) and "Remove all" (that state's picked games, which sit under Selected); Selected gets
-//   "Remove all" (every picked game in the current tab and filters).
+// - In the game list, the bulk buttons atop each section (Select all, Remove all) always, not only while Top 25 or a
+//   conference narrows the list (js/picker.js).
 
-let app;  // { renderBoard, renderList, listView, state, saveSelected, visits, store, lastSource, testAlert, sampleKinds } from js/admin.js
+let app;  // { renderBoard, renderList, state, saveSelected, visits, store, lastSource, testAlert, sampleKinds } from js/admin.js
 
 /** Returns the hooks for js/board.js's setAdmin. */
 export function install(appApi) {
@@ -28,17 +27,7 @@ export function install(appApi) {
   addVisits();
   addScoreSource();
   return {
-    groupExtras,
-    onListClick(e) {
-      const button = e.target.closest("[data-bulk]");
-      if (!button) return false;
-      const add = button.dataset.bulk === "add";
-      bulkGames(button.dataset.group, add).forEach((g) => (add ? app.state.selected.add(g.key) : app.state.selected.delete(g.key)));
-      app.saveSelected();
-      app.renderList();
-      app.renderBoard();
-      return true;
-    },
+    bulkAlways: true,
     // Left of the bell and styled like it: the test button and its chooser.
     cardExtras: (g) => testButton(g) + kindChooser(g),
     onBoardClick(e) {
@@ -47,23 +36,6 @@ export function install(appApi) {
       return false;
     },
   };
-}
-
-const STATE_OF = { Live: "in", Upcoming: "pre", Final: "post" };
-
-// The bulk buttons atop one game-list section. A state's "Remove all" only shows while some of its games are picked
-// (they sit under Selected).
-function groupExtras(group) {
-  const button = (action, label) => `<button type="button" data-bulk="${action}" data-group="${group}">${label}</button>`;
-  if (group === "Selected") return `<div class="group-actions">${button("remove", "Remove all")}</div>`;
-  return `<div class="group-actions">${button("add", "Select all")}${bulkGames(group, false).length ? button("remove", "Remove all") : ""}</div>`;
-}
-
-// The games a bulk button acts on, worked out from the games as they are now rather than when the list was drawn
-// (it redraws only every LIST_REFRESH_MS, and a game can kick off or end in between). Within the current tab and
-// filters: unpicked games of the section's state to add, picked ones to remove; Selected removes every picked game.
-function bulkGames(group, add) {
-  return app.listView().filter((g) => (group === "Selected" || g.state === STATE_OF[group]) && app.state.selected.has(g.key) !== add);
 }
 
 // Gear menu: where this page's scores came from at the last update, under the visit counts, checked whenever the menu
