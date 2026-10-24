@@ -17,9 +17,12 @@ export async function saveBoardImage() {
   if (image) deliver(image);
 }
 
-const W = 640, PAD = 24, ROW = 44, DAY_HEAD = 34, FOOT = 34, SCALE = 2;
+const W = 640, PAD = 24, ROW = 44, STATUS = 14, DAY_HEAD = 34, FOOT = 34, SCALE = 2;
 const TIME_W = 78, NET_W = 120, LOGO = 24;
 const FONT = `-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+
+// A started game's row is taller, for its clock and quarter under the scores.
+const rowHeight = (g) => (g.state === "pre" ? ROW : ROW + STATUS);
 
 const cssColor = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
@@ -83,7 +86,7 @@ async function deliver({ blob, name }) {
 
 async function drawList(games) {
   const days = groupByDay(games);
-  const height = PAD + days.reduce((h, d) => h + DAY_HEAD + d.games.length * ROW, 0) + FOOT + PAD / 2;
+  const height = PAD + days.reduce((h, d) => h + DAY_HEAD + d.games.reduce((r, g) => r + rowHeight(g), 0), 0) + FOOT + PAD / 2;
   const canvas = document.createElement("canvas");
   canvas.width = W * SCALE;
   canvas.height = height * SCALE;
@@ -108,9 +111,9 @@ async function drawList(games) {
     y += DAY_HEAD;
     day.games.forEach((g, i) => {
       ctx.fillStyle = color(i % 2 ? "--bg" : "--card");
-      roundRect(ctx, PAD - 8, y + 2, W - 2 * PAD + 16, ROW - 4, 6);
-      drawRow(ctx, g, y + ROW / 2, logos, color, gap);
-      y += ROW;
+      roundRect(ctx, PAD - 8, y + 2, W - 2 * PAD + 16, rowHeight(g) - 4, 6);
+      drawRow(ctx, g, y + ROW / 2 + (rowHeight(g) - ROW) / 4, logos, color, gap);
+      y += rowHeight(g);
     });
   }
 
@@ -145,13 +148,13 @@ function drawRow(ctx, g, mid, logos, color, gap) {
   ctx.textAlign = "center";
   ctx.fillStyle = color("--muted");
   ctx.font = `14px ${FONT}`;
-  // A started game's scores sit a little high, with the clock and quarter centered under them.
-  const scoreMid = g.state === "pre" ? mid : mid - 8;
+  // A started game's scores line up with the names, with the clock and quarter centered under them.
+  const scoreMid = mid;
   ctx.fillText("@", at, scoreMid);
   if (g.state !== "pre") {
     ctx.fillStyle = color(g.state === "in" ? "--red" : "--muted");
     ctx.font = `600 11px ${FONT}`;
-    ctx.fillText(statusLines(g).replace("<br>", " ").replace("&nbsp;", "").trim(), at, mid + 12);  // "8:12 2nd", "Half", "Final/OT"
+    ctx.fillText(statusLines(g).replace("<br>", " ").replace("&nbsp;", "").trim(), at, mid + 18);  // "8:12 2nd", "Half", "Final/OT"
     ctx.fillStyle = color("--text");
     ctx.font = `700 16px ${FONT}`;
     ctx.textAlign = "right";
