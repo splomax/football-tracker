@@ -45,12 +45,12 @@ const STATES = {
   "admin-game-list": { query: "?admin", storage: { selected: PICKS, view: "grid", pickerOpen: true, ...ADMIN } },
   "admin-gear-menu": { query: "?admin", storage: { selected: PICKS, view: "grid", pickerOpen: false, ...ADMIN },
     run: async (page) => { await page.click("#settings"); await settle(page, 300); } },
-  // iPhone only (Safari, not the Home Screen app): the gear menu's walkthrough, first and last steps.
-  "iphone-install-help": { query: "?admin", storage: { selected: PICKS, view: "grid", pickerOpen: false, ...ADMIN },
-    run: async (page) => { await page.click("#settings"); await page.click("#install-help-item"); await settle(page, 300); } },
-  "iphone-install-help-last": { query: "?admin", storage: { selected: PICKS, view: "grid", pickerOpen: false, ...ADMIN },
+  // iPhone only (Safari, not the Home Screen app): the walkthrough a bell opens there, first and last steps.
+  "iphone-install-help": { storage: { selected: PICKS, view: "grid", pickerOpen: false }, screenOnly: true,
+    run: async (page) => { await page.click('.card[data-key="cfb:1"] [data-bell]'); await settle(page, 300); } },
+  "iphone-install-help-last": { storage: { selected: PICKS, view: "grid", pickerOpen: false }, screenOnly: true,
     run: async (page) => {
-      await page.click("#settings"); await page.click("#install-help-item");
+      await page.click('.card[data-key="cfb:1"] [data-bell]');
       await page.click('#install-help [data-step="1"]'); await page.click('#install-help [data-step="1"]'); await settle(page, 300);
     } },
   "admin-login": { query: "?admin", storage: { selected: PICKS, view: "grid", pickerOpen: false }, loggedOut: true },
@@ -116,7 +116,7 @@ async function shoot(device, name, state, file = path.join(OUT, `${name}-${devic
     await page.waitForSelector(state.loggedOut ? "#admin-login" : "#list label.game, #list .empty", { state: "attached" });
     await settle(page, 1500);  // team logos
     if (state.run) await state.run(page);
-    await page.screenshot({ path: file, fullPage: device === "phone" });
+    await page.screenshot({ path: file, fullPage: device === "phone" && !state.screenOnly });  // screenOnly: just what's on screen (a dialog)
     return true;
   } catch (err) {
     console.error(`${name} (${device}): ${err.message.split("\n")[0]}`);

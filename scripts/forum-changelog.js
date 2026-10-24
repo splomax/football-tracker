@@ -14,7 +14,8 @@
 //   { "title": "...", "since": "2026-10-10", "through": "<commit>",
 //     "features": [{ "title": "...", "text": "...", "shots": ["board-list", "board-list:phone", "board-image"] }],
 //     "fixes": ["..."], "comingSoon": [{ "title": "...", "text": "...", "shots": [...] }] }
-// A shot is a state from scripts/screenshot-matrix.js (desktop unless :phone), or board-image for Save board as image.
+// A shot is a state from scripts/screenshot-matrix.js (desktop unless :phone), board-image for Save board as image, or
+// one of the site's own pictures by path (e.g. images/apple-touch-icon.png).
 
 const fs = require("fs");
 const os = require("os");
@@ -67,8 +68,10 @@ async function render(notesFile) {
     const tags = [];
     for (const shot of shots) {
       const [name, device = "desktop"] = shot.split(":");
-      const file = `${String(++n).padStart(2, "0")}-${name}${device === "phone" ? "-phone" : ""}.png`;
-      if (name === "board-image") {
+      const file = `${String(++n).padStart(2, "0")}-${path.basename(name, ".png")}${device === "phone" ? "-phone" : ""}.png`;
+      if (name.startsWith("images/")) {
+        fs.copyFileSync(path.join(ROOT, name), path.join(out, file));  // a picture from the site as it is, e.g. the app icon
+      } else if (name === "board-image") {
         const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "board-image-"));
         execFileSync("node", [path.join(__dirname, "preview-images.js"), tmp], { stdio: "inherit" });
         fs.renameSync(path.join(tmp, "board.png"), path.join(out, file));

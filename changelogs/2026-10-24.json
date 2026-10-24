@@ -7,10 +7,10 @@
       "shots": ["board-list:phone", "iphone-install-help:phone"] },
     { "title": "Notifications that read at a glance", "text": "what happened up top in bold (\"TD Cardinals\"), then the game, then the new score, with team names instead of abbreviations. Made extra points are skipped; a missed PAT, a 2-point conversion or a failed 2-point try gets its own notification. On a computer, a score shows the scoring team's logo.",
       "shots": [] },
-    { "title": "Stats", "text": "a new gear menu switch. Each live game shows its two top offensive players, one per team, and a button that opens both teams' passing, rushing and receiving leaders plus team totals (yards, turnovers, 3rd down, possession). Finished games get a Stats link next to Recap.",
+    { "title": "Stats", "text": "a new gear menu switch. Each live game shows its two top offensive players, one per team, and a button that opens both teams' passing, rushing and receiving leaders plus team totals (yards, turnovers, 3rd down, possession). Finished games get a Stats link next to Recap. I was hesitant to add this, since I don't want the app to get bloated, but it's off unless you turn it on, so hopefully it stays out of your way. A buddy of mine asked for it specifically, so I figured others might want it too.",
       "shots": ["stats-open", "stats-list-open:phone"] },
     { "title": "New Home Screen icon", "text": "the Game Tracker Live wordmark on a football field.",
-      "shots": [] }
+      "shots": ["images/apple-touch-icon.png"] }
   ],
   "fixes": [
     "Hovering a card no longer makes its buttons flicker when the scores refresh.",
