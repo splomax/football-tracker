@@ -124,6 +124,13 @@ test("a token gets the games and notifications from the program, passing on sinc
   assert.equal(SCORES.asked.length, 2);
 });
 
+test("anyone can wake the program (after a deploy)", async () => {
+  const SCORES = fakeScores();
+  const res = await api("POST", "/api/wake", null, undefined, { ...env, SCORES });
+  assert.equal(res.status, 200);
+  assert.equal(SCORES.asked[0].url, "https://scorekeeper/wake");
+});
+
 test("a token sends a game a test notification through the program", async () => {
   const SCORES = fakeScores(), withScores = { ...env, SCORES };
   const token = await tokenFor();

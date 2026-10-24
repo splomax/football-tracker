@@ -1,11 +1,13 @@
 // "Save board as image" in the gear menu: every game on the board as a list made for posting on a forum, grouped
 // by day, one row per game (kickoff time, away @ home with logos, ranks and records, network), by kickoff. Live and
-// final games are listed by their kickoff too. The image is in the current theme, gives kickoff times in Eastern time
+// final games are listed by their kickoff too, with their score beside each logo and the clock and quarter (or Half,
+// or Final) in place of the kickoff time. The image is in the current theme, gives kickoff times in Eastern time
 // whatever the viewer's own time zone, and carries a small, muted Game Tracker Live logo in the bottom-right corner.
 // Loaded by js/settings.js the first time it's used.
 
 import { allGames } from "./state.js";
 import { currentTheme } from "./theme.js";
+import { statusLines } from "./format.js";
 
 const IMAGE_ZONE = "America/New_York";  // the time zone of every kickoff time in the image
 
@@ -90,6 +92,8 @@ async function drawList(games) {
 
   const color = cssColor;
   const logos = await loadLogos(games);
+  // With any score in the image, every row leaves room for one either side of the "@", so the logos still line up.
+  const gap = games.some((g) => g.state !== "pre") ? AT_GAP + SCORE_W : AT_GAP;
 
   ctx.fillStyle = color("--bg");
   ctx.fillRect(0, 0, W, height);
@@ -105,7 +109,7 @@ async function drawList(games) {
     day.games.forEach((g, i) => {
       ctx.fillStyle = color(i % 2 ? "--bg" : "--card");
       roundRect(ctx, PAD - 8, y + 2, W - 2 * PAD + 16, ROW - 4, 6);
-      drawRow(ctx, g, y + ROW / 2, logos, color);
+      drawRow(ctx, g, y + ROW / 2, logos, color, gap);
       y += ROW;
     });
   }
@@ -118,11 +122,13 @@ async function drawList(games) {
   return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
 }
 
-function drawRow(ctx, g, mid, logos, color) {
+function drawRow(ctx, g, mid, logos, color, gap) {
   ctx.textAlign = "left";
-  ctx.fillStyle = color("--text");
+  ctx.fillStyle = color(g.state === "in" ? "--red" : "--text");
   ctx.font = `600 13px ${FONT}`;
-  ctx.fillText(g.date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", timeZone: IMAGE_ZONE }), PAD, mid);
+  const when = g.state === "pre" ? g.date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", timeZone: IMAGE_ZONE })
+    : statusLines(g).replace("<br>", " ").replace("&nbsp;", "").trim();  // "8:12 2nd", "Half", "Final/OT"
+  ctx.fillText(fit(ctx, when, TIME_W - 8), PAD, mid);
 
   if (g.network) {
     ctx.textAlign = "right";
@@ -136,21 +142,30 @@ function drawRow(ctx, g, mid, logos, color) {
   // "@" (name, then logo), the home team left-aligned after it (logo, then name). If either side's rank, name and
   // record don't fit, the row drops both records; names that still don't fit are cut short.
   const left = PAD + TIME_W, right = W - PAD - NET_W - 12, at = (left + right) / 2;
-  const textRoom = at - AT_GAP - LOGO - 6 - left;
+  const textRoom = at - gap - LOGO - 6 - left;
   const withRecords = [g.away, g.home].every((t) => sideWidth(ctx, t, true) <= textRoom);
   ctx.textAlign = "center";
   ctx.fillStyle = color("--muted");
   ctx.font = `14px ${FONT}`;
   ctx.fillText("@", at, mid);
+  if (g.state !== "pre") {
+    ctx.fillStyle = color("--text");
+    ctx.font = `700 16px ${FONT}`;
+    ctx.textAlign = "right";
+    ctx.fillText(g.away.score ?? "", at - AT_GAP, mid);
+    ctx.textAlign = "left";
+    ctx.fillText(g.home.score ?? "", at + AT_GAP, mid);
+  }
   ctx.textAlign = "left";
-  const awayLogo = at - AT_GAP - LOGO, homeLogo = at + AT_GAP;
+  const awayLogo = at - gap - LOGO, homeLogo = at + gap;
   drawLogo(ctx, logos.get(g.away.logo), awayLogo, mid);
   drawLogo(ctx, logos.get(g.home.logo), homeLogo, mid);
   drawSide(ctx, g.away, awayLogo - 6 - Math.min(sideWidth(ctx, g.away, withRecords), textRoom), mid, withRecords, textRoom, color);
   drawSide(ctx, g.home, homeLogo + LOGO + 6, mid, withRecords, textRoom, color);
 }
 
-const AT_GAP = 14;  // from the middle of the "@" to the nearer edge of each logo
+const AT_GAP = 14;  // from the middle of the "@" to the nearer edge of each logo (or score)
+const SCORE_W = 30;  // room for a score between the "@" and a logo
 
 function drawLogo(ctx, logo, x, mid) {
   if (logo) ctx.drawImage(logo, x, mid - LOGO / 2, LOGO, LOGO);

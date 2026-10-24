@@ -12,6 +12,8 @@
 //   POST /api/push/subscribe    Authorization: Bearer <token>, { subscription, bells }  ->  a phone turning on notifications
 //   POST /api/push/bells        Authorization: Bearer <token>, { endpoint, bells }      ->  a phone's lit bells changed
 //   POST /api/push/unsubscribe  Authorization: Bearer <token>, { endpoint }             ->  a phone turning them off
+//   POST /api/wake  ->  starts the program on freshly deployed code (scripts/deploy.sh), as the every-minute nudge
+//                       would; open to anyone, since it only restarts a schedule that's already due
 //   anything else       the site's files; www. redirects to the bare domain
 //
 // The admin code is only ever served by /api/admin.js, so regular visitors never get it, and only the token, never
@@ -81,6 +83,10 @@ export async function handle(request, env, code, now = Date.now()) {
   }
   // Devices turning notifications on and off, and their bells (worker/phones.js). Open to everyone; a logged-in
   // admin's devices are marked as such, and only those get test notifications.
+  if (route === "POST /api/wake") {
+    const res = await keeperFetch(env, "/wake");
+    return reply(await res.text(), res.status, { "Content-Type": "application/json" });
+  }
   if (route.startsWith("POST /api/push/")) {
     const admin = !!given && (await validToken(given, env.ADMIN_PASSWORD, now));
     const body = await request.json().catch(() => ({}));

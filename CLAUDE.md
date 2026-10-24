@@ -8,6 +8,8 @@ all four with `node scripts/screenshot-matrix.js board-grid board-list` before s
 
 Scripts to use instead of redoing the work by hand (details in each file's header comment and README's file list):
 
+- `scripts/deploy.sh`: deploy from this machine (instead of bare `npx wrangler deploy`); it wakes the program on the
+  new code right away so belled games don't wait for the every-minute nudge.
 - `scripts/test-and-ship.sh "message" files…`: runs all tests (`RUNS=2` for two Playwright runs) and commits and
   pushes only if everything passes. `--test-only` just runs them.
 - `scripts/preview-images.js`: renders Save board as image to `previews/board.png` (needs `npm start`).
