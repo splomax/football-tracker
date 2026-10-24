@@ -26,10 +26,10 @@ run_worker_first = true
 name = "SCORES"
 class_name = "ScoreKeeper"
 
-# Every 15 minutes, nudge the program (worker/index.js scheduled): after a deploy, nothing else would start the new code
-# for phones waiting on a game.
+# Every minute, nudge the program (worker/index.js scheduled): a deploy can drop its wake-up alarm, and nothing else
+# would start the new code for phones waiting on a game.
 [triggers]
-crons = ["*/15 * * * *"]
+crons = ["* * * * *"]
 
 # The phones that turned on notifications, and their bells (worker/phones.js). KV, so they survive deploys.
 [[kv_namespaces]]

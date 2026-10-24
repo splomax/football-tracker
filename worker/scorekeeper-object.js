@@ -11,7 +11,7 @@ export const PHONE_TEST_DELAY_MS = 5000;  // a test reaches phones a few seconds
 // (handler.js); an instance still on older code resets itself and the request is retried on the new code. It wakes
 // itself with an alarm on the schedule keeper.nextWake sets, and sends each new notification to the phones whose lit
 // bells include that game. Routes: GET /?since=<n> the games and notifications; POST /test { key } a test
-// notification; /phones a phone changed (reload the list); /wake the 15-minute nudge.
+// notification; /phones a phone changed (reload the list); /wake the every-minute nudge.
 export class ScoreKeeper {
   /** @param deps  stand-ins for tests: { fetchGames, now, testDelay } (Cloudflare passes only ctx and env) */
   constructor(ctx, env, deps = {}) {
@@ -31,8 +31,15 @@ export class ScoreKeeper {
       const { key, kind } = await request.json();
       return this.test(key, kind);
     }
-    if (url.pathname === "/phones" || url.pathname === "/wake") {
+    if (url.pathname === "/phones") {
       await this.loadPhones();
+      await this.schedule();
+      return Response.json({ ok: true, phones: this.phones.length });
+    }
+    // The every-minute nudge (worker/index.js): restarts the schedule if it was lost (a deploy can drop the alarm),
+    // reading the phones only on a fresh start, since /phones keeps them current otherwise.
+    if (url.pathname === "/wake") {
+      if (!this.phones) await this.loadPhones();
       await this.schedule();
       return Response.json({ ok: true, phones: this.phones.length });
     }

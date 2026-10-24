@@ -7,8 +7,8 @@ import { handle, keeperFetch } from "./handler.js";
 
 export default {
   fetch: (request, env) => handle(request, env, code),
-  // Every 15 minutes (wrangler.toml), nudge the program: after a deploy nothing else would start the new code for
-  // phones that are waiting on a game, and a nudge also refreshes its list of phones.
+  // Every minute (wrangler.toml), nudge the program: a deploy can drop its wake-up alarm, and nothing else would start
+  // the new code for phones waiting on a game.
   scheduled: (event, env, ctx) => ctx.waitUntil(keeperFetch(env, "/wake")),
 };
 
