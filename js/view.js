@@ -21,7 +21,6 @@ function apply(view) {
     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[next]}</svg>`;
   button.setAttribute("aria-label", `Switch to ${next} view`);
   button.title = `Switch to ${next} view`;
-  $("menu-view").setAttribute("aria-pressed", view === "list");  // the phone's gear-menu copy of the button
 }
 
 /** @param {{ onChange: () => void }} hooks  redraw the board in the new view */
@@ -34,5 +33,4 @@ export function initView({ onChange }) {
     onChange();
   };
   $("view-toggle").addEventListener("click", toggle);
-  $("menu-view").addEventListener("click", toggle);
 }

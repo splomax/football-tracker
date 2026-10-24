@@ -14,7 +14,6 @@ function apply(theme) {
   $("theme-toggle").textContent = theme === "dark" ? "☀︎" : "☾";
   $("theme-toggle").setAttribute("aria-label", `Switch to ${next} mode`);
   $("theme-toggle").title = `Switch to ${next} mode`;
-  $("menu-theme").setAttribute("aria-pressed", theme === "light");  // the phone's gear-menu copy of the button
 }
 
 /** @param {{ onChange: () => void }} hooks  re-render anything theme-dependent (team logos) */
@@ -27,7 +26,6 @@ export function initTheme({ onChange }) {
     onChange();
   };
   $("theme-toggle").addEventListener("click", toggle);
-  $("menu-theme").addEventListener("click", toggle);
   // No saved choice yet: keep following the device if it switches (e.g. at sunset).
   deviceLight.addEventListener("change", (e) => {
     if (store.get("theme")) return;

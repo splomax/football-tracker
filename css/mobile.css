@@ -46,7 +46,6 @@
   #contact { padding: 0; background: none; border-radius: 0; user-select: auto; }
   #contact a { display: inline-block; padding: 12px 0; color: var(--text); }
   #settings-menu { position: fixed; right: 16px; bottom: calc(72px + env(safe-area-inset-bottom)); z-index: 6; transform-origin: bottom right; min-width: 180px; }
-  #settings-menu .phone-menu { display: block; }
   #settings-menu button { padding: 12px 14px; font-size: 15px; }
   #coach { right: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); width: 130px; }
 }

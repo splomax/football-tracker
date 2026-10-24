@@ -1630,7 +1630,7 @@ test.describe("settings gear and google me", () => {
     await page.locator("#settings").click();
     await expect(menu).toBeVisible();
     expect(await menu.evaluate((m) => m.getAnimations().length)).toBeGreaterThan(0);
-    await expect(menu.locator("button:visible")).toHaveText(["✓Stats", "Save board as image", "✓google me", "✓MDS"]);  // the view and theme copies are for phones
+    await expect(menu.locator("button:visible")).toHaveText(["✓Stats", "Save board as image", "✓google me", "✓MDS"]);  
     await page.keyboard.press("Escape");
     await expect(menu).toBeHidden();
     await page.locator("#settings").click();
@@ -1937,20 +1937,9 @@ test.describe("mobile", () => {
     expect(menu.y + menu.height).toBeLessThanOrEqual(gear.y);  // pops up above the gear
   });
 
-  test("the gear menu repeats the header's view and theme switches, which scroll away; the Games bar shows the update time", async ({ page }) => {
+  test("the Games bar shows the update time", async ({ page }) => {
     await open(page, { storage: { selected: ["cfb:1"], pickerOpen: false } });
     await expect(page.locator("#bar-updated")).toHaveText(/\d{1,2}:\d{2}:\d{2}/);
-    await page.locator("#settings").tap();
-    const view = page.locator("#menu-view"), theme = page.locator("#menu-theme");
-    await expect(view).toBeVisible();
-    await expect(view).toHaveAttribute("aria-pressed", "true");  // phones start in list view
-    await view.tap();
-    await expect(card(page, "cfb:1")).not.toHaveClass(/line/);
-    await expect(view).toHaveAttribute("aria-pressed", "false");
-    await expect(theme).toHaveAttribute("aria-pressed", "false");  // the tests run dark
-    await theme.tap();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-    await expect(theme).toHaveAttribute("aria-pressed", "true");
   });
 
   test("a clipped name never hides the possession dot", async ({ page }) => {
