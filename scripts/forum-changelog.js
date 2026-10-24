@@ -13,7 +13,8 @@
 //   { "title": "...", "since": "2026-10-10", "through": "<commit>",
 //     "features": [{ "title": "...", "text": "...", "shots": ["board-list", "board-list:phone", "board-image"] }],
 //     "fixes": ["..."], "comingSoon": [{ "title": "...", "text": "...", "shots": [...] }] }
-// A shot is a state from scripts/screenshot-matrix.js (desktop unless :phone), board-image for Save board as image, or
+// A shot is a state from scripts/screenshot-matrix.js (desktop unless :phone, which is one phone screen), board-image for
+// Save board as image, or
 // one of the site's own pictures by path (e.g. images/apple-touch-icon.png).
 
 const fs = require("fs");
@@ -72,7 +73,8 @@ async function render(notesFile) {
         fs.renameSync(path.join(tmp, "board.png"), path.join(out, file));
       } else if (!STATES[name]) {
         throw new Error(`unknown shot ${name}; add it to STATES in scripts/screenshot-matrix.js`);
-      } else if (!(await shoot(device, name, STATES[name], path.join(out, file)))) {
+      // A phone shot is one phone screen, never the whole page: a forum post can't take a page-tall picture.
+      } else if (!(await shoot(device, name, { ...STATES[name], screenOnly: device === "phone" }, path.join(out, file)))) {
         throw new Error(`couldn't shoot ${shot}`);
       }
       tags.push(`[img]${file}[/img]`);
