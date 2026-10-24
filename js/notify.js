@@ -5,7 +5,8 @@
 //
 // Where push can't work, lighting a bell explains instead: on an iPhone in Safari (notifications need the Home Screen
 // app, so a step-by-step walkthrough, also in the gear menu), in a browser without push, or once notifications have
-// been blocked.
+// been blocked. Blocking them later (in the browser, or iPhone Settings) is noticed whenever the page opens or comes
+// back: the bells show off and a note says how to unblock (once per block); unblocking turns them back on.
 
 import { store } from "./store.js";
 import { state, saveSelected, onSelectionSaved } from "./state.js";
@@ -15,11 +16,13 @@ const BELL_ICON = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" s
   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9M10 20a2 2 0 0 0 4 0"/></svg>`;
 
 const belled = () => new Set(store.get("notifyGames", []));
+// Notifications were on here, but the browser no longer allows them. The lit bells are kept for when they're allowed again.
+const blocked = () => store.get("pushOn", false) && window.Notification?.permission !== undefined && Notification.permission !== "granted";
 let redraw = () => {};  // the board and the game list, after a row bell picks a game (initNotify)
 
 /** A game's bell: "bell" on its card, "row-bell" on its game-list row. */
 export function bellButton(g, kind = "bell") {
-  const on = belled().has(g.key);
+  const on = belled().has(g.key) && !blocked();
   const label = on ? "Stop notifications for this game" : "Notify me about this game";
   return `<button type="button" class="${kind} ${on ? "on" : ""}" data-bell="${g.key}" aria-pressed="${on}" aria-label="${label}" title="${label}">${BELL_ICON}</button>`;
 }
@@ -41,7 +44,7 @@ export function onListBell(e) {
     toggleBell(key);
     return true;
   }
-  if (!belled().has(key)) {
+  if (!belled().has(key) || blocked()) {
     toggleBell(key).then((lit) => {
       if (!lit) return;
       state.selected.add(key);
@@ -57,11 +60,16 @@ export function onListBell(e) {
 // would replace the card under the mouse, and its hover buttons would blink out until the mouse moved again.
 async function toggleBell(key) {
   const keys = belled();
-  const lighting = !keys.has(key);
+  const wasBlocked = blocked();
+  const lighting = !keys.has(key) || wasBlocked;  // a blocked bell shows off, so a tap means "on"
   if (lighting && !(await canNotify())) return false;
   lighting ? keys.add(key) : keys.delete(key);
   const lit = [...keys].filter((k) => state.selected.has(k) || k === key);
   store.set("notifyGames", lit);
+  if (wasBlocked) {  // allowed again from the bell: every kept bell is back
+    resume(lit);
+    return true;
+  }
   for (const b of document.querySelectorAll(`[data-bell="${key}"]`)) {
     const label = lighting ? "Stop notifications for this game" : "Notify me about this game";
     b.classList.toggle("on", lighting);
@@ -96,12 +104,36 @@ async function canNotify() {
   }
   const permission = Notification.permission === "default" ? await Notification.requestPermission() : Notification.permission;
   if (permission === "granted") return true;
-  if (permission === "denied") {
-    say("Notifications are blocked", /iPhone|iPad/.test(navigator.userAgent)
-      ? "Turn them on in Settings → Notifications → Game Tracker, then tap the bell again."
-      : "Turn them on from the icon left of the address (Site settings → Notifications → Allow), then tap the bell again.");
-  }
+  if (permission === "denied") say("Notifications are blocked", `${UNBLOCK()}, then tap the bell again.`);
   return false;
+}
+
+// How to allow notifications again, on this device.
+const UNBLOCK = () => (/iPhone|iPad/.test(navigator.userAgent)
+  ? "Turn them on in Settings → Notifications → Game Tracker"
+  : "Turn them on from the icon left of the address (Site settings → Notifications → Allow)");
+
+// Notifications allowed again after a block: subscribe anew (the old subscription may have lapsed, and the server
+// forgets a device whose pushes bounce) and show the kept bells lit.
+function resume(lit) {
+  store.set("blockNoted", false);
+  turnOn(lit).catch(() => {});
+  redraw();
+}
+
+// Whenever the page opens or comes back: has the browser stopped allowing notifications (say once per block, and show
+// the bells off), or started again (bring them back)?
+function checkPermission() {
+  if (!store.get("pushOn", false)) return;
+  if (blocked()) {
+    if (!store.get("blockNoted", false)) {
+      store.set("blockNoted", true);
+      say("Notifications are blocked", `Game Tracker can't send notifications here anymore. ${UNBLOCK()}. Your bells are kept for when they're back.`);
+    }
+    redraw();
+  } else if (store.get("blockNoted", false)) {
+    resume([...belled()].filter((k) => state.selected.has(k)));
+  }
 }
 
 // Deselecting a game (its card's ✕, the game list, Remove all) turns its bell off too, at the server as well.
@@ -164,6 +196,8 @@ function explainInstall() {
 export function initNotify(hooks) {
   redraw = hooks.redraw;
   onSelectionSaved(dropUnpickedBells);
+  checkPermission();
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) checkPermission(); });
   // The gear menu's "Get notifications on iPhone", in Safari on an iPhone only.
   if (needsInstall()) {
     const button = document.createElement("button");

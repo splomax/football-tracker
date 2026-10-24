@@ -20,10 +20,5 @@
 9. **Line-by-line code walkthrough.** Go through the code reviewing how readable it is to a person and whether its
     organization is intuitive.
 10. **Upcoming games in list view on desktop.** Their rows look out of place.
-11. **Blocked notifications.** If someone taps "Don't Allow", the browser never asks again. Detect it (the page can
-    tell allowed, blocked and not asked yet) and, when they light a bell, tell them notifications are blocked with
-    the steps for their device (iPhone: Settings → Notifications → Game Tracker; desktop Chrome: the icon left of the
-    address → Notifications). Check again whenever the app opens, in case they changed it in Settings. Lighting a bell now explains blocked
-    notifications with those steps (js/notify.js); still to do: noticing at startup.
-12. **Stats mode's arrow button.** It works but still feels clunky; find a better way to open a live game's detailed
+11. **Stats mode's arrow button.** It works but still feels clunky; find a better way to open a live game's detailed
     stats.
