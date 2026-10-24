@@ -6,7 +6,7 @@
 //     the "through" commit of the newest changelogs/*.json.
 //
 //   node scripts/forum-changelog.js render changelogs/<date>.json
-//     Shoots the logo (00-logo.png, centered above the title) and the screenshots the notes name and prints the BB code (also saved next to the screenshots, in a temp
+//     Shoots the logo (00-logo.png, above the title) and the screenshots the notes name and prints the BB code (also saved next to the screenshots, in a temp
 //     dir printed at the end) for uploading the images to imgur by hand. Needs npm start (and webkit for :phone).
 //
 // The notes file is written by hand from the commits list, as high-level features, not commit messages:
@@ -77,7 +77,7 @@ async function render(notesFile) {
       } else if (!(await shoot(device, name, { ...STATES[name], screenOnly: device === "phone" }, path.join(out, file)))) {
         throw new Error(`couldn't shoot ${shot}`);
       }
-      tags.push(`[img]${file}[/img]`);
+      tags.push(`[timg]${file}[/timg]`);  // a thumbnail that opens the full picture
     }
     return tags.length ? "\n" + tags.join("\n") : "";
   }
@@ -88,7 +88,9 @@ async function render(notesFile) {
   }
 
   await logo(path.join(out, "00-logo.png"));
-  let bb = `[center][img]00-logo.png[/img][/center]\n[size=5][b]${notes.title}[/b][/size]\n\n`;
+  // Only BB codes the forum supports (forums.somethingawful.com/misc.php?action=bbcode): no [center], and [size] works
+  // only in custom titles, so the title is just bold. Pictures are [timg]: a thumbnail that opens the full one.
+  let bb = `[timg]00-logo.png[/timg]\n[b]${notes.title}[/b]\n\n`;
   if (notes.features?.length) bb += `[b]New[/b]\n[list]\n${await items(notes.features)}[/list]\n\n`;
   if (notes.fixes?.length) bb += `[b]Fixes[/b]\n[list]\n${notes.fixes.map((f) => `[*]${f}\n`).join("")}[/list]\n\n`;
   if (notes.comingSoon?.length) {
@@ -96,7 +98,7 @@ async function render(notesFile) {
   }
   fs.writeFileSync(path.join(out, "changelog.bbcode"), bb);
   console.log(bb);
-  console.log(`Screenshots and changelog.bbcode in ${out}\nReplace each [img]file[/img] with its imgur link.`);
+  console.log(`Screenshots and changelog.bbcode in ${out}\nReplace each file name in [timg] with its imgur link.`);
 }
 
 // The header's football (a jack-o'-lantern in October, as on the site) and wordmark, at twice size for sharp edges.
