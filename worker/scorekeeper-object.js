@@ -53,6 +53,7 @@ export class ScoreKeeper {
 
   async loadPhones() {
     this.phones = this.env.PUSH ? await listPhones(this.env.PUSH) : [];
+    this.keeper.bells = new Set(this.phones.flatMap((p) => p.bells));
   }
 
   // Set the alarm for the next fetch (or clear it when nothing needs one). An earlier alarm already set stays.

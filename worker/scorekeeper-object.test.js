@@ -40,7 +40,7 @@ async function setUp(t, { phones = {}, publicPhones = {}, version = "v1" } = {})
     pushed.push(String(url).split("/").pop());
     return new Response(null, { status: String(url).endsWith("gone") ? 410 : 201 });
   });
-  const obj = new ScoreKeeper(ctx, env, { fetchGames: async (league) => espn[league], fetchScoringPlays: async (g) => plays[g.key] ?? [], now: () => now, testDelay: 0 });
+  const obj = new ScoreKeeper(ctx, env, { fetchGames: async (league) => espn[league], fetchSummary: async (g) => ({ scoringPlays: plays[g.key] ?? [], latest: null }), now: () => now, testDelay: 0 });
   const req = (path, init = {}) => obj.fetch(new Request(`https://scorekeeper${path}`, { ...init, headers: { "X-Version": version, ...init.headers } }));
   // Firing the alarm, as Cloudflare does: it's cleared first, then the handler runs.
   const fire = async () => { alarm = null; await obj.alarm(); };

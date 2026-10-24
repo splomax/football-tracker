@@ -9,7 +9,7 @@ const game = (key) => ({ key, state: "in", date: new Date(0), away: { abbr: "BUF
 function keeperWith(espn) {
   let t = 1_000_000, fetches = 0;
   const scoring = {};  // each game's scoring plays, as ESPN's game detail lists them
-  const keeper = new ScoreKeeper({ now: () => t, fetchScoringPlays: async (g) => scoring[g.key] ?? [], fetchGames: async (league) => {
+  const keeper = new ScoreKeeper({ now: () => t, fetchSummary: async (g) => ({ scoringPlays: scoring[g.key] ?? [], latest: null }), fetchGames: async (league) => {
     fetches++;
     const v = espn[league];
     if (v instanceof Error) throw v;
@@ -145,8 +145,8 @@ test("since(id) lists the notifications after id, for sending to phones", async 
 test("the scoring plays are fetched only when the score moved past them (or a try is pending), and a field goal quotes its play", async () => {
   const { keeper, espn, scoring, tick } = keeperWith({ nfl: [live("nfl:1")] });
   let asked = 0;
-  const fetchPlays = keeper.fetchScoringPlays;
-  keeper.fetchScoringPlays = async (g) => { asked++; return fetchPlays(g); };
+  const fetchDetail = keeper.fetchSummary;
+  keeper.fetchSummary = async (g) => { asked++; return fetchDetail(g); };
   const { cursor } = await keeper.ask(null);
   tick(POLL_MS);
   await keeper.ask(cursor);
@@ -187,7 +187,7 @@ test("each game's memo is saved, so a restarted keeper neither repeats nor misse
   const storage = { put: async (k, v) => { stored.set(k, structuredClone(v)); }, delete: async (k) => stored.delete(k),
     list: async ({ prefix }) => new Map([...stored].filter(([k]) => k.startsWith(prefix))) };
   const espn = { nfl: [live("nfl:1")] }, scoring = {};
-  const make = () => new ScoreKeeper({ storage, now: () => 1, fetchScoringPlays: async (g) => scoring[g.key] ?? [], fetchGames: async (l) => espn[l] ?? [] });
+  const make = () => new ScoreKeeper({ storage, now: () => 1, fetchSummary: async (g) => ({ scoringPlays: scoring[g.key] ?? [], latest: null }), fetchGames: async (l) => espn[l] ?? [] });
   let keeper = make();
   await keeper.poll();
   espn.nfl = [live("nfl:1", { home: { id: "2", abbr: "NE", score: "7" } })];

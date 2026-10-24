@@ -2,7 +2,7 @@
 
 import { LINKED_GAMES, LOADING, MOBILE_QUERY, POLL_MS } from "./config.js";
 import { state, allGames } from "./state.js";
-import { fetchGames, confNames } from "./espn.js";
+import { fetchGames, freshenGames, confNames } from "./espn.js";
 import { serverSource, noteSource, setPoller } from "./source.js";
 import { checkRecaps } from "./recap.js";
 import { renderList, listIsStale, initPicker } from "./picker.js";
@@ -39,6 +39,9 @@ async function poll() {
   const fromServer = serverSource() && await pollServer();
   if (!fromServer) await pollEspn();
   noteSource(fromServer ? "server" : serverSource() ? "espn-fallback" : "espn");
+  // The picked games under way (or due to have started) take their play-by-play where it's ahead of the scoreboard.
+  const now = Date.now();
+  await freshenGames(allGames().filter((g) => state.selected.has(g.key) && (g.state === "in" || (g.state === "pre" && g.date <= now))));
   renderUpdated();
   // First load renders right away; after that the list waits out LIST_REFRESH_MS so it doesn't shift under your finger.
   if (listIsStale()) renderList();

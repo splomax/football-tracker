@@ -38,15 +38,72 @@ function yardsToGoal(s, possession, home, away) {
 }
 
 /**
- * The game's scoring plays so far, oldest first, from ESPN's game detail: [{ id, kind ("touchdown", "field-goal",
- * "safety"...), teamId, text, awayScore, homeScore }], each with the score it left. A touchdown's text grows the try's
- * result ("(Cam Little Kick)", "(... PAT failed)") once it's in. For notifications (js/alerts.js, worker/scorekeeper.js).
+ * ESPN's game detail for g: its scoring plays so far, oldest first ([{ id, kind ("touchdown", "field-goal", "safety"...),
+ * teamId, text, awayScore, homeScore }], each with the score it left; a touchdown's text grows the try's result, "(Cam
+ * Little Kick)" or "(... PAT failed)", once it's in), for notifications (js/alerts.js, worker/scorekeeper.js); and its
+ * latest play, for freshen().
  */
-export async function fetchScoringPlays(g) {
+export async function fetchSummary(g) {
   const [league, id] = g.key.split(":");
-  const { scoringPlays = [] } = await (await fetch(LEAGUES[league].replace(/scoreboard.*$/, `summary?event=${id}`))).json();
-  return scoringPlays.map((p) => ({ id: String(p.id), kind: p.scoringType?.name, teamId: String(p.team?.id), text: p.text,
+  const d = await (await fetch(LEAGUES[league].replace(/scoreboard.*$/, `summary?event=${id}`))).json();
+  const scoringPlays = (d.scoringPlays ?? []).map((p) => ({ id: String(p.id), kind: p.scoringType?.name, teamId: String(p.team?.id), text: p.text,
     awayScore: Number(p.awayScore), homeScore: Number(p.homeScore) }));
+  const latest = [...(d.drives?.previous ?? []), ...(d.drives?.current ? [d.drives.current] : [])].flatMap((x) => x.plays ?? []).at(-1) ?? null;
+  return { scoringPlays, latest };
+}
+
+/** The game's scoring plays only (fetchSummary). */
+export const fetchScoringPlays = async (g) => (await fetchSummary(g)).scoringPlays;
+
+// How far into a game: periods, then the clock running down.
+const seconds = (clock) => {
+  const [m, s] = String(clock ?? "").split(":").map(Number);
+  return Number.isFinite(m) && Number.isFinite(s) ? m * 60 + s : 0;
+};
+const progress = (period, clock) => (period ?? 0) * 10_000 - seconds(clock);
+const NTH = ["1st", "2nd", "3rd", "4th"];
+
+/**
+ * ESPN's scoreboard can lag its own play-by-play by minutes (seen live: stuck at 13:11 in the 1st with no score while
+ * the play-by-play had a touchdown). So for a game under way, whichever is further along wins: when the latest play
+ * (fetchSummary) is at least as far as the scoreboard, g takes its clock, score, ball spot and last play. A finished
+ * game keeps the scoreboard's.
+ */
+export function freshen(g, latest) {
+  if (!latest?.clock || g.state === "post") return g;
+  const period = latest.period?.number, clock = latest.clock.displayValue;
+  const ahead = progress(period, clock) - (g.state === "in" ? progress(g.period, g.clock) : -Infinity);
+  if (ahead < 0) return g;  // the scoreboard is further along
+  g.away = { ...g.away, score: String(latest.awayScore ?? g.away.score) };
+  g.home = { ...g.home, score: String(latest.homeScore ?? g.home.score) };
+  const between = /end period|end of/i.test(latest.type?.text ?? "");
+  if (ahead > 0) {
+    g.state = "in";
+    g.period = period;
+    g.clock = clock;
+    g.detail = between ? (period === 2 ? "Halftime" : `End of ${NTH[period - 1] ?? "OT"} Quarter`) : `${clock} - ${NTH[period - 1] ?? "OT"}`;
+  }
+  const end = between || g.detail === "Halftime" ? {} : latest.end ?? {};
+  const s = { downDistanceText: end.downDistanceText, possessionText: end.possessionText };
+  g.possession = end.downDistanceText && !/timeout/i.test(latest.type?.text ?? "") ? String(end.team?.id ?? "") || undefined : undefined;
+  g.yardLine = end.yardLine;
+  g.distance = end.distance;
+  g.ddText = end.downDistanceText;
+  const toGoal = yardsToGoal(s, g.possession, g.home, g.away);
+  g.redZone = toGoal != null && toGoal <= 20;
+  g.lastPlay = latest.text ?? g.lastPlay;
+  return g;
+}
+
+/** Freshen the given games from their play-by-play (freshen), all at once; a game whose detail fails keeps the scoreboard's. */
+export async function freshenGames(games) {
+  await Promise.all(games.map(async (g) => {
+    try {
+      freshen(g, (await fetchSummary(g)).latest);
+    } catch (err) {
+      console.error("play-by-play", g.key, err);
+    }
+  }));
 }
 
 export async function fetchGames(league) {

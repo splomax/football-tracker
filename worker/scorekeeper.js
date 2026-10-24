@@ -8,7 +8,7 @@
 // an admin page has asked within IDLE_MS, or while a phone has a lit bell on a game that's live or starts within
 // SOON_MS; every IDLE_CHECK_MS while phones have bells on later games (to notice kickoffs); otherwise not at all.
 
-import { fetchGames, fetchScoringPlays, confNames } from "../js/espn.js";
+import { fetchGames, fetchSummary, freshen, confNames } from "../js/espn.js";
 import { gameAlerts, mergeAlerts, needsScoringPlays, scoreLine, sampleAlert } from "../js/alerts.js";
 
 export const POLL_MS = 10_000;
@@ -20,13 +20,14 @@ const MAX_PLAY_FETCHES = 30;  // per update: Cloudflare allows 50 outside reques
 
 export class ScoreKeeper {
   /**
-   * @param {{ fetchGames?: typeof fetchGames, fetchScoringPlays?: typeof fetchScoringPlays, now?: () => number,
+   * @param {{ fetchGames?: typeof fetchGames, fetchSummary?: typeof fetchSummary, now?: () => number,
    *   storage?: { get, put, delete, list } }} [deps]  storage: where each game's memo is saved (the Durable Object's
    *   storage), so a restart picks up where it left off; left out, memos are only kept in memory. Others: for tests.
    */
   constructor(deps = {}) {
     this.fetch = deps.fetchGames ?? fetchGames;
-    this.fetchScoringPlays = deps.fetchScoringPlays ?? fetchScoringPlays;
+    this.fetchSummary = deps.fetchSummary ?? fetchSummary;
+    this.bells = new Set();  // the games some phone has a lit bell on (set by the Durable Object), kept freshest
     this.storage = deps.storage ?? null;
     this.now = deps.now ?? Date.now;
     this.games = { cfb: [], nfl: [] };
@@ -60,11 +61,16 @@ export class ScoreKeeper {
       for (const g of games) {
         const memo = this.memos.get(g.key) ?? {};
         const before = JSON.stringify(memo);
-        if (needsScoringPlays(g, memo) && playFetches++ < MAX_PLAY_FETCHES) {
+        // ESPN's game detail: for the scoring plays when the notifications need them, and for any belled game under way
+        // (or due to have started), whose play-by-play wins wherever it's ahead of the scoreboard (js/espn.js freshen).
+        const started = g.state === "in" || (g.state === "pre" && new Date(g.date) <= now);
+        if ((needsScoringPlays(g, memo) || (started && this.bells.has(g.key))) && playFetches++ < MAX_PLAY_FETCHES) {
           try {
-            g.scoringPlays = await this.fetchScoringPlays(g);
+            const { scoringPlays, latest } = await this.fetchSummary(g);
+            freshen(g, latest);
+            g.scoringPlays = scoringPlays;
           } catch (err) {
-            console.error("scoring plays", g.key, err);
+            console.error("game detail", g.key, err);
           }
         }
         const news = gameAlerts(this.last.get(g.key), g, memo, now);
