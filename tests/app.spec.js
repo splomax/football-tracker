@@ -632,7 +632,7 @@ test.describe("notifications", () => {
     await expect(box("Lead change")).not.toBeChecked();
     await box("Interception or lost fumble").check();
     await box("Kickoff").uncheck();
-    await page.click('#notify-settings button[value="ok"]');
+    await page.click('#notify-settings .buttons button');
     const kinds = await page.evaluate(() => JSON.parse(localStorage.getItem("notifyKinds")));
     expect(Object.keys(kinds)).toEqual(["cfb:2"]);
     expect(kinds["cfb:2"]).toContain("turnover");

@@ -80,13 +80,19 @@ function openNotifySettings(key) {
   const chosen = new Set(chosenKinds()[key] ?? app.defaultKinds);
   const dialog = document.createElement("dialog");
   dialog.id = "notify-settings";
+  // On phones (css/mobile.css) it's a sheet from the bottom: Done up top beside the title, and switches in place of
+  // checkboxes.
   dialog.innerHTML = `<form method="dialog">
-    <label>Notification settings</label>
-    <p class="note">What this device gets for ${g ? `${g.away.name || g.away.abbr} @ ${g.home.name || g.home.abbr}` : "this game"} while its bell is on.</p>
+    <div class="sheet-head">
+      <div><label>Notification settings</label>
+      <p class="note">What this device gets for ${g ? `${g.away.name || g.away.abbr} @ ${g.home.name || g.home.abbr}` : "this game"} while its bell is on.</p></div>
+      <button value="ok" class="done-top">Done</button>
+    </div>
     ${app.notifyKinds.map(([group, kinds]) => `<fieldset><legend>${group}</legend>${Object.entries(kinds).map(([kind, label]) =>
-      `<label class="kind"><input type="checkbox" value="${kind}" ${chosen.has(kind) ? "checked" : ""}>${label}</label>`).join("")}</fieldset>`).join("")}
+      `<label class="kind"><input type="checkbox" value="${kind}" ${chosen.has(kind) ? "checked" : ""}><span>${label}</span></label>`).join("")}</fieldset>`).join("")}
     <div class="buttons"><button value="ok">Done</button></div>
   </form>`;
+  dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close(); });  // a tap outside it
   dialog.addEventListener("change", () => {
     const all = { ...chosenKinds(), [key]: [...dialog.querySelectorAll("input:checked")].map((i) => i.value) };
     app.sendKinds(Object.fromEntries(Object.entries(all).filter(([k]) => app.state.selected.has(k))));

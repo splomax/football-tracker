@@ -100,7 +100,7 @@ main:has(aside.preload), aside.preload { transition: none; }  /* no slide on fir
 /* Admin login (js/admin.js), and the help for turning on iPhone notifications (worker/admin.js explainInstall). */
 #admin-login, #install-help, #notify-settings { width: min(320px, calc(100vw - 32px)); padding: 20px; background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 12px 40px var(--shadow); }
 #admin-login::backdrop, #install-help::backdrop, #notify-settings::backdrop { background: rgba(0, 0, 0, .5); }
-#admin-login label, #install-help label, #notify-settings > form > label { display: block; margin-bottom: 8px; font-weight: 600; }
+#admin-login label, #install-help label, #notify-settings .sheet-head label { display: block; margin-bottom: 8px; font-weight: 600; }
 #admin-login input { width: 100%; padding: 8px 10px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; font: inherit; font-size: 16px; }
 #admin-login input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 #admin-login .error { min-height: 18px; margin: 6px 0 10px; color: var(--red); font-size: 12px; }
@@ -116,6 +116,7 @@ main:has(aside.preload), aside.preload { transition: none; }  /* no slide on fir
 #notify-settings legend { padding: 0; margin-bottom: 4px; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 #notify-settings .kind { display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer; }
 #notify-settings .kind input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+#notify-settings button.done-top { display: none; }
 /* The Home Screen app's splash screen (index.html): the logo and wordmark on the dark background, faded out by
    js/main.js once the first scores are in. Dark whatever the theme, matching the app's icon and launch color. */
 #splash { display: none; }
