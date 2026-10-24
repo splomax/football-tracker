@@ -15,6 +15,5 @@
     both.
 6. **Line-by-line code walkthrough.** Go through the code reviewing how readable it is to a person and whether its
     organization is intuitive.
-7. **Upcoming games in list view on desktop.** Their rows look out of place.
-8. **Stats mode's arrow button.** It works but still feels clunky; find a better way to open a live game's detailed
+7. **Stats mode's arrow button.** It works but still feels clunky; find a better way to open a live game's detailed
     stats.
