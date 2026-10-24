@@ -4,9 +4,9 @@
 // - On each card (on a computer), a paper-plane button that sends that game a test notification through the program on
 //   Cloudflare, to the admins' devices whose bell for that game is lit (everyone's bells are in js/notify.js), and
 //   beside it a chooser for which kind: a plain test, or a sample touchdown, field goal, halftime... for styling them.
-// - "Notification settings" in the gear menu: which kinds of notification this device gets (a touchdown, a lead
-//   change, a turnover, the two-minute warning...), saved here and on the server (worker/phones.js). Everyone else's
-//   devices get the defaults (js/alerts.js DEFAULT_KINDS).
+// - On each card whose bell is on (phones too), a sliders button opening that game's notification settings: which kinds this device
+//   gets for it (a touchdown, a lead change, a turnover, the two-minute warning...), saved here and on the server
+//   (worker/phones.js). A game never set, and everyone else's devices, get the defaults (js/alerts.js DEFAULT_KINDS).
 // - "Scores from:" atop the gear menu: whether this page's last update came from the program on Cloudflare
 //   (worker/scorekeeper.js), which the admin's pages use, or from ESPN directly because the program couldn't be reached.
 // - The visit counter's weekly, monthly and total counts atop the gear menu, fetched each time it opens.
@@ -14,7 +14,7 @@
 //   conference narrows the list (js/picker.js).
 
 let app;  // { renderBoard, renderList, state, saveSelected, visits, store, lastSource, testAlert, sampleKinds, notifyKinds,
-          //   defaultKinds, sendKinds } from js/admin.js
+          //   defaultKinds, sendKinds, findGame } from js/admin.js
 
 /** Returns the hooks for js/board.js's setAdmin. */
 export function install(appApi) {
@@ -30,12 +30,13 @@ export function install(appApi) {
   app.store.set("notify", null);  // the old Enable notifications switch, since removed
   addVisits();
   addScoreSource();
-  addNotifySettings();
   return {
     bulkAlways: true,
     // Left of the bell and styled like it: the test button and its chooser.
-    cardExtras: (g) => testButton(g) + kindChooser(g),
+    cardExtras: (g) => testButton(g) + kindChooser(g) + kindsButton(g),
     onBoardClick(e) {
+      const kindsKey = e.target.closest("[data-kinds]")?.dataset.kinds;
+      if (kindsKey) { openNotifySettings(kindsKey); return true; }
       const testKey = e.target.closest("[data-test-alert]")?.dataset.testAlert;
       if (testKey) { app.testAlert(testKey, app.store.get("testKind", "test")); return true; }
       return false;
@@ -58,30 +59,37 @@ function addScoreSource() {
   gear.addEventListener("click", () => { if (gear.getAttribute("aria-expanded") === "true") refresh(); });
 }
 
-// Gear menu: "Notification settings", a dialog of switches, one per kind of notification, grouped. Each change is saved
-// right away (and sent to the server once this device has notifications on).
-function addNotifySettings() {
-  if (document.getElementById("notify-settings-item")) return;
-  const item = document.createElement("button");
-  item.id = "notify-settings-item";
-  item.innerHTML = `<span class="check"></span>Notification settings`;
-  item.addEventListener("click", openNotifySettings);
-  document.getElementById("save-board").before(item);
+// A card's sliders button: that game's notification settings.
+const SLIDERS = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"
+  stroke-linecap="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>`;
+
+function kindsButton(g) {
+  return `<button type="button" class="notify-kinds" data-kinds="${g.key}" aria-label="Notification settings for this game" title="Notification settings for this game">${SLIDERS}</button>`;
 }
 
-function openNotifySettings() {
-  const chosen = new Set(app.store.get("notifyKinds") ?? app.defaultKinds);
+// Each game's chosen kinds, by game key; only picked games' are kept.
+const chosenKinds = () => {
+  const saved = app.store.get("notifyKinds");
+  return saved && !Array.isArray(saved) && typeof saved === "object" ? saved : {};
+};
+
+// A dialog of switches, one per kind of notification, grouped, for one game. Each change is saved right away (and sent
+// to the server once this device has notifications on).
+function openNotifySettings(key) {
+  const g = app.findGame(key);
+  const chosen = new Set(chosenKinds()[key] ?? app.defaultKinds);
   const dialog = document.createElement("dialog");
   dialog.id = "notify-settings";
   dialog.innerHTML = `<form method="dialog">
     <label>Notification settings</label>
-    <p class="note">What this device gets for the games you ring.</p>
+    <p class="note">What this device gets for ${g ? `${g.away.name || g.away.abbr} @ ${g.home.name || g.home.abbr}` : "this game"} while its bell is on.</p>
     ${app.notifyKinds.map(([group, kinds]) => `<fieldset><legend>${group}</legend>${Object.entries(kinds).map(([kind, label]) =>
       `<label class="kind"><input type="checkbox" value="${kind}" ${chosen.has(kind) ? "checked" : ""}>${label}</label>`).join("")}</fieldset>`).join("")}
     <div class="buttons"><button value="ok">Done</button></div>
   </form>`;
   dialog.addEventListener("change", () => {
-    app.sendKinds([...dialog.querySelectorAll("input:checked")].map((i) => i.value));
+    const all = { ...chosenKinds(), [key]: [...dialog.querySelectorAll("input:checked")].map((i) => i.value) };
+    app.sendKinds(Object.fromEntries(Object.entries(all).filter(([k]) => app.state.selected.has(k))));
   });
   document.body.append(dialog);
   dialog.addEventListener("close", () => dialog.remove());

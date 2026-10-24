@@ -128,10 +128,10 @@ test("only an admin's device can choose its kinds of notification", async () => 
   const PUSH = fakeKv(), withPush = { ...env, PUSH, SCORES: fakeScores() };
   const subscription = { endpoint: "https://web.push.apple.com/x", keys: { p256dh: "B", auth: "a" } };
   await api("POST", "/api/push/subscribe", null, JSON.stringify({ subscription, bells: [] }), withPush);
-  const body = JSON.stringify({ endpoint: subscription.endpoint, kinds: ["turnover"] });
+  const body = JSON.stringify({ endpoint: subscription.endpoint, kinds: { "cfb:1": ["turnover"] } });
   assert.equal((await api("POST", "/api/push/kinds", null, body, withPush)).status, 401);
   assert.equal((await api("POST", "/api/push/kinds", await tokenFor(), body, withPush)).status, 200);
-  assert.deepEqual(JSON.parse([...PUSH.data.values()][0]).kinds, ["turnover"]);
+  assert.deepEqual(JSON.parse([...PUSH.data.values()][0]).kinds, { "cfb:1": ["turnover"] });
 });
 
 test("anyone can wake the program (after a deploy)", async () => {

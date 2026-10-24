@@ -617,32 +617,30 @@ test.describe("notifications", () => {
       serverGame("cfb:78", serverTeam("194", "OSU", "24"), serverTeam("2294", "IOWA", "6"))] },
     alerts: since == null ? [] : alerts.map((a, i) => ({ id: i + 1, at: 0, ...a })).filter((a) => a.id > Number(since)) });
 
-  test("an admin chooses which kinds of notification this device gets, sent with its subscription and on each change; others can't", async ({ page }) => {
+  test("an admin chooses each rung game's kinds of notification from its card, sent with the subscription and on each change; others can't", async ({ page }) => {
     await fakeNotifications(page, "granted", "granted");
     await fakePush(page);
-    const state = await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:2"] } });
-    await page.click("#settings");
-    await page.click("#notify-settings-item");
+    const state = await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:2", "cfb:5"] } });
+    await expect(card(page, "cfb:2").locator(".notify-kinds")).toBeHidden();  // only while the bell is on
+    await card(page, "cfb:2").hover();
+    await card(page, "cfb:2").locator(".bell").click();
+    await expect.poll(() => state.pushPosts.map((p) => p.path)).toEqual(["subscribe"]);
+    await card(page, "cfb:2").locator(".notify-kinds").click();
     const box = (label) => page.locator("#notify-settings label.kind", { hasText: label }).locator("input");
+    await expect(page.locator("#notify-settings")).toContainText("California @ UNLV");
     await expect(box("Touchdown")).toBeChecked();  // the defaults
     await expect(box("Lead change")).not.toBeChecked();
     await box("Interception or lost fumble").check();
     await box("Kickoff").uncheck();
     await page.click('#notify-settings button[value="ok"]');
     const kinds = await page.evaluate(() => JSON.parse(localStorage.getItem("notifyKinds")));
-    expect(kinds).toContain("turnover");
-    expect(kinds).not.toContain("kickoff");
-    expect(state.pushPosts).toEqual([]);  // not subscribed yet: nothing to tell the server
+    expect(Object.keys(kinds)).toEqual(["cfb:2"]);
+    expect(kinds["cfb:2"]).toContain("turnover");
+    expect(kinds["cfb:2"]).not.toContain("kickoff");
+    await expect.poll(() => state.pushPosts.at(-1)).toEqual({ path: "kinds", body: { endpoint: "https://web.push.apple.com/phone", kinds } });
+    await page.goto("/");  // without ?admin
     await card(page, "cfb:2").hover();
-    await card(page, "cfb:2").locator(".bell").click();
-    await expect.poll(() => state.pushPosts[0]?.body.kinds).toEqual(kinds);
-    await page.click("#settings");
-    await page.click("#notify-settings-item");
-    await box("Final").uncheck();
-    await expect.poll(() => state.pushPosts.at(-1)).toEqual({ path: "kinds", body: { endpoint: "https://web.push.apple.com/phone", kinds: kinds.filter((k) => k !== "final") } });
-    await page.goto("/");
-    await page.click("#settings");
-    await expect(page.locator("#notify-settings-item")).toHaveCount(0);  // admin mode only
+    await expect(page.locator(".notify-kinds")).toHaveCount(0);
   });
 
   test("beside the paper plane, a chooser picks which kind of notification it sends; the choice is remembered", async ({ page }) => {

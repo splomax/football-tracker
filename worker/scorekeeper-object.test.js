@@ -81,9 +81,10 @@ test("a phone's bell on a live game keeps it fetching, and each notification goe
   assert.deepEqual(s.pushed, []);  // nothing new, nothing sent
 });
 
-test("each device gets only the kinds of notification it chose", async (t) => {
-  const s = await setUp(t, { phones: { defaults: ["nfl:1"], picky: ["nfl:1"] } });
-  await setKinds(s.kv, "https://web.push.apple.com/picky", ["turnover"]);
+test("each device gets only the kinds of notification it chose for that game", async (t) => {
+  const s = await setUp(t, { phones: { defaults: ["nfl:1"], picky: ["nfl:1"], pickyElsewhere: ["nfl:1"] } });
+  await setKinds(s.kv, "https://web.push.apple.com/picky", { "nfl:1": ["turnover"] });
+  await setKinds(s.kv, "https://web.push.apple.com/pickyElsewhere", { "nfl:2": ["turnover"] });
   s.espn.nfl = [live("nfl:1")];
   await s.req("/wake");
   await s.fire();
@@ -91,7 +92,7 @@ test("each device gets only the kinds of notification it chose", async (t) => {
   s.plays["nfl:1"] = [{ id: "b", kind: "field-goal", teamId: "2", text: "x", awayScore: 0, homeScore: 3 }];
   s.tick(10_000);
   await s.fire();
-  assert.deepEqual(s.pushed, ["defaults"]);
+  assert.deepEqual(s.pushed.sort(), ["defaults", "pickyElsewhere"]);
 });
 
 test("the test button reaches only admins' phones whose bells include the game; a phone Apple says is gone is dropped", async (t) => {

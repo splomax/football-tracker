@@ -35,18 +35,19 @@ test("a phone is saved with its bells, can change them, and can be removed; junk
   assert.deepEqual(await listPhones(kv), []);
 });
 
-test("an admin's device keeps the kinds it chose; everyone else's never have any", async () => {
+test("an admin's device keeps the kinds it chose for each game; everyone else's never have any", async () => {
   const kv = fakeKv();
-  await savePhone(kv, sub(1), ["cfb:1"], 1, true, ["touchdown"]);
-  assert.deepEqual((await listPhones(kv))[0].kinds, ["touchdown"]);
-  assert.equal(await setKinds(kv, sub(1).endpoint, ["turnover", "final"]), true);
+  await savePhone(kv, sub(1), ["cfb:1"], 1, true, { "cfb:1": ["touchdown"] });
+  assert.deepEqual((await listPhones(kv))[0].kinds, { "cfb:1": ["touchdown"] });
+  assert.equal(await setKinds(kv, sub(1).endpoint, { "cfb:2": ["turnover", "final"] }), true);
   await setBells(kv, sub(1).endpoint, ["cfb:2"], 2, true);
   await savePhone(kv, sub(1), ["cfb:2"], 3, true);  // subscribing again without kinds keeps them
-  assert.deepEqual((await listPhones(kv))[0].kinds, ["turnover", "final"]);
-  await savePhone(kv, sub(2), [], 4, false, ["touchdown"]);
+  assert.deepEqual((await listPhones(kv))[0].kinds, { "cfb:2": ["turnover", "final"] });
+  await savePhone(kv, sub(2), [], 4, false, { "cfb:1": ["touchdown"] });
   assert.equal((await listPhones(kv)).find((p) => p.subscription.endpoint === sub(2).endpoint).kinds, undefined);
-  assert.equal(await setKinds(kv, sub(3).endpoint, ["final"]), false);  // not saved
-  assert.equal(await setKinds(kv, sub(1).endpoint, "final"), false);
+  assert.equal(await setKinds(kv, sub(3).endpoint, { "cfb:1": ["final"] }), false);  // not saved
+  assert.equal(await setKinds(kv, sub(1).endpoint, ["final"]), false);  // by game, not one list
+  assert.equal(await setKinds(kv, sub(1).endpoint, { "cfb:1": "final" }), false);
 });
 
 test("sending reaches the phones picked, and forgets one whose push service says it's gone", async (t) => {

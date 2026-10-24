@@ -16,7 +16,7 @@ const OUT = path.join(__dirname, "..", "previews", "matrix");
 const ADMIN_JS = fs.readFileSync(path.join(__dirname, "..", "worker", "admin.js"), "utf8");
 const CORS = { "access-control-allow-origin": "*" };
 const PICKS = ["cfb:1", "cfb:2", "cfb:4", "cfb:5", "cfb:7", "nfl:101", "nfl:102"];
-const ADMIN = { adminToken: "matrix", notify: true, notifyGames: ["cfb:2"] };
+const ADMIN = { adminToken: "matrix", notify: true, notifyGames: ["cfb:2", "cfb:5"] };
 
 const { defaultBrowserType, ...iPhone } = devices["iPhone 13"];
 const DEVICES = {
@@ -46,7 +46,7 @@ const STATES = {
   "admin-gear-menu": { query: "?admin", storage: { selected: PICKS, view: "grid", pickerOpen: false, ...ADMIN },
     run: async (page) => { await page.click("#settings"); await settle(page, 300); } },
   "admin-notify-settings": { query: "?admin", storage: { selected: PICKS, view: "grid", pickerOpen: false, ...ADMIN }, screenOnly: true,
-    run: async (page) => { await page.click("#settings"); await page.click("#notify-settings-item"); await settle(page, 300); } },
+    run: async (page) => { await page.click('.card[data-key="cfb:2"] [data-kinds]', { force: true }); await settle(page, 300); } },
   // iPhone only (Safari, not the Home Screen app): the walkthrough a bell opens there, first and last steps.
   "iphone-install-help": { storage: { selected: PICKS, view: "grid", pickerOpen: false }, screenOnly: true,
     run: async (page) => { await page.click('.card[data-key="cfb:1"] [data-bell]'); await settle(page, 300); } },

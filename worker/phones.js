@@ -1,7 +1,8 @@
 // The devices that turned on notifications (phones and computers), kept in Workers KV (the PUSH namespace,
 // wrangler.toml) so they survive deploys: each under "phone:" + a hash of its push address, as { subscription, bells,
 // public, kinds?, at }. bells are that device's lit games (each device has its own). kinds are the kinds of
-// notification an admin chose for that device (js/alerts.js NOTIFY_KINDS); without them, the defaults. public marks a device no admin turned on;
+// notification an admin chose on that device for each game ({ key: kinds }, js/alerts.js NOTIFY_KINDS); a game without
+// them, the defaults. public marks a device no admin turned on;
 // test notifications skip those (devices saved before there was a public sign-in have no mark, and were all admins').
 // sendToPhones sends a notification (worker/webpush.js) and forgets a device its push service says is gone.
 
@@ -16,7 +17,8 @@ async function keyFor(endpoint) {
 
 const validSubscription = (s) => typeof s?.endpoint === "string" && s.endpoint.startsWith("https://")
   && typeof s.keys?.p256dh === "string" && typeof s.keys?.auth === "string";
-const validKinds = (k) => Array.isArray(k) && k.length <= 50 && k.every((x) => typeof x === "string" && x.length < 30);
+const validKinds = (byGame) => !!byGame && typeof byGame === "object" && !Array.isArray(byGame) && Object.keys(byGame).length <= 500
+  && Object.entries(byGame).every(([key, k]) => key.length < 40 && Array.isArray(k) && k.length <= 50 && k.every((x) => typeof x === "string" && x.length < 30));
 const validBells = (b) => Array.isArray(b) && b.length <= 500 && b.every((k) => typeof k === "string" && k.length < 40);
 
 /**
@@ -33,7 +35,7 @@ export async function savePhone(kv, subscription, bells, now = Date.now(), admin
   return true;
 }
 
-/** An admin's device choosing which kinds of notification it gets. False if the phone isn't saved (or bad kinds). */
+/** An admin's device choosing which kinds of notification it gets for each game ({ key: kinds }). False if the phone isn't saved (or bad kinds). */
 export async function setKinds(kv, endpoint, kinds, now = Date.now()) {
   if (typeof endpoint !== "string" || !validKinds(kinds)) return false;
   const key = await keyFor(endpoint);

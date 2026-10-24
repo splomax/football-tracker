@@ -106,13 +106,15 @@ svg.field { width: 100%; display: block; border-radius: 4px; }
   box-shadow: 0 6px 20px var(--shadow); color: var(--text); font-size: 12px; line-height: 1.45; cursor: pointer; animation: last-in .15s ease-out; }
 @keyframes last-in { from { opacity: 0; transform: translateY(4px); } }
 .bell.on svg { fill: currentColor; }
-.remove, .bell, .test-alert, .test-kind { flex: none; width: 24px; height: 24px; border: 0; border-radius: 6px; background: var(--remove-bg); color: #000; font-size: 14px; line-height: 1; cursor: pointer; }
+.remove, .bell, .test-alert, .test-kind, .notify-kinds { flex: none; width: 24px; height: 24px; border: 0; border-radius: 6px; background: var(--remove-bg); color: #000; font-size: 14px; line-height: 1; cursor: pointer; }
 /* background-color, not background: the test-kind chooser's chevron is its background image. */
-.remove:hover, .remove:focus-visible, .bell:hover, .bell:focus-visible, .test-alert:hover, .test-alert:focus-visible, .test-kind:hover, .test-kind:focus-visible { background-color: var(--remove-hover); }
-.bell, .test-alert { display: grid; place-items: center; padding: 0; }
+.remove:hover, .remove:focus-visible, .bell:hover, .bell:focus-visible, .test-alert:hover, .test-alert:focus-visible, .test-kind:hover, .test-kind:focus-visible, .notify-kinds:hover, .notify-kinds:focus-visible { background-color: var(--remove-hover); }
+.bell, .test-alert, .notify-kinds { display: grid; place-items: center; padding: 0; }
 /* The test-kind chooser: a dropdown drawn as a chevron (its chosen kind shows as its tooltip and in the open list). */
 .test-kind { appearance: none; padding: 0; color: transparent; background: var(--remove-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='14' height='14' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center / 14px no-repeat; }
 .test-kind option { color: #000; background: #fff; }
+/* Admin: a game's notification settings button (worker/admin.js) shows only while its bell is on. */
+.notify-kinds:has(~ .bell:not(.on)) { display: none; }
 /* Lit: a yellow button (the game list's "on" color) with a filled bell, so a game with notifications stands out. */
 .bell.on, .bell.on:hover, .bell.on:focus-visible { background: var(--bell); color: #000; }
 .bell.on:hover, .bell.on:focus-visible { filter: brightness(.9); }
@@ -121,10 +123,11 @@ svg.field { width: 100%; display: block; border-radius: 4px; }
   .remove { position: absolute; top: 6px; right: 6px; opacity: 0; transition: opacity .15s; }
   /* .hovered: the card under the mouse, kept through a board redraw (js/board.js), which :hover isn't. */
   :is(.card:hover, .card.hovered) .remove, .remove:focus-visible { opacity: 1; }
-  .bell, .test-alert, .test-kind { position: absolute; top: 6px; right: 34px; opacity: 0; transition: opacity .15s; }
-  .test-alert { right: 62px; }
-  .test-kind { right: 90px; }
-  :is(.card:hover, .card.hovered) :is(.bell, .test-alert, .test-kind), :is(.bell, .test-alert, .test-kind):focus-visible { opacity: 1; }
+  .bell, .test-alert, .test-kind, .notify-kinds { position: absolute; top: 6px; right: 34px; opacity: 0; transition: opacity .15s; }
+  .notify-kinds { right: 62px; }
+  .test-alert { right: 90px; }
+  .test-kind { right: 118px; }
+  :is(.card:hover, .card.hovered) :is(.bell, .test-alert, .test-kind, .notify-kinds), :is(.bell, .test-alert, .test-kind, .notify-kinds):focus-visible { opacity: 1; }
 }
 /* List view (the header's grid/list button, js/view.js): one row per game. Every section shares one grid
    (.line-grid, js/board.js), only as wide as the widest row, so all rows are the same width and their columns line up:

@@ -8,7 +8,7 @@
 
 import { ADMIN_PARAM, ADMIN_URL } from "./config.js";
 import { store } from "./store.js";
-import { state, saveSelected } from "./state.js";
+import { state, saveSelected, allGames } from "./state.js";
 import { renderBoard, setAdmin } from "./board.js";
 import { renderList, setPickerAdmin } from "./picker.js";
 import { useServer, lastSource, pollNow } from "./source.js";
@@ -111,7 +111,8 @@ async function install(code) {
   try {
     const { install } = await import(blob);
     const hooks = install({ renderBoard, renderList, state, saveSelected, visits, store, lastSource, testAlert, sampleKinds: SAMPLE_KINDS,
-      notifyKinds: NOTIFY_KINDS, defaultKinds: DEFAULT_KINDS, sendKinds });
+      notifyKinds: NOTIFY_KINDS, defaultKinds: DEFAULT_KINDS, sendKinds,
+      findGame: (key) => allGames().find((g) => g.key === key) });
     setAdmin(hooks);
     setPickerAdmin(hooks);
     useServer(scoresFromServer);  // from now on this page's scores come from the program on Cloudflare,

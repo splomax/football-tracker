@@ -51,7 +51,7 @@ export async function turnOn(bells) {
   const reg = await navigator.serviceWorker.ready;
   const sub = (await reg.pushManager.getSubscription())
     ?? await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: PUBLIC_KEY });
-  // An admin's chosen kinds (Notification settings) go along; the server ignores them from anyone else.
+  // An admin's chosen kinds for each game go along; the server ignores them from anyone else.
   return (await post("subscribe", { subscription: sub.toJSON(), bells, kinds: store.get("notifyKinds") ?? undefined })).ok;
 }
 
@@ -69,7 +69,7 @@ export async function sendBells(bells) {
   if (sub) await post("bells", { endpoint: sub.endpoint, bells }).catch(() => {});
 }
 
-/** An admin's device choosing which kinds of notification it gets (js/alerts.js NOTIFY_KINDS). Saved here too. */
+/** An admin's device choosing which kinds of notification it gets, by game ({ key: kinds }, js/alerts.js NOTIFY_KINDS). Saved here too. */
 export async function sendKinds(kinds) {
   store.set("notifyKinds", kinds);
   const sub = await subscription().catch(() => null);
