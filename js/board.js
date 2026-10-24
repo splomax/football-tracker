@@ -13,6 +13,8 @@ const $ = (id) => document.getElementById(id);
 const redZoneShown = new Set();  // game keys currently drawn in the red zone
 const glowStart = new Map();     // game key -> when its one-time glow began
 let flash = null;                // { key, at }: the card most recently highlighted from the picker
+let hoveredKey = null;          // the card under the mouse: a redraw (every poll) replaces it, and a new card doesn't count
+                                // as :hover until the mouse moves, so its hover buttons would blink out; cardOpen marks it
 let openPlay = null;             // game key whose full last-play text is showing; survives board refreshes
 // Extra controls for a logged-in admin (js/admin.js). Regular visitors never load that code, so these stay empty.
 let admin = { cardExtras: () => "", onBoardClick: () => false };
@@ -99,7 +101,7 @@ function cardOpen(g, kind = "") {
   // Same trick for the picker's "highlight this game" flash, which must survive a board refresh mid-animation.
   const flashAge = flash?.key === g.key ? Date.now() - flash.at : Infinity;
   const flashing = flashAge < FLASH_MS;
-  return `<div class="card ${kind} ${inRedZone ? "redzone" : ""} ${glowing ? "glow" : ""} ${flashing ? "flash" : ""}" data-key="${g.key}"
+  return `<div class="card ${kind} ${g.key === hoveredKey ? "hovered" : ""} ${inRedZone ? "redzone" : ""} ${glowing ? "glow" : ""} ${flashing ? "flash" : ""}" data-key="${g.key}"
     style="${glowing ? `animation-delay: -${glowAge}ms;` : ""}${flashing ? `--flash-delay: -${flashAge}ms;` : ""}">`;
 }
 
@@ -246,6 +248,13 @@ export function initBoard({ onSelectionChanged }) {
   });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && openPlay) { openPlay = null; renderBoard(); } });
 
+  // The card under the mouse (hoveredKey); a card it has left loses its mark straight away.
+  const hover = (key) => {
+    hoveredKey = key;
+    document.querySelectorAll("#board .card.hovered").forEach((c) => { if (c.dataset.key !== key) c.classList.remove("hovered"); });
+  };
+  $("board").addEventListener("mouseover", (e) => hover(e.target.closest(".card")?.dataset.key ?? null));
+  $("board").addEventListener("mouseleave", () => hover(null));
   $("board").addEventListener("click", (e) => {
     if (admin.onBoardClick(e)) return;
     const stats = e.target.closest("[data-stats]")?.dataset.stats;
