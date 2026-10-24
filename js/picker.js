@@ -5,6 +5,7 @@ import { store } from "./store.js";
 import { state, saveSelected } from "./state.js";
 import { confNames, NFL_DIVISIONS } from "./espn.js";
 import { logoImg, rankBadge, statusLines, leads } from "./format.js";
+import { bellButton, onListBell } from "./notify.js";
 
 const $ = (id) => document.getElementById(id);
 const ORDER = { in: 0, pre: 1, post: 2 };
@@ -16,9 +17,9 @@ let lastListEmpty = true;  // the last render had no rows (or was still loading)
 let spinner;               // the list's loading spinner from index.html, shown until ESPN has answered for the tab
 
 // Extra controls for a logged-in admin (js/admin.js). Regular visitors never load that code, so these stay empty.
-let admin = { groupExtras: () => "", rowExtras: () => "", onListClick: () => false };
+let admin = { groupExtras: () => "", onListClick: () => false };
 
-/** @param {{ groupExtras?: (group: string) => string, rowExtras?: (g) => string, onListClick?: (e) => boolean }} hooks */
+/** @param {{ groupExtras?: (group: string) => string, onListClick?: (e) => boolean }} hooks */
 export function setPickerAdmin(hooks) {
   admin = { ...admin, ...hooks };
 }
@@ -83,7 +84,7 @@ function row(g) {
       <span class="pts ${leads(g, t, other) ? "lead" : ""}">${g.state === "pre" ? "" : t.score}</span></span>`;
   return `<label class="game ${live ? "live" : ""}"><input type="checkbox" data-key="${g.key}" ${state.selected.has(g.key) ? "checked" : ""}>
     <span class="bug">${line(g.away, g.home)}${line(g.home, g.away)}</span>
-    <span class="bug-status">${statusLines(g)}</span>${admin.rowExtras(g)}
+    <span class="bug-status">${statusLines(g)}</span>${bellButton(g, "row-bell")}
     <span class="pick" title="${state.selected.has(g.key) ? "Remove" : "Add"}" aria-hidden="true"></span></label>`;
 }
 
@@ -184,7 +185,7 @@ export function initPicker({ onSelectionChanged, onHighlight }) {
     renderList();
   });
 
-  $("list").addEventListener("click", (e) => { if (admin.onListClick(e)) e.stopImmediatePropagation(); });
+  $("list").addEventListener("click", (e) => { if (onListBell(e) || admin.onListClick(e)) e.stopImmediatePropagation(); });
 
   // Section headers minimize their section. Toggle the existing element (no re-render) so the slide animates.
   $("list").addEventListener("click", (e) => {

@@ -13,6 +13,8 @@ import { initTheme } from "./theme.js";
 import { initView } from "./view.js";
 import { countVisit } from "./counter.js";
 import { loadAdmin } from "./admin.js";
+import { initNotify } from "./notify.js";
+import { registerServiceWorker } from "./push.js";
 import { initLogo } from "./logo.js";
 
 let lastUpdated = null;
@@ -102,6 +104,8 @@ initPicker({
 initBoard({
   onSelectionChanged: () => { renderList(); renderBoard(); },  // a card's ✕ unpicks, so uncheck its row too
 });
+initNotify({ redraw: () => { renderList(); renderBoard(); } });
+registerServiceWorker();  // for notifications (js/push.js)
 initDrawer({ animateLayout: animateBoardLayout });
 initSettings();
 initLogo();

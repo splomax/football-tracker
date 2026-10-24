@@ -1,15 +1,9 @@
 // The admin's extra controls, served only to a logged-in admin by the Worker (worker/index.js) and loaded by
 // js/admin.js. It runs from a blob: URL, so it can't import the app's modules; install() is handed what it needs.
 //
-// - "Enable notifications" in the gear menu, which puts a bell on every card and on each picked game's row in the game
-//   list (picked or not: an unpicked game's bell picks it too), where a lit one shows at a glance. A lit bell gets desktop notifications for that game while this page is
-//   open. The program on Cloudflare works out what's news (worker/scorekeeper.js, js/alerts.js) and hands it over with
-//   the scores (onAlerts). Each card also gets a paper-plane button that sends that game a test notification that way,
-//   and beside it (on a computer) a chooser for which kind: a plain test, or a sample touchdown, red zone, halftime...
-//   for styling them.
-//   On an iPhone, notifications work in the Home Screen app (app.push, js/push.js): turning them on there subscribes the
-//   phone, and its bells go to the server, which pushes notifications even while the app is closed. In Safari,
-//   Enable notifications explains how to add the app first.
+// - On each card (on a computer), a paper-plane button that sends that game a test notification through the program on
+//   Cloudflare, to the admins' devices whose bell for that game is lit (everyone's bells are in js/notify.js), and
+//   beside it a chooser for which kind: a plain test, or a sample touchdown, red zone, halftime... for styling them.
 // - "Scores from:" atop the gear menu: whether this page's last update came from the program on Cloudflare
 //   (worker/scorekeeper.js), which the admin's pages use, or from ESPN directly because the program couldn't be reached.
 // - The visit counter's weekly, monthly and total counts atop the gear menu, fetched each time it opens.
@@ -17,7 +11,7 @@
 //   the section shows) and "Remove all" (that state's picked games, which sit under Selected); Selected gets
 //   "Remove all" (every picked game in the current tab and filters).
 
-let app;  // { renderBoard, renderList, listView, state, saveSelected, visits, store, highlightCard, lastSource, testAlert, sampleKinds, push } from js/admin.js
+let app;  // { renderBoard, renderList, listView, state, saveSelected, visits, store, lastSource, testAlert, sampleKinds } from js/admin.js
 
 /** Returns the hooks for js/board.js's setAdmin. */
 export function install(appApi) {
@@ -30,29 +24,12 @@ export function install(appApi) {
   });
   app.store.set("hiddenGames", null);  // left behind by two hide features since removed
   app.store.set("hiddenFromList", null);
-  addNotifyToggle();
-  addInstallHelpItem();
+  app.store.set("notify", null);  // the old Enable notifications switch, since removed
   addVisits();
   addScoreSource();
   return {
     groupExtras,
-    // Every row gets a bell (unlit ones show on hover): on an unpicked game, it picks the game and lights the bell.
-    rowExtras: (g) => (notifying() ? bellButton(g, "row-bell") : ""),
     onListClick(e) {
-      const bellKey = e.target.closest("[data-bell]")?.dataset.bell;
-      if (bellKey) {
-        e.preventDefault();  // the row's label stays put; picking is done here
-        if (app.state.selected.has(bellKey)) {
-          toggleBell(bellKey);
-          return true;
-        }
-        app.state.selected.add(bellKey);
-        app.saveSelected();
-        if (!belled().has(bellKey)) toggleBell(bellKey);  // lights it
-        app.renderList();
-        app.renderBoard();
-        return true;
-      }
       const button = e.target.closest("[data-bulk]");
       if (!button) return false;
       const add = button.dataset.bulk === "add";
@@ -62,13 +39,9 @@ export function install(appApi) {
       app.renderBoard();
       return true;
     },
-    // Left of the ✕ and styled like it, with notifications on: the bell, the test button, and its chooser.
-    cardExtras: (g) => (notifying() ? bellButton(g) + testButton(g) + kindChooser(g) : ""),
-    onAlerts,
-    onSelectionSaved: dropUnpickedBells,
+    // Left of the bell and styled like it: the test button and its chooser.
+    cardExtras: (g) => testButton(g) + kindChooser(g),
     onBoardClick(e) {
-      const bellKey = e.target.closest("[data-bell]")?.dataset.bell;
-      if (bellKey) { toggleBell(bellKey); return true; }
       const testKey = e.target.closest("[data-test-alert]")?.dataset.testAlert;
       if (testKey) { app.testAlert(testKey, app.store.get("testKind", "test")); return true; }
       return false;
@@ -125,138 +98,6 @@ function addVisits() {
   gear.addEventListener("click", () => { if (gear.getAttribute("aria-expanded") === "true") refresh(); });
 }
 
-// Notifications. "Enable notifications" asks the browser's permission and, once given, sends a test notification:
-// if that one doesn't show up, the browser allowed it but the system blocked it (on a Mac: System Settings >
-// Notifications > Google Chrome, or a Focus mode). They only come while this page is open; a background tab polls
-// less often, so they can be up to a minute late there.
-const BELL_ICON = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"
-  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9M10 20a2 2 0 0 0 4 0"/></svg>`;
-
-const notifying = () => app.store.get("notify", false) && window.Notification?.permission === "granted";
-const belled = () => new Set(app.store.get("notifyGames", []));
-
-function addNotifyToggle() {
-  const menu = document.getElementById("settings-menu");
-  if (!menu || document.getElementById("notify")) return;
-  const button = document.createElement("button");
-  button.id = "notify";
-  const label = (text) => { button.innerHTML = `<span class="check">✓</span>${text}`; };
-  label("Enable notifications");
-  button.setAttribute("aria-pressed", notifying());
-  button.addEventListener("click", async () => {
-    if (notifying()) {
-      app.store.set("notify", false);
-      if (app.push.applies()) app.push.turnOff();
-    } else if (app.push.needsInstall()) {
-      return explainInstall();
-    } else if (!window.Notification) {
-      return label("Notifications unsupported");
-    } else if (await Notification.requestPermission() !== "granted") {
-      return label("Notifications blocked");  // the browser's site settings can unblock them
-    } else {
-      app.store.set("notify", true);
-      // The installed app's notifications come from the server, so the server needs this phone and its bells.
-      if (app.push.applies() && !(await app.push.turnOn([...belled()]).catch(() => false))) {
-        app.store.set("notify", false);
-        return label("Couldn't turn on notifications");
-      }
-      show({ title: "Notifications are on", body: "Tap a game's bell to get its scores, red-zone trips, two-minute warnings and quarters." });
-    }
-    button.setAttribute("aria-pressed", notifying());
-    app.renderBoard();
-    app.renderList();
-  });
-  document.getElementById("google-me").before(button);
-}
-
-function bellButton(g, kind = "bell") {
-  const on = belled().has(g.key);
-  const label = on ? "Stop notifications for this game" : "Notify me about this game";
-  return `<button type="button" class="${kind} ${on ? "on" : ""}" data-bell="${g.key}" aria-pressed="${on}" aria-label="${label}" title="${label}">${BELL_ICON}</button>`;
-}
-
-// Only picked games keep a bell, so one that's been removed from the board doesn't linger in the list. The game's bells
-// (its card's and its row's) change in place: redrawing the board would replace the card under the mouse, and its
-// hover buttons would blink out until the mouse moved again.
-function toggleBell(key) {
-  const keys = belled();
-  keys.has(key) ? keys.delete(key) : keys.add(key);
-  const lit = [...keys].filter((k) => app.state.selected.has(k));
-  app.store.set("notifyGames", lit);
-  if (app.push.applies()) app.push.sendBells(lit);  // the server pushes this phone's notifications
-  const on = keys.has(key), label = on ? "Stop notifications for this game" : "Notify me about this game";
-  for (const b of document.querySelectorAll(`[data-bell="${key}"]`)) {
-    b.classList.toggle("on", on);
-    b.setAttribute("aria-pressed", on);
-    b.setAttribute("aria-label", label);
-    b.title = label;
-  }
-}
-
-// Deselecting a game (its card's ✕, the game list, Remove all) turns its bell off too, on a phone at the server as well.
-function dropUnpickedBells() {
-  const keys = belled();
-  const lit = [...keys].filter((k) => app.state.selected.has(k));
-  if (lit.length === keys.size) return;
-  app.store.set("notifyGames", lit);
-  if (app.push.applies()) app.push.sendBells(lit);
-}
-
-// On an iPhone in Safari: notifications only work in the Home Screen app, so say how to get there.
-// iPhone only (app.push.needsInstall() is false on Android and laptops): iPhones only allow notifications from an app
-// on the Home Screen, so this walks through adding it, one step at a time. Opened by Enable notifications in Safari, or
-// the gear menu's "Get notifications on iPhone".
-const INSTALL_STEPS = [
-  "Tap <b>⋯</b> at the bottom right of Safari, next to the address, then tap <b>Share</b>.",
-  "Scroll down, tap <b>Add to Home Screen</b>, then <b>Add</b>.",
-  "Open Game Tracker from your Home Screen, log in, then tap ⚙ → <b>Enable notifications</b> and <b>Allow</b>.",
-];
-
-function explainInstall() {
-  const dialog = document.createElement("dialog");
-  dialog.id = "install-help";
-  let step = 0;
-  const render = () => {
-    const last = step === INSTALL_STEPS.length - 1;
-    dialog.innerHTML = `<form method="dialog">
-      <label>Notifications on iPhone</label>
-      ${step === 0 ? `<p class="note">iPhones only allow notifications from apps on the Home Screen. Here's how to add Game Tracker.</p>` : ""}
-      <p class="step-count">Step ${step + 1} of ${INSTALL_STEPS.length}</p>
-      <p class="step">${INSTALL_STEPS[step]}</p>
-      <div class="buttons">
-        ${step > 0 ? `<button type="button" data-step="-1">Back</button>` : `<button value="cancel">Not now</button>`}
-        ${last ? `<button value="ok" autofocus>Done</button>` : `<button type="button" value="ok" data-step="1" autofocus>Next</button>`}
-      </div>
-    </form>`;
-  };
-  render();
-  dialog.addEventListener("click", (e) => {
-    const move = e.target.closest("[data-step]")?.dataset.step;
-    if (move) { step += Number(move); render(); dialog.querySelector("[autofocus]").focus(); }
-  });
-  document.body.append(dialog);
-  dialog.addEventListener("close", () => dialog.remove());
-  dialog.showModal();
-}
-
-/** The gear menu's "Get notifications on iPhone", in Safari on an iPhone only. */
-function addInstallHelpItem() {
-  const menu = document.getElementById("settings-menu");
-  if (!menu || !app.push.needsInstall() || document.getElementById("install-help-item")) return;
-  const button = document.createElement("button");
-  button.id = "install-help-item";
-  button.innerHTML = `<span class="check"></span>Get notifications on iPhone`;
-  button.addEventListener("click", explainInstall);
-  document.getElementById("notify").after(button);
-}
-
-// Notifications from the program on Cloudflare, tests included: those for picked games with a lit bell.
-function onAlerts(alerts) {
-  if (!notifying() || app.push.applies()) return;  // the installed app gets its notifications pushed by the server
-  const keys = belled();
-  for (const a of alerts) if (keys.has(a.key) && app.state.selected.has(a.key)) show(a, a.key);
-}
-
 // A paper plane: send this game a test notification through the program on Cloudflare.
 const PLANE = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"
   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg>`;
@@ -271,17 +112,4 @@ function kindChooser(g) {
 
 function testButton(g) {
   return `<button type="button" class="test-alert" data-test-alert="${g.key}" aria-label="Send a test notification" title="Send a test notification">${PLANE}</button>`;
-}
-
-// Clicking one brings this tab forward with the game's card highlighted. Each score has its own tag (js/alerts.js).
-// The picture: the scoring team's logo for a score, else the football.
-function show({ title, body, tag, icon }, key) {
-  const options = { body, icon: icon ?? "images/notification-icon.png", ...(tag && { tag }) };
-  if (app.push.applies()) return app.push.showHere(title, options);  // the installed app can only show them this way
-  const n = new Notification(title, options);
-  n.onclick = () => {
-    window.focus();
-    if (key) app.highlightCard(key);
-    n.close();
-  };
 }

@@ -1,4 +1,4 @@
-// Admin login. The admin's features (hiding games, notifications, visit counts, bulk select) aren't in the public code: the Worker at
+// Admin login. The admin's features (test notifications, visit counts, bulk select) aren't in the public code: the Worker at
 // ADMIN_URL (worker/) hands them out only to a logged-in admin. ?admin asks for the password and trades it for a
 // token that lasts 30 days, kept in this browser's localStorage (adminToken) in place of the password. With a token
 // that still works, ?admin skips the password. ?admin=off logs out.
@@ -8,12 +8,11 @@
 
 import { ADMIN_PARAM, ADMIN_URL } from "./config.js";
 import { store } from "./store.js";
-import { state, saveSelected, onSelectionSaved } from "./state.js";
-import { renderBoard, setAdmin, highlightCard } from "./board.js";
+import { state, saveSelected } from "./state.js";
+import { renderBoard, setAdmin } from "./board.js";
 import { listView, renderList, setPickerAdmin } from "./picker.js";
 import { useServer, lastSource, pollNow } from "./source.js";
 import { SAMPLE_KINDS } from "./alerts.js";
-import { registerServiceWorker, needsInstall, pushApplies, turnOn, turnOff, sendBells, showHere } from "./push.js";
 
 /**
  * Check the admin login, and with ?admin turn the admin's features on (asking for the password if needed).
@@ -27,10 +26,7 @@ export async function loadAdmin() {
     const token = await logIn(oldPassword);
     if (typeof token === "string") store.set("adminToken", token);
   }
-  if (ADMIN_PARAM === "off") {
-    if (pushApplies()) await turnOff().catch(() => {});  // a phone logging out stops its notifications too
-    store.set("adminToken", null);
-  }
+  if (ADMIN_PARAM === "off") store.set("adminToken", null);
   let code = await adminCode();
   // ?admin asks for the password only when this browser isn't already logged in.
   if (!code && ADMIN_PARAM !== null && ADMIN_PARAM !== "off") {
@@ -89,18 +85,15 @@ async function visits() {
   return typeof body === "string" ? JSON.parse(body) : null;
 }
 
-// The scores from the program on Cloudflare (worker/scorekeeper.js), with the notifications since the last one this
-// page saw (none on its first ask, so old news isn't replayed), which go to the admin module's onAlerts. Dates arrive
-// as text.
-let cursor = null;       // the number of the last notification this page has seen
-let alerted = () => {};  // the admin module's onAlerts, once installed
+// The scores from the program on Cloudflare (worker/scorekeeper.js). Its notifications come along too, but devices get
+// theirs pushed (js/notify.js), so they're only counted past. Dates arrive as text.
+let cursor = null;  // the number of the last notification this page has seen
 async function scoresFromServer() {
   const res = await fetch(`${ADMIN_URL}/games${cursor == null ? "" : `?since=${cursor}`}`, { headers: { Authorization: `Bearer ${store.get("adminToken")}` } });
   if (!res.ok) throw new Error(`scores from the server: ${res.status}`);
   const body = await res.json();
   for (const games of Object.values(body.games)) for (const g of games) g.date = new Date(g.date);
   cursor = body.cursor ?? cursor;
-  if (body.alerts?.length) alerted(body.alerts);
   return body;
 }
 
@@ -116,15 +109,11 @@ async function install(code) {
   const blob = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
   try {
     const { install } = await import(blob);
-    const hooks = install({ renderBoard, renderList, listView, state, saveSelected, visits, store, highlightCard, lastSource, testAlert, sampleKinds: SAMPLE_KINDS,
-      push: { needsInstall, applies: pushApplies, turnOn, turnOff, sendBells, showHere } });
+    const hooks = install({ renderBoard, renderList, listView, state, saveSelected, visits, store, lastSource, testAlert, sampleKinds: SAMPLE_KINDS });
     setAdmin(hooks);
     setPickerAdmin(hooks);
-    alerted = hooks.onAlerts ?? alerted;
-    if (hooks.onSelectionSaved) onSelectionSaved(hooks.onSelectionSaved);
     useServer(scoresFromServer);  // from now on this page's scores come from the program on Cloudflare,
     pollNow();                    // starting now
-    registerServiceWorker();      // for phone notifications (js/push.js)
     return true;
   } catch (err) {
     console.error("admin", err);

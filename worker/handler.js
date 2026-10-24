@@ -79,12 +79,13 @@ export async function handle(request, env, code, now = Date.now()) {
     const res = await keeperFetch(env, "/test", { method: "POST", body: JSON.stringify({ key, kind }) });
     return reply(await res.text(), res.status, { "Content-Type": "application/json" });
   }
-  // Phones turning notifications on and off, and their bells (worker/phones.js).
+  // Devices turning notifications on and off, and their bells (worker/phones.js). Open to everyone; a logged-in
+  // admin's devices are marked as such, and only those get test notifications.
   if (route.startsWith("POST /api/push/")) {
-    if (!(await validToken(given, env.ADMIN_PASSWORD, now))) return reply("Log in again", 401);
+    const admin = !!given && (await validToken(given, env.ADMIN_PASSWORD, now));
     const body = await request.json().catch(() => ({}));
-    const ok = route === "POST /api/push/subscribe" ? await savePhone(env.PUSH, body.subscription, body.bells, now)
-      : route === "POST /api/push/bells" ? await setBells(env.PUSH, body.endpoint, body.bells, now)
+    const ok = route === "POST /api/push/subscribe" ? await savePhone(env.PUSH, body.subscription, body.bells, now, admin)
+      : route === "POST /api/push/bells" ? await setBells(env.PUSH, body.endpoint, body.bells, now, admin)
       : route === "POST /api/push/unsubscribe" ? (await removePhone(env.PUSH, body.endpoint), true)
       : null;
     if (ok === null) return reply("Not found", 404);

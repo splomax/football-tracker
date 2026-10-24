@@ -1,9 +1,8 @@
-// Phone notifications. An iPhone only lets a website send notifications once it's added to the Home Screen
-// (manifest.webmanifest) and opened from there; Android allows them from any Chrome tab. Turning them on subscribes the
-// phone with our public key and hands the subscription, plus the phone's lit bells, to the server (worker/phones.js),
-// which then sends notifications through Apple or Google even while the app is closed; the service worker (sw.js) shows
-// them. Admin-only for now: js/admin.js hands these to the admin module, which drives them from its Enable
-// notifications switch and bells.
+// Notifications, pushed by the server. Lighting a bell (js/notify.js) subscribes this device with our public key and
+// hands the subscription, plus its lit bells, to the server (worker/phones.js), which then sends notifications through
+// Apple, Google or Mozilla even while the page is closed; the service worker (sw.js) shows them. Computers and Android
+// get them from any browser tab; an iPhone only once the site is added to the Home Screen (manifest.webmanifest) and
+// opened from there.
 
 import { ADMIN_URL } from "./config.js";
 import { store } from "./store.js";
@@ -12,7 +11,7 @@ import { store } from "./store.js";
 // sign the pushes it accepts.
 const PUBLIC_KEY = "BNg8ZFuXpwXPpc1xKukHs9yqwRgXv3MM3my45jvG87kE8c9e73Bp_QRfVrrwcq-A0GMOwAA2G-cSe0Bnx10tOBw";
 
-/** Register sw.js, once the admin features are on. Quietly does nothing where service workers aren't available. */
+/** Register sw.js, at startup. Quietly does nothing where service workers aren't available. */
 export async function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return null;
   try {
@@ -32,19 +31,13 @@ const iOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.pla
 /** On an iPhone, but in Safari rather than the Home Screen app, where notifications can't be turned on. */
 export const needsInstall = () => iOS() && !installedApp();
 
-/** An Android phone or tablet. */
-const android = () => /Android/i.test(navigator.userAgent);
+/** Whether this browser can get pushed notifications (an iPhone only in the Home Screen app: needsInstall). */
+export const pushApplies = () => "serviceWorker" in navigator && "PushManager" in window;
 
-/**
- * Whether this is where phone notifications apply, pushed by the server so they come even while the app is closed:
- * the installed app, or Android in any Chrome tab (Android pushes without installing, and doesn't let a page show
- * notifications itself). Laptops keep theirs in the page.
- */
-export const pushApplies = () => (installedApp() || android()) && "serviceWorker" in navigator && "PushManager" in window;
-
+// An admin's login goes along, so the server marks an admin's devices (they get test notifications).
 const post = (path, body) => fetch(`${ADMIN_URL}/push/${path}`, {
   method: "POST",
-  headers: { Authorization: `Bearer ${store.get("adminToken")}`, "Content-Type": "application/json" },
+  headers: { ...(store.get("adminToken") && { Authorization: `Bearer ${store.get("adminToken")}` }), "Content-Type": "application/json" },
   body: JSON.stringify(body),
 });
 
@@ -75,7 +68,7 @@ export async function sendBells(bells) {
   if (sub) await post("bells", { endpoint: sub.endpoint, bells }).catch(() => {});
 }
 
-/** Show a notification on this device: through the service worker in the installed app (iOS has no other way). */
+/** Show a notification on this device, through the service worker (phones have no other way). */
 export async function showHere(title, options) {
   const reg = await navigator.serviceWorker.ready;
   return reg.showNotification(title, options);
