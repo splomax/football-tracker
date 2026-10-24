@@ -54,16 +54,16 @@ const STATES = {
       await page.click('#install-help [data-step="1"]'); await page.click('#install-help [data-step="1"]'); await settle(page, 300);
     } },
   "admin-login": { query: "?admin", storage: { selected: PICKS, view: "grid", pickerOpen: false }, loggedOut: true },
-  // The stats bar (?stats-mode-beta), in both views.
-  "stats-grid": { query: "?stats-mode-beta", storage: { selected: PICKS, view: "grid", pickerOpen: false } },
-  "stats-list": { query: "?stats-mode-beta", storage: { selected: PICKS, view: "list", pickerOpen: false } },
-  "stats-open": { query: "?stats-mode-beta", storage: { selected: PICKS, view: "grid", pickerOpen: false },
+  // The stats bar (?stats), in both views.
+  "stats-grid": { query: "?stats", storage: { selected: PICKS, view: "grid", pickerOpen: false } },
+  "stats-list": { query: "?stats", storage: { selected: PICKS, view: "list", pickerOpen: false } },
+  "stats-open": { query: "?stats", storage: { selected: PICKS, view: "grid", pickerOpen: false },
     run: async (page) => { await page.click('.card[data-key="cfb:1"] [data-stats]'); await settle(page, 300); } },
-  "stats-final-open": { query: "?stats-mode-beta", storage: { selected: PICKS, view: "grid", pickerOpen: false },
+  "stats-final-open": { query: "?stats", storage: { selected: PICKS, view: "grid", pickerOpen: false },
     run: async (page) => { await page.click('.card[data-key="cfb:7"] [data-stats]'); await settle(page, 600); } },
-  "stats-final-list-open": { query: "?stats-mode-beta", storage: { selected: PICKS, view: "list", pickerOpen: false },
+  "stats-final-list-open": { query: "?stats", storage: { selected: PICKS, view: "list", pickerOpen: false },
     run: async (page) => { await page.click('.card[data-key="cfb:7"] [data-stats]'); await settle(page, 600); } },
-  "stats-list-open": { query: "?stats-mode-beta", storage: { selected: PICKS, view: "list", pickerOpen: false },
+  "stats-list-open": { query: "?stats", storage: { selected: PICKS, view: "list", pickerOpen: false },
     run: async (page) => { await page.click('.card[data-key="cfb:1"] [data-stats]'); await settle(page, 300); } },
   "halloween": { storage: { selected: PICKS, view: "grid", pickerOpen: false, halloween: true } },
   "mds-blue": { storage: { selected: PICKS, view: "grid", pickerOpen: false, mdsBlue: true } },

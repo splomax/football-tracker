@@ -187,7 +187,7 @@ svg.field { width: 100%; display: block; border-radius: 4px; }
   @container board (max-width: 640px) { .card.line { padding-right: 40px; } }
 }
 
-/* Stats mode (?stats-mode-beta, js/board.js): each team's leading offensive player, away left and home right, then
+/* Stats mode (?stats, js/board.js): each team's leading offensive player, away left and home right, then
    the button that opens the detailed stats below. */
 .stats { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: center; gap: 8px; margin: 6px 0 2px; font-size: 12px; line-height: 18px; color: var(--muted); }
 .stats > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

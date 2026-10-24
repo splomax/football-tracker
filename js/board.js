@@ -6,7 +6,7 @@ import { logoImg, rankBadge, statusLines, escapeAttr, leads } from "./format.js"
 import { field } from "./field.js";
 import { recapUrl } from "./recap.js";
 import { isListView } from "./view.js";
-import { STATS_BETA, statsFor, short } from "./stats.js";
+import { statsOn, statsFor, short } from "./stats.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -105,7 +105,7 @@ function cardOpen(g, kind = "") {
     style="${glowing ? `animation-delay: -${glowAge}ms;` : ""}${flashing ? `--flash-delay: -${flashAge}ms;` : ""}">`;
 }
 
-// Stats mode (?stats-mode-beta): under a live game, each team's leading offensive player, away on the left and home on
+// Stats mode (?stats, or the gear menu): under a live game, each team's leading offensive player, away on the left and home on
 // the right, and a button that opens both teams' passing, rushing and receiving leaders and team stats (js/stats.js).
 const openStats = new Set();  // game keys with detailed stats open; survives board refreshes
 let statsToggled = null;      // the game whose stats were just opened or closed, for the next render to animate
@@ -114,7 +114,7 @@ const STAT_ROWS = [["Total yards", "totalYards"], ["Passing", "netPassingYards"]
 const CHEVRON = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3"
   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>`;
 function statsBar(g) {
-  if (!STATS_BETA) return "";
+  if (!statsOn()) return "";
   const open = openStats.has(g.key);
   // A finished game has no bar, only the detailed stats, opened by the Stats link next to Recap (statsLink).
   if (g.state === "post") return open ? statsDetail(g, statsFor(g, renderBoard)) : "";
@@ -147,7 +147,7 @@ function statsDetail(g, s) {
 
 // A finished game's "Stats" link, styled like Recap, which opens its detailed stats ("Hide stats" once open).
 function statsLink(g) {
-  if (!STATS_BETA || g.state !== "post") return "";
+  if (!statsOn() || g.state !== "post") return "";
   const open = openStats.has(g.key);
   return `<button type="button" class="recap stats-link" data-stats="${g.key}" aria-expanded="${open}">${open ? "Hide stats" : "Stats"}</button>`;
 }

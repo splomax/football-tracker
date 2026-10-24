@@ -1,9 +1,12 @@
 // Settings gear in the corner. "google me" toggles a coach photo: Curt Cignetti usually, Bo Pelini one time in ten,
 // and at Halloween a ghost one time in four.
-// "MDS" colors the leading team blue. "Save board as image" saves the picked games as a list (js/image.js, loaded when first used).
+// "MDS" colors the leading team blue. "Stats" turns on stats mode (js/stats.js). "Save board as image" saves the picked
+// games as a list (js/image.js, loaded when first used).
 
 import { store } from "./store.js";
 import { isHalloween } from "./season.js";
+import { statsOn, setStats } from "./stats.js";
+import { renderBoard } from "./board.js";
 
 const $ = (id) => document.getElementById(id);
 let settingsBtn, settingsMenu, coach, googleMe, mdsBtn;
@@ -92,6 +95,13 @@ export function initSettings() {
   mdsBtn = $("mds-blue");
   mdsBtn.addEventListener("click", () => setBlue(mdsBtn.getAttribute("aria-pressed") !== "true"));
   setBlue(store.get("mdsBlue", false));
+  const statsBtn = $("menu-stats");
+  statsBtn.setAttribute("aria-pressed", statsOn());
+  statsBtn.addEventListener("click", () => {
+    setStats(!statsOn());
+    statsBtn.setAttribute("aria-pressed", statsOn());
+    renderBoard();
+  });
 
   settingsBtn.addEventListener("click", (e) => {
     e.stopPropagation();

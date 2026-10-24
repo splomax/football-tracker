@@ -1,8 +1,28 @@
-// Stats mode (?stats-mode-beta, for now): each live game's leading offensive player per team, and more detailed stats
-// on request, from ESPN's game detail (one request per live game on the board, at most every REFRESH_MS). js/board.js
+// Stats mode (?stats in the address, or the gear menu's Stats): each live game's leading offensive player per team,
+// and more detailed stats on request, from ESPN's game detail (one request per live game on the board, at most every REFRESH_MS). js/board.js
 // draws them; this keeps the latest per game and asks for a redraw when new ones arrive.
 
-export const STATS_BETA = new URLSearchParams(location.search).has("stats-mode-beta");
+// The address, with "stats" in it or not; bare, like ?admin ("?stats", not "?stats=").
+function setParam(on) {
+  const params = new URLSearchParams(location.search);
+  params.delete("stats-mode-beta");  // stats mode's old name
+  on ? params.set("stats", "") : params.delete("stats");
+  const query = params.toString().replace(/(^|&)stats=(?=&|$)/, "$1stats");
+  history.replaceState(history.state, "", `${location.pathname}${query ? `?${query}` : ""}${location.hash}`);
+}
+
+const start = new URLSearchParams(location.search);
+let on = start.has("stats") || start.has("stats-mode-beta");
+if (start.has("stats-mode-beta")) setParam(true);  // the old address moves to the new one
+
+/** Whether stats mode is on. */
+export const statsOn = () => on;
+
+/** Turn stats mode on or off (the gear menu), keeping the address in step so a reload or a shared link keeps it. */
+export function setStats(value) {
+  on = value;
+  setParam(on);
+}
 const REFRESH_MS = 30_000;
 const SUMMARY = { cfb: "college-football", nfl: "nfl" };
 
