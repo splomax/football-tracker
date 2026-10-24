@@ -1,0 +1,21 @@
+{
+  "title": "Game Tracker Live: what's new (Oct 18 - Oct 24)",
+  "since": "2026-10-18",
+  "through": "31d8a00",
+  "features": [
+    { "title": "Game notifications are live", "text": "tap the bell on any game (on its card, or its row in the game list) and you'll get a notification for every score, red-zone trip, two-minute warning, quarter, halftime and the final, even with Game Tracker closed. The first tap asks your browser for permission; that's it. Works in Chrome on a computer or Android. On iPhone, add Game Tracker Live to your Home Screen first: tap a bell in Safari and it walks you through it, step by step. [b]Heads up:[/b] notifications can beat your TV. They've been arriving before the play shows on YouTube TV, so you may want to skip the bell on the game you're watching.",
+      "shots": ["board-list:phone", "iphone-install-help:phone"] },
+    { "title": "Notifications that read at a glance", "text": "what happened up top in bold (\"TD Cardinals\"), then the game, then the new score, with team names instead of abbreviations. Made extra points are skipped; a missed PAT, a 2-point conversion or a failed 2-point try gets its own notification. On a computer, a score shows the scoring team's logo.",
+      "shots": [] },
+    { "title": "Stats", "text": "a new gear menu switch. Each live game shows its two top offensive players, one per team, and a button that opens both teams' passing, rushing and receiving leaders plus team totals (yards, turnovers, 3rd down, possession). Finished games get a Stats link next to Recap.",
+      "shots": ["stats-open", "stats-list-open:phone"] },
+    { "title": "New Home Screen icon", "text": "the Game Tracker Live wordmark on a football field.",
+      "shots": [] }
+  ],
+  "fixes": [
+    "Hovering a card no longer makes its buttons flicker when the scores refresh.",
+    "No more accidental zooming on phones.",
+    "The LIVE badge's text sits dead center."
+  ],
+  "comingSoon": []
+}
