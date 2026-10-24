@@ -1,8 +1,9 @@
-// Phone notifications (iPhone first). An iPhone only lets a website send notifications once it's added to the Home
-// Screen (manifest.webmanifest) and opened from there. Turning them on there subscribes this phone with our public key
-// and hands the subscription, plus this phone's lit bells, to the server (worker/phones.js), which then sends
-// notifications through Apple even while the app is closed; the service worker (sw.js) shows them. Admin-only for now:
-// js/admin.js hands these to the admin module, which drives them from its Enable notifications switch and bells.
+// Phone notifications. An iPhone only lets a website send notifications once it's added to the Home Screen
+// (manifest.webmanifest) and opened from there; Android allows them from any Chrome tab. Turning them on subscribes the
+// phone with our public key and hands the subscription, plus the phone's lit bells, to the server (worker/phones.js),
+// which then sends notifications through Apple or Google even while the app is closed; the service worker (sw.js) shows
+// them. Admin-only for now: js/admin.js hands these to the admin module, which drives them from its Enable
+// notifications switch and bells.
 
 import { ADMIN_URL } from "./config.js";
 import { store } from "./store.js";
@@ -31,8 +32,15 @@ const iOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.pla
 /** On an iPhone, but in Safari rather than the Home Screen app, where notifications can't be turned on. */
 export const needsInstall = () => iOS() && !installedApp();
 
-/** Whether this is where phone notifications apply: the installed app, with push available. Laptops keep theirs in the page. */
-export const pushApplies = () => installedApp() && "serviceWorker" in navigator && "PushManager" in window;
+/** An Android phone or tablet. */
+const android = () => /Android/i.test(navigator.userAgent);
+
+/**
+ * Whether this is where phone notifications apply, pushed by the server so they come even while the app is closed:
+ * the installed app, or Android in any Chrome tab (Android pushes without installing, and doesn't let a page show
+ * notifications itself). Laptops keep theirs in the page.
+ */
+export const pushApplies = () => (installedApp() || android()) && "serviceWorker" in navigator && "PushManager" in window;
 
 const post = (path, body) => fetch(`${ADMIN_URL}/push/${path}`, {
   method: "POST",
