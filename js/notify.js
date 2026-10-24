@@ -108,10 +108,12 @@ async function canNotify() {
   return false;
 }
 
-// How to allow notifications again, on this device.
+// How to allow notifications again, on this device: iPhone Settings, Android Chrome's site menu, or a computer's.
 const UNBLOCK = () => (/iPhone|iPad/.test(navigator.userAgent)
   ? "Turn them on in Settings → Notifications → Game Tracker"
-  : "Turn them on from the icon left of the address (Site settings → Notifications → Allow)");
+  : /Android/i.test(navigator.userAgent)
+    ? "Tap the icon left of the address, then Permissions → Notifications → Allow"
+    : "Turn them on from the icon left of the address (Site settings → Notifications → Allow)");
 
 // Notifications allowed again after a block: subscribe anew (the old subscription may have lapsed, and the server
 // forgets a device whose pushes bounce) and show the kept bells lit.

@@ -711,6 +711,15 @@ test.describe("notifications", () => {
     expect(state.pushPosts).toEqual([]);
   });
 
+  test("the unblock steps fit the device: Android Chrome's site menu, a computer's site settings", async ({ page }) => {
+    await page.addInitScript(() => Object.defineProperty(Navigator.prototype, "userAgent", { get: () => "Mozilla/5.0 (Linux; Android 15; Pixel 9) Chrome/141.0 Mobile Safari/537.36" }));
+    await fakeNotifications(page, "denied");
+    await open(page, { storage: { selected: ["cfb:2"] } });
+    await card(page, "cfb:2").hover();
+    await card(page, "cfb:2").locator(".bell").click();
+    await expect(page.locator("#install-help")).toContainText("Permissions → Notifications → Allow");
+  });
+
   test("notifications blocked after they were on: the bells show off and a note says how to unblock; allowed again, they're back", async ({ page }) => {
     await fakeNotifications(page, "denied");
     await fakePush(page);
