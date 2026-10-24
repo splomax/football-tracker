@@ -1,7 +1,7 @@
 // "Save board as image" in the gear menu: every game on the board as a list made for posting on a forum, grouped
 // by day, one row per game (kickoff time, away @ home with logos, ranks and records, network), by kickoff. Live and
-// final games are listed by their kickoff too, with their score beside each logo and the clock and quarter (or Half,
-// or Final) in place of the kickoff time. The image is in the current theme, gives kickoff times in Eastern time
+// final games are listed by their kickoff too, with their score beside each logo and, centered under the scores like a
+// TV scorebug, the clock and quarter (or Half, or Final). The image is in the current theme, gives kickoff times in Eastern time
 // whatever the viewer's own time zone, and carries a small, muted Game Tracker Live logo in the bottom-right corner.
 // Loaded by js/settings.js the first time it's used.
 
@@ -124,11 +124,9 @@ async function drawList(games) {
 
 function drawRow(ctx, g, mid, logos, color, gap) {
   ctx.textAlign = "left";
-  ctx.fillStyle = color(g.state === "in" ? "--red" : "--text");
+  ctx.fillStyle = color("--text");
   ctx.font = `600 13px ${FONT}`;
-  const when = g.state === "pre" ? g.date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", timeZone: IMAGE_ZONE })
-    : statusLines(g).replace("<br>", " ").replace("&nbsp;", "").trim();  // "8:12 2nd", "Half", "Final/OT"
-  ctx.fillText(fit(ctx, when, TIME_W - 8), PAD, mid);
+  ctx.fillText(g.date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", timeZone: IMAGE_ZONE }), PAD, mid);
 
   if (g.network) {
     ctx.textAlign = "right";
@@ -147,14 +145,19 @@ function drawRow(ctx, g, mid, logos, color, gap) {
   ctx.textAlign = "center";
   ctx.fillStyle = color("--muted");
   ctx.font = `14px ${FONT}`;
-  ctx.fillText("@", at, mid);
+  // A started game's scores sit a little high, with the clock and quarter centered under them.
+  const scoreMid = g.state === "pre" ? mid : mid - 6;
+  ctx.fillText("@", at, scoreMid);
   if (g.state !== "pre") {
+    ctx.fillStyle = color(g.state === "in" ? "--red" : "--muted");
+    ctx.font = `600 11px ${FONT}`;
+    ctx.fillText(statusLines(g).replace("<br>", " ").replace("&nbsp;", "").trim(), at, mid + 12);  // "8:12 2nd", "Half", "Final/OT"
     ctx.fillStyle = color("--text");
     ctx.font = `700 16px ${FONT}`;
     ctx.textAlign = "right";
-    ctx.fillText(g.away.score ?? "", at - AT_GAP, mid);
+    ctx.fillText(g.away.score ?? "", at - AT_GAP, scoreMid);
     ctx.textAlign = "left";
-    ctx.fillText(g.home.score ?? "", at + AT_GAP, mid);
+    ctx.fillText(g.home.score ?? "", at + AT_GAP, scoreMid);
   }
   ctx.textAlign = "left";
   const awayLogo = at - gap - LOGO, homeLogo = at + gap;
