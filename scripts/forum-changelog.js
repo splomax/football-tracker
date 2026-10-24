@@ -3,8 +3,7 @@
 //   node scripts/forum-changelog.js commits [--since YYYY-MM-DD]
 //     Lists the commits to write notes from, minus housekeeping (only TODO, tests, scripts, CI or docs touched) and
 //     reverted pairs. [UI] marks a commit that touched the page (css/, index.html, js/). Without --since, starts after
-//     the "through"
-//     commit of the newest changelogs/*.json.
+//     the "through" commit of the newest changelogs/*.json.
 //
 //   node scripts/forum-changelog.js render changelogs/<date>.json
 //     Shoots the logo (00-logo.png, centered above the title) and the screenshots the notes name and prints the BB code (also saved next to the screenshots, in a temp
