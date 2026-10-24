@@ -65,15 +65,18 @@ const NTH = ["1st", "2nd", "3rd", "4th"];
 
 /**
  * ESPN's scoreboard can lag its own play-by-play by minutes (seen live: stuck at 13:11 in the 1st with no score while
- * the play-by-play had a touchdown). So for a game under way, whichever is further along wins: when the latest play
- * (fetchSummary) is at least as far as the scoreboard, g takes its clock, score, ball spot and last play. A finished
- * game keeps the scoreboard's.
+ * the play-by-play had a touchdown), and the other way round too. So the latest play (fetchSummary) wins only when it's
+ * plainly further along: no earlier in the game and with no fewer points (points never go down), and ahead on one of
+ * them. Then g takes its clock, score, ball spot and last play. A tie keeps the scoreboard's: college overtime has no
+ * clock, so a stale play-by-play can look as far along as a fresh scoreboard (seen live: 6-6 in OT against 13-6). A
+ * finished game keeps the scoreboard's.
  */
 export function freshen(g, latest) {
   if (!latest?.clock || g.state === "post") return g;
   const period = latest.period?.number, clock = latest.clock.displayValue;
   const ahead = progress(period, clock) - (g.state === "in" ? progress(g.period, g.clock) : -Infinity);
-  if (ahead < 0) return g;  // the scoreboard is further along
+  const morePoints = (latest.awayScore ?? 0) + (latest.homeScore ?? 0) - (Number(g.away.score) || 0) - (Number(g.home.score) || 0);
+  if (ahead < 0 || morePoints < 0 || (ahead === 0 && morePoints === 0)) return g;  // the scoreboard is as far along
   g.away = { ...g.away, score: String(latest.awayScore ?? g.away.score) };
   g.home = { ...g.home, score: String(latest.homeScore ?? g.home.score) };
   const between = /end period|end of/i.test(latest.type?.text ?? "");

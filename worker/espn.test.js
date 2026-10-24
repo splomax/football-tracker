@@ -29,6 +29,17 @@ test("the play-by-play starts a game the scoreboard still calls upcoming, and re
   assert.deepEqual([half.detail, half.possession, half.ddText], ["Halftime", undefined, undefined]);
 });
 
+test("a tie keeps the scoreboard's: college overtime has no clock, and a stale play-by-play can't win on it", () => {
+  // Seen live: IU 13, MICH 6 in OT on the scoreboard; the play-by-play's last play, also OT 0:00, still at 6-6.
+  const g = freshen(game({ period: 5, clock: "0:00", detail: "OT", away: { id: "1", abbr: "IU", score: "13" }, home: { id: "2", abbr: "MICH", score: "6" } }),
+    play(5, "0:00", 6, 6));
+  assert.deepEqual([g.away.score, g.home.score], ["13", "6"]);
+  // Later on the clock but with fewer points doesn't add up: keep the scoreboard's.
+  assert.equal(freshen(game({ away: { id: "1", abbr: "ORE", score: "7" } }), play(1, "10:00", 0, 0)).away.score, "7");
+  // Same moment, more points (the scoreboard missed a score): the play-by-play's.
+  assert.equal(freshen(game({ period: 5, clock: "0:00", detail: "OT" }), play(5, "0:00", 6, 0)).away.score, "6");
+});
+
 test("a finished game, or no play-by-play yet, keeps the scoreboard's", () => {
   assert.equal(freshen(game({ state: "post", detail: "Final" }), play(4, "0:00", 30, 20)).away.score, "0");
   assert.equal(freshen(game(), null).clock, "13:11");
