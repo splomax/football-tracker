@@ -2,8 +2,8 @@
 //
 //   node scripts/forum-changelog.js commits [--since YYYY-MM-DD]
 //     Lists the commits to write notes from, minus housekeeping (only TODO, tests, scripts, CI or docs touched) and
-//     reverted pairs. [UI] marks a commit that touched the page (css/, index.html, js/); [soon] marks notification
-//     work, which goes under "Coming soon" until it's out of testing. Without --since, starts after the "through"
+//     reverted pairs. [UI] marks a commit that touched the page (css/, index.html, js/). Without --since, starts after
+//     the "through"
 //     commit of the newest changelogs/*.json.
 //
 //   node scripts/forum-changelog.js render changelogs/<date>.json
@@ -28,8 +28,6 @@ const git = (...args) => execFileSync("git", args, { cwd: ROOT, encoding: "utf8"
 
 const HOUSEKEEPING = /^(TODO\.md|CLAUDE\.md|README\.md|scripts\/|tests\/|\.github\/|changelogs\/|playwright\.config\.js|package(-lock)?\.json)/;
 const UI = /^(css\/|index\.html|js\/)/;
-const SOON_FILES = /^(js\/alerts\.js|js\/push\.js|sw\.js|manifest\.webmanifest|worker\/(alerts|phones|webpush|scorekeeper))/;
-const SOON_WORDS = /notif|bell|web push|scorekeeper|durable object/i;
 
 function commits(since) {
   const range = since ? ["--since", `${since} 00:00`] : [`${lastThrough()}..HEAD`];
@@ -43,9 +41,7 @@ function commits(since) {
   let dropped = 0;
   for (const c of all) {
     if (reverted.has(c.subject) || /^Revert "/.test(c.subject) || c.files.every((f) => HOUSEKEEPING.test(f))) { dropped++; continue; }
-    const tags = [c.files.some((f) => UI.test(f)) && "[UI]",
-      (SOON_WORDS.test(c.subject) || c.files.some((f) => SOON_FILES.test(f))) && "[soon]"].filter(Boolean).join("");
-    console.log(`${c.hash} ${c.date} ${tags.padEnd(10)} ${c.subject}`);
+    console.log(`${c.hash} ${c.date} ${c.files.some((f) => UI.test(f)) ? "[UI]" : "    "} ${c.subject}`);
   }
   console.log(`\n(${dropped} housekeeping or reverted commits left out; HEAD is ${git("rev-parse", "--short", "HEAD").trim()})`);
 }
