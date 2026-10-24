@@ -1,14 +1,33 @@
-// What happened in a game, as notifications: scores (and how each touchdown's try went), two-minute warnings, and the
-// start and end of each quarter. Every one carries the score. No browser APIs here: it
+// What happened in a game, as notifications: scores (and how each touchdown's try went, and whether a score changed
+// the lead), turnovers, turnovers on downs and missed field goals (from how ESPN says each drive ended), two-minute
+// warnings, and the start and end of each quarter. Every one carries the score. No browser APIs here: it
 // runs in the program on Cloudflare (worker/scorekeeper.js), and the tests (worker/alerts.test.js) drive it directly.
 //
 // Each event has a fixed name: "score:<ESPN's id for the scoring play>", "try:<id>", "start-3", "end-2", "two-minute-4",
-// "final". The game's memo lists the names already sent, and the program saves the memo, so after a restart nothing
+// "drive:<id>", "final". The game's memo lists the names already sent, and the program saves the memo, so after a restart nothing
 // is sent twice or lost: whatever hasn't been sent yet still goes out.
 
 const TRY_GIVE_UP_MS = 4 * 60_000;  // after a touchdown, how long to watch for how its try went
 const TRY_RESULTS = { "missed-pat": "Missed PAT", "two-point": "2-pt conversion", "failed-two-point": "Failed 2-pt" };
 const SCORE_NAMES = { "field-goal": "field goal", safety: "safety" };
+const DRIVES_STALE_MS = 60_000;  // drives last seen longer ago than this are caught up silently, not sent
+
+/**
+ * Every kind of notification, in the order the admin's Notification settings list them, grouped. Each notification
+ * names its kind; a device gets the kinds it chose (worker/phones.js), or DEFAULT_KINDS. A lead change rides on the
+ * score that made it ("TD Cardinals · Lead change") and also lets that score through on its own.
+ */
+export const NOTIFY_KINDS = [
+  ["Scores", { touchdown: "Touchdown", "field-goal": "Field goal", safety: "Safety", "lead-change": "Lead change" }],
+  ["After a touchdown", { "missed-pat": "Missed PAT", "two-point": "2-pt conversion", "failed-two-point": "Failed 2-pt" }],
+  ["Possession", { turnover: "Interception or lost fumble", downs: "Turnover on downs", "missed-fg": "Missed field goal" }],
+  ["Game", { kickoff: "Kickoff", "quarter-start": "Start of a quarter", "quarter-end": "End of a quarter", halftime: "Halftime",
+    "two-minute": "Two-minute warning", final: "Final" }],
+];
+
+/** What every device gets until an admin chooses otherwise: everything but the newer kinds. */
+export const DEFAULT_KINDS = ["touchdown", "field-goal", "safety", "missed-pat", "two-point", "failed-two-point",
+  "kickoff", "quarter-start", "quarter-end", "halftime", "two-minute", "final"];
 
 /**
  * How a touchdown's try went, from ESPN's wording on the touchdown's play: "kick", "missed-pat", "two-point",
@@ -56,6 +75,7 @@ const endedPeriod = (g) => (/Halftime/i.test(g.detail) ? 2 : Number(g.detail.mat
 
 const total = (p) => p.awayScore + p.homeScore;
 const endName = (period) => (period === 2 ? "Halftime" : `End of the ${periodName(period)}`);
+const endKind = (period) => (period === 2 ? "halftime" : "quarter-end");
 
 /**
  * The notifications for game g, given how it looked at the last poll (prev; undefined right after a restart) and its
@@ -72,36 +92,37 @@ export function gameAlerts(prev, g, memo, now = Date.now()) {
     return [];
   }
   const alerts = [];
-  const add = (title, extra, more = {}, at = g) => alerts.push({ title, body: [scoreLine(at), extra].filter(Boolean).join("\n"), ...more });
+  const add = (kind, title, extra, more = {}, at = g) => alerts.push({ kind, title, body: [scoreLine(at), extra].filter(Boolean).join("\n"), ...more });
   // Styled: what happened as the title (shown bold), then the game, then the score ("TD Cardinals" / "Cardinals @
   // Rams" / "Cardinals 7, Rams 0"). Each has its own tag, so it shows as a new notification: a repeated tag only
   // replaces the earlier one, out of sight.
-  const styled = (title, t, at, tag) => alerts.push({ title, body: `${matchup(at)}\n${score(at)}`, tag, styled: true, icon: t.logo });
+  const styled = (kind, title, t, at, tag, more = {}) => alerts.push({ kind, title, body: `${matchup(at)}\n${score(at)}`, tag, styled: true, icon: t.logo, ...more });
 
   // A new quarter counts once two polls in a row show it under way: ESPN sometimes reports the next period for a
   // single poll before the quarter has ended, then goes back to "End of 1st". A quarter that ended between polls
   // without us seeing its "End of" status still gets its notification first.
   const underWay = (x) => x?.state === "in" && x.period === g.period && !between(x);
   if (underWay(g) && underWay(prev) && !sent.has(`start-${g.period}`)) {
-    if (g.period > 1 && fire(`end-${g.period - 1}`)) add(endName(g.period - 1));
+    if (g.period > 1 && fire(`end-${g.period - 1}`)) add(endKind(g.period - 1), endName(g.period - 1));
     fire(`start-${g.period}`);
-    add(g.period === 1 ? "Kickoff" : `Start of the ${periodName(g.period)}`);
+    g.period === 1 ? add("kickoff", "Kickoff") : add("quarter-start", `Start of the ${periodName(g.period)}`);
   }
 
   if (g.scoringPlays) scoringAlerts(g, memo, sent, now, add, styled);
+  if (g.drives) driveAlerts(g, memo, sent, now, styled);
 
   // The 2nd and 4th quarters' clock running past 2:00 (the NFL's two-minute warning, and college's two-minute timeout).
   // Right after a restart (no prev), only if it's still close to 2:00. Not once the quarter is over.
   const is = seconds(g.clock), was = prev?.period === g.period ? seconds(prev.clock) : null;
   if (g.state === "in" && !between(g) && (g.period === 2 || g.period === 4) && is !== null && is <= 120
       && (prev ? was > 120 : is >= 100) && fire(`two-minute-${g.period}`)) {
-    add("Two-minute warning");
+    add("two-minute", "Two-minute warning");
   }
 
   if (g.state === "post") {
-    if (fire("final")) add("Final");
+    if (fire("final")) add("final", "Final");
   } else if (between(g) && fire(`end-${endedPeriod(g)}`)) {
-    add(endName(endedPeriod(g)));
+    add(endKind(endedPeriod(g)), endName(endedPeriod(g)));
   }
   memo.sent = [...sent];
   return alerts;
@@ -138,21 +159,27 @@ function scoringAlerts(g, memo, sent, now, add, styled) {
   }
   if (plays.length) memo.seenTotal = total(plays.at(-1));
   const tries = { ...memo.tries };
-  for (const p of plays) {
+  const leader = (p) => (!p || p.awayScore === p.homeScore ? null : p.awayScore > p.homeScore ? "away" : "home");
+  for (const [i, p] of plays.entries()) {
     const t = p.teamId === g.home.id ? g.home : g.away;
     // The score this play left (ESPN's scoreboard can be a moment ahead or behind).
     const at = { ...g, away: { ...g.away, score: String(p.awayScore) }, home: { ...g.home, score: String(p.homeScore) } };
     const tried = classifyTry(p.text);
     if (!sent.has(`score:${p.id}`)) {
       sent.add(`score:${p.id}`);
+      // The trailing team going ahead (from a tie doesn't count): for devices that want lead changes, the title says so.
+      const before = leader(plays[i - 1]), after = leader(p);
+      const lead = (title) => (before && after && before !== after ? { leadChange: true, leadTitle: `${title} · Lead change` } : {});
       if (p.kind === "touchdown") {
         // A try already in comes with it ("TD Cardinals · 2-pt conversion"); otherwise watch for it.
         if (tried) sent.add(`try:${p.id}`);
         else tries[p.id] = now;
-        styled(`TD ${nameOf(t)}${TRY_RESULTS[tried] ? ` · ${TRY_RESULTS[tried]}` : ""}`, t, at, `${g.key}:score:${p.id}`);
+        const title = `TD ${nameOf(t)}${TRY_RESULTS[tried] ? ` · ${TRY_RESULTS[tried]}` : ""}`;
+        styled("touchdown", title, t, at, `${g.key}:score:${p.id}`, lead(title));
       } else {
         sent.add(`try:${p.id}`);
-        add(`${nameOf(t)} ${SCORE_NAMES[p.kind] ?? "score"}`, p.text, { tag: `${g.key}:score:${p.id}`, icon: t.logo }, at);
+        const title = `${nameOf(t)} ${SCORE_NAMES[p.kind] ?? "score"}`;
+        add(p.kind === "field-goal" ? "field-goal" : "safety", title, p.text, { tag: `${g.key}:score:${p.id}`, icon: t.logo, ...lead(title) }, at);
       }
     } else if (tries[p.id] !== undefined && (tried || now - tries[p.id] > TRY_GIVE_UP_MS)) {
       // A made extra point is expected, so it's skipped; a missed one, or a 2-point try either way, is news, unless
@@ -160,11 +187,46 @@ function scoringAlerts(g, memo, sent, now, add, styled) {
       const late = now - tries[p.id] > TRY_GIVE_UP_MS;
       delete tries[p.id];
       sent.add(`try:${p.id}`);
-      if (TRY_RESULTS[tried] && !late) styled(`${TRY_RESULTS[tried]} ${nameOf(t)}`, t, at, `${g.key}:try:${p.id}`);
+      if (TRY_RESULTS[tried] && !late) styled(tried, `${TRY_RESULTS[tried]} ${nameOf(t)}`, t, at, `${g.key}:try:${p.id}`);
     }
   }
   if (Object.keys(tries).length) memo.tries = tries;
   else delete memo.tries;
+}
+
+// How each drive ended (js/espn.js fetchSummary): an interception or lost fumble, a turnover on downs, or a missed field
+// goal. The first drives seen, and drives after a gap with none seen (the program fetches them only for belled games,
+// so a bell lit later mustn't bring up old ones), are caught up silently.
+const DRIVE_RESULTS = [
+  [/^INT/, "turnover", (o, d) => `Interception · ${nameOf(d)} ball`],
+  [/^FUMBLE/, "turnover", (o, d) => `Fumble · ${nameOf(d)} ball`],
+  [/^DOWNS$/, "downs", (o, d) => `Turnover on downs · ${nameOf(d)} ball`],
+  [/^(MISSED|BLOCKED) FG/, "missed-fg", (o) => `Missed FG ${nameOf(o)}`],
+];
+
+function driveAlerts(g, memo, sent, now, styled) {
+  const fresh = memo.drivesAt !== undefined && now - memo.drivesAt <= DRIVES_STALE_MS;
+  memo.drivesAt = now;
+  for (const d of g.drives) {
+    if (sent.has(`drive:${d.id}`)) continue;
+    sent.add(`drive:${d.id}`);
+    const match = DRIVE_RESULTS.find(([re]) => re.test(d.result));
+    if (!fresh || !match) continue;
+    const [offense, defense] = d.teamId === g.home.id ? [g.home, g.away] : [g.away, g.home];
+    const [, kind, title] = match;
+    styled(kind, title(offense, defense), kind === "missed-fg" ? offense : defense, g, `${g.key}:drive:${d.id}`);
+  }
+}
+
+/**
+ * The parts of one poll's notification (gameAlerts) that a device choosing `kinds` gets, merged (mergeAlerts), or
+ * undefined if none. A score that changed the lead gets through for "lead-change" too, and then says so.
+ */
+export function forDevice(parts, kinds = DEFAULT_KINDS) {
+  const wanted = new Set(kinds);
+  const mine = parts.filter((a) => wanted.has(a.kind) || (a.leadChange && wanted.has("lead-change")))
+    .map((a) => (a.leadChange && wanted.has("lead-change") ? { ...a, title: a.leadTitle } : a));
+  return mine.length ? mergeAlerts(mine) : undefined;
 }
 
 /**
@@ -189,7 +251,8 @@ export function mergeAlerts(alerts) {
 /** The kinds of sample notification the admin's test button can send (sampleAlert), in the order its chooser lists them. */
 export const SAMPLE_KINDS = {
   test: "Test", touchdown: "Touchdown", "missed-pat": "Missed PAT", "two-point": "2-pt conversion",
-  "failed-two-point": "Failed 2-pt", "field-goal": "Field goal", "two-minute": "Two-minute warning",
+  "failed-two-point": "Failed 2-pt", "field-goal": "Field goal", "lead-change": "Lead change", turnover: "Interception",
+  downs: "Turnover on downs", "missed-fg": "Missed field goal", "two-minute": "Two-minute warning",
   kickoff: "Kickoff", "quarter-start": "Start of quarter", "quarter-end": "End of quarter", halftime: "Halftime", final: "Final",
 };
 
@@ -226,6 +289,21 @@ export function sampleAlert(g, kind) {
     case "failed-two-point":
       tryPending();
       now = { ...base, scoringPlays: play("touchdown", 6, `${who} 25 Yd pass (Two-Point Pass Conversion Failed)`) };
+      break;
+    case "lead-change": {
+      // The away team, down 3, scores a touchdown.
+      const was = { id: "sample-before", kind: "field-goal", teamId: g.home.id, text: "", awayScore: away, homeScore: away + 3 };
+      memo.sent = [...sent, "score:sample-before"];
+      now = { ...base, home: { ...base.home, score: String(away + 3) },
+        scoringPlays: [was, { id: "sample", kind: "touchdown", teamId: g.away.id, text: `${who} 25 Yd pass (sample Kick)`, awayScore: away + 7, homeScore: away + 3 }] };
+      prev = now;
+      break;
+    }
+    case "turnover":
+    case "downs":
+    case "missed-fg":
+      memo.drivesAt = Date.now();
+      now = { ...base, drives: [{ id: "sample", teamId: g.home.id, result: { turnover: "INT", downs: "DOWNS", "missed-fg": "MISSED FG" }[kind] }] };
       break;
     case "field-goal":
       now = { ...base, scoringPlays: play("field-goal", 3, `${who} 42 Yd Field Goal (sample)`) };
@@ -265,7 +343,7 @@ export function sampleAlert(g, kind) {
   }
   const alerts = gameAlerts(prev, now, memo);
   if (!alerts.length) return null;
-  const sample = mergeAlerts(alerts);
+  const sample = kind === "lead-change" ? forDevice(alerts, ["lead-change"]) : mergeAlerts(alerts);
   // Every sample is a new notification, however quickly they're sent.
   return sample.tag ? { ...sample, tag: `${sample.tag}:${Math.random().toString(36).slice(2)}` } : sample;
 }

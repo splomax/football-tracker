@@ -4,13 +4,14 @@
 
 import { ScoreKeeper as Keeper } from "./scorekeeper.js";
 import { listPhones, sendToPhones } from "./phones.js";
+import { forDevice } from "../js/alerts.js";
 
 export const PHONE_TEST_DELAY_MS = 5000;  // a test reaches phones a few seconds late, time to lock the phone
 
 // One instance, so every page and phone sees the same games and notifications. Requests carry the deployed version
 // (handler.js); an instance still on older code resets itself and the request is retried on the new code. It wakes
 // itself with an alarm on the schedule keeper.nextWake sets, and sends each new notification to the phones whose lit
-// bells include that game. Routes: GET /?since=<n> the games and notifications; POST /test { key } a test
+// bells include that game (and only the kinds each chose). Routes: GET /?since=<n> the games and notifications; POST /test { key } a test
 // notification; /phones a phone changed (reload the list); /wake the every-minute nudge.
 export class ScoreKeeper {
   /** @param deps  stand-ins for tests: { fetchGames, now, testDelay } (Cloudflare passes only ctx and env) */
@@ -84,8 +85,17 @@ export class ScoreKeeper {
     if (!this.phones) await this.loadPhones();
     for (const a of fresh) {
       if (a.test) continue;  // the test button sends those itself (test())
-      const phones = this.phones.filter((p) => p.bells.includes(a.key));
-      if (phones.length) await this.send({ title: a.title, body: a.body, key: a.key, icon: a.icon }, phones);
+      // Each device gets the kinds it chose (admins only; everyone else the defaults), so devices choosing alike get
+      // the same notification together.
+      const byKinds = new Map();
+      for (const p of this.phones.filter((x) => x.bells.includes(a.key))) {
+        const id = JSON.stringify(p.kinds ?? null);
+        byKinds.set(id, [...(byKinds.get(id) ?? []), p]);
+      }
+      for (const [id, phones] of byKinds) {
+        const mine = a.parts ? forDevice(a.parts, JSON.parse(id) ?? undefined) : a;
+        if (mine) await this.send({ title: mine.title, body: mine.body, key: a.key, icon: mine.icon }, phones);
+      }
     }
   }
 

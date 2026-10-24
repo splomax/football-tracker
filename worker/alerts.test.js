@@ -1,7 +1,7 @@
 // Run with: npm run test:worker
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { classifyTry, gameAlerts, mergeAlerts, needsScoringPlays, periodName, sampleAlert, SAMPLE_KINDS } from "../js/alerts.js";
+import { classifyTry, gameAlerts, mergeAlerts, needsScoringPlays, periodName, sampleAlert, SAMPLE_KINDS, forDevice, DEFAULT_KINDS, NOTIFY_KINDS } from "../js/alerts.js";
 
 // A live game as js/espn.js normalizes it; override what each step changes.
 const game = (over = {}) => ({
@@ -41,7 +41,7 @@ test("the first look is never news", () => {
 
 test("every notification carries the score and where the game is", () => {
   const [[alert]] = feed(game(), game({ away: { score: "3" }, scoringPlays: [play("p1", "field-goal", "1", 3, 0, "J.Bass 40 yd field goal")] }));
-  assert.deepEqual(alert, { title: "BUF field goal", body: "BUF 3, NE 0 · 10:00 - 1st\nJ.Bass 40 yd field goal", tag: "nfl:1:score:p1", icon: "buf.png" });
+  assert.deepEqual(alert, { kind: "field-goal", title: "BUF field goal", body: "BUF 3, NE 0 · 10:00 - 1st\nJ.Bass 40 yd field goal", tag: "nfl:1:score:p1", icon: "buf.png" });
 });
 
 test("each scoring play is news once; a made extra point is skipped, a 2-point conversion is news", () => {
@@ -219,6 +219,7 @@ test("each sample kind reads exactly like a real notification of that kind, and 
   const titles = Object.fromEntries(Object.keys(SAMPLE_KINDS).map((k) => [k, sampleAlert(g, k)?.title ?? null]));
   assert.deepEqual(titles, {
     test: null, touchdown: "TD HOU", "missed-pat": "Missed PAT HOU", "two-point": "2-pt conversion HOU", "failed-two-point": "Failed 2-pt HOU", "field-goal": "HOU field goal",
+    "lead-change": "TD HOU · Lead change", turnover: "Interception · HOU ball", downs: "Turnover on downs · HOU ball", "missed-fg": "Missed FG JAX",
     "two-minute": "Two-minute warning", kickoff: "Kickoff", "quarter-start": "Start of the 3rd quarter",
     "quarter-end": "End of the 1st quarter", halftime: "Halftime", final: "Final",
   });
@@ -252,3 +253,47 @@ test("notifications call the teams by ESPN's short name", () => {
   assert.deepEqual([a.title, a.body], ["TD Cardinals", "Cardinals @ Rams\nCardinals 7, Rams 0"]);
 });
 
+
+const drive = (id, teamId, result) => ({ id, teamId, result });
+
+test("turnovers, turnovers on downs and missed field goals, once per drive, credited to the right team", () => {
+  const alerts = feed(game(),
+    game({ drives: [drive("d1", "1", "PUNT")] }),                      // the first drives seen: caught up silently
+    game({ drives: [drive("d1", "1", "PUNT"), drive("d2", "2", "INT")] }),
+    game({ drives: [drive("d2", "2", "INT"), drive("d3", "1", "FUMBLE RETURN TD"), drive("d4", "2", "DOWNS"), drive("d5", "1", "MISSED FG")] }),
+    game({ drives: [drive("d5", "1", "MISSED FG")] }),
+  );
+  assert.deepEqual(alerts.map((a) => a.map((x) => [x.kind, x.title, x.icon])), [[],
+    [["turnover", "Interception · BUF ball", "buf.png"]],
+    [["turnover", "Fumble · NE ball", "ne.png"], ["downs", "Turnover on downs · BUF ball", "buf.png"], ["missed-fg", "Missed FG BUF", "buf.png"]],
+    []]);
+});
+
+test("drives after a gap with none seen are caught up silently: a bell lit later brings up no old turnovers", () => {
+  const memo = {};
+  gameAlerts(undefined, game(), memo, 0);
+  assert.deepEqual(gameAlerts(game(), game({ drives: [] }), memo, 10_000), []);
+  assert.deepEqual(gameAlerts(game(), game(), memo, 20_000), []);  // no drives fetched for a while
+  assert.deepEqual(gameAlerts(game(), game({ drives: [drive("d1", "2", "INT")] }), memo, 200_000), []);
+  assert.equal(gameAlerts(game(), game({ drives: [drive("d1", "2", "INT"), drive("d2", "1", "INT")] }), memo, 210_000).length, 1);
+});
+
+test("a lead change: only when the trailing team goes ahead, and only for devices that want it", () => {
+  const plays = [play("f1", "field-goal", "2", 0, 3), td("t1", "1", 7, 3, "x (A.B Kick)"), play("f2", "field-goal", "2", 7, 6), play("f3", "field-goal", "2", 7, 9)];
+  const alerts = feed(game(), ...plays.map((_, i) => game({ scoringPlays: plays.slice(0, i + 1) })));
+  assert.deepEqual(alerts.map((a) => a.map((x) => !!x.leadChange)), [[false], [true], [false], [true]]);  // 0-0 to 3-0 is no lead change
+  const [lead] = alerts[1];
+  assert.equal(forDevice([lead]).title, "TD BUF");  // the defaults don't include lead changes
+  assert.equal(forDevice([lead], ["lead-change"]).title, "TD BUF · Lead change");  // gets through on its own
+  assert.equal(forDevice([lead], ["touchdown", "lead-change"]).title, "TD BUF · Lead change");
+  assert.equal(forDevice(alerts[2], ["lead-change"]), undefined);
+});
+
+test("a device gets only the kinds it chose, merged; the defaults are everything but the newer kinds", () => {
+  const parts = [{ kind: "touchdown", title: "TD BUF", body: "BUF @ NE\nBUF 7, NE 0", tag: "t", styled: true }, { kind: "two-minute", title: "Two-minute warning", body: "x" }];
+  assert.equal(forDevice(parts).title, "TD BUF · Two-minute warning");
+  assert.equal(forDevice(parts, ["two-minute"]).title, "Two-minute warning");
+  assert.equal(forDevice(parts, []), undefined);
+  const all = NOTIFY_KINDS.flatMap(([, kinds]) => Object.keys(kinds));
+  assert.deepEqual(all.filter((k) => !DEFAULT_KINDS.includes(k)), ["lead-change", "turnover", "downs", "missed-fg"]);
+});

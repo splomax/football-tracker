@@ -51,7 +51,8 @@ export async function turnOn(bells) {
   const reg = await navigator.serviceWorker.ready;
   const sub = (await reg.pushManager.getSubscription())
     ?? await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: PUBLIC_KEY });
-  return (await post("subscribe", { subscription: sub.toJSON(), bells })).ok;
+  // An admin's chosen kinds (Notification settings) go along; the server ignores them from anyone else.
+  return (await post("subscribe", { subscription: sub.toJSON(), bells, kinds: store.get("notifyKinds") ?? undefined })).ok;
 }
 
 /** Stop this phone's notifications, on the server and on the phone. */
@@ -66,6 +67,13 @@ export async function turnOff() {
 export async function sendBells(bells) {
   const sub = await subscription().catch(() => null);
   if (sub) await post("bells", { endpoint: sub.endpoint, bells }).catch(() => {});
+}
+
+/** An admin's device choosing which kinds of notification it gets (js/alerts.js NOTIFY_KINDS). Saved here too. */
+export async function sendKinds(kinds) {
+  store.set("notifyKinds", kinds);
+  const sub = await subscription().catch(() => null);
+  if (sub) await post("kinds", { endpoint: sub.endpoint, kinds }).catch(() => {});
 }
 
 /** Show a notification on this device, through the service worker (phones have no other way). */

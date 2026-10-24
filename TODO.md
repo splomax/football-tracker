@@ -9,9 +9,7 @@
    on Cloudflare (worker/scorekeeper.js), the one place it would need swapping in.
 3. **(Tomorrow, Sunday Oct 25, during the NFL games) Are NFL timeouts trackable?** College timeouts were dropped because ESPN's counts don't reset at halftime
    (scripts/check-timeouts.js). Check whether ESPN's NFL timeout counts are reliable enough to show.
-4. **Notification settings.** Let people choose which events notify them (scores, two-minute warning,
-    quarters, halftime, final).
-5. **Bigger team logos, and check their alignment.** Grid view looks bad on desktop and mobile; list view is fine on
+4. **Bigger team logos, and check their alignment.** Grid view looks bad on desktop and mobile; list view is fine on
     both.
-6. **Line-by-line code walkthrough.** Go through the code reviewing how readable it is to a person and whether its
+5. **Line-by-line code walkthrough.** Go through the code reviewing how readable it is to a person and whether its
     organization is intuitive.

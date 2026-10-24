@@ -98,18 +98,24 @@ main:has(aside.preload), aside.preload { transition: none; }  /* no slide on fir
 .empty { color: var(--muted); padding: 24px; grid-column: 1 / -1; }
 .mobile-only { display: none; }
 /* Admin login (js/admin.js), and the help for turning on iPhone notifications (worker/admin.js explainInstall). */
-#admin-login, #install-help { width: min(320px, calc(100vw - 32px)); padding: 20px; background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 12px 40px var(--shadow); }
-#admin-login::backdrop, #install-help::backdrop { background: rgba(0, 0, 0, .5); }
-#admin-login label, #install-help label { display: block; margin-bottom: 8px; font-weight: 600; }
+#admin-login, #install-help, #notify-settings { width: min(320px, calc(100vw - 32px)); padding: 20px; background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 12px 40px var(--shadow); }
+#admin-login::backdrop, #install-help::backdrop, #notify-settings::backdrop { background: rgba(0, 0, 0, .5); }
+#admin-login label, #install-help label, #notify-settings > form > label { display: block; margin-bottom: 8px; font-weight: 600; }
 #admin-login input { width: 100%; padding: 8px 10px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; font: inherit; font-size: 16px; }
 #admin-login input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 #admin-login .error { min-height: 18px; margin: 6px 0 10px; color: var(--red); font-size: 12px; }
-#install-help .note { margin: 0 0 12px; color: var(--muted); line-height: 1.4; }
+#install-help .note, #notify-settings .note { margin: 0 0 12px; color: var(--muted); line-height: 1.4; }
 #install-help .step-count { margin: 0 0 4px; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 #install-help .step { margin: 0 0 16px; line-height: 1.5; }
-#admin-login .buttons, #install-help .buttons { display: flex; justify-content: flex-end; gap: 8px; }
-#admin-login button, #install-help button { padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px; background: none; color: var(--text); font: inherit; cursor: pointer; }
-#admin-login button[value="ok"], #install-help button[value="ok"] { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+#admin-login .buttons, #install-help .buttons, #notify-settings .buttons { display: flex; justify-content: flex-end; gap: 8px; }
+#admin-login button, #install-help button, #notify-settings button { padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px; background: none; color: var(--text); font: inherit; cursor: pointer; }
+#admin-login button[value="ok"], #install-help button[value="ok"], #notify-settings button[value="ok"] { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+/* Admin: Notification settings (worker/admin.js), a switch per kind of notification, in groups. */
+#notify-settings { max-height: calc(100dvh - 32px); overflow-y: auto; }
+#notify-settings fieldset { margin: 0 0 12px; padding: 0; border: 0; }
+#notify-settings legend { padding: 0; margin-bottom: 4px; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+#notify-settings .kind { display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer; }
+#notify-settings .kind input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
 /* The Home Screen app's splash screen (index.html): the logo and wordmark on the dark background, faded out by
    js/main.js once the first scores are in. Dark whatever the theme, matching the app's icon and launch color. */
 #splash { display: none; }

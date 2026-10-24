@@ -1,7 +1,7 @@
 // Run with: npm run test:worker
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { savePhone, setBells, removePhone, listPhones, sendToPhones } from "./phones.js";
+import { savePhone, setBells, setKinds, removePhone, listPhones, sendToPhones } from "./phones.js";
 
 // An in-memory stand-in for a Workers KV namespace.
 export function fakeKv() {
@@ -33,6 +33,20 @@ test("a phone is saved with its bells, can change them, and can be removed; junk
   assert.equal(await savePhone(kv, sub(3), "cfb:1"), false);
   await removePhone(kv, sub(1).endpoint);
   assert.deepEqual(await listPhones(kv), []);
+});
+
+test("an admin's device keeps the kinds it chose; everyone else's never have any", async () => {
+  const kv = fakeKv();
+  await savePhone(kv, sub(1), ["cfb:1"], 1, true, ["touchdown"]);
+  assert.deepEqual((await listPhones(kv))[0].kinds, ["touchdown"]);
+  assert.equal(await setKinds(kv, sub(1).endpoint, ["turnover", "final"]), true);
+  await setBells(kv, sub(1).endpoint, ["cfb:2"], 2, true);
+  await savePhone(kv, sub(1), ["cfb:2"], 3, true);  // subscribing again without kinds keeps them
+  assert.deepEqual((await listPhones(kv))[0].kinds, ["turnover", "final"]);
+  await savePhone(kv, sub(2), [], 4, false, ["touchdown"]);
+  assert.equal((await listPhones(kv)).find((p) => p.subscription.endpoint === sub(2).endpoint).kinds, undefined);
+  assert.equal(await setKinds(kv, sub(3).endpoint, ["final"]), false);  // not saved
+  assert.equal(await setKinds(kv, sub(1).endpoint, "final"), false);
 });
 
 test("sending reaches the phones picked, and forgets one whose push service says it's gone", async (t) => {

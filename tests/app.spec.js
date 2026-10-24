@@ -409,13 +409,15 @@ test.describe("board image", () => {
     const { png, name } = await saveBoard(page);
     expect(name).toBe("game-tracker-live.png");
     expect(png.subarray(1, 4).toString()).toBe("PNG");
-    // Drawn at 2x: 640 wide, and its height grows by one 44px row per game and 34px per Eastern day.
-    const dates = [...cfbGames().map((e) => ["cfb:" + e.id, e.date]), ...nflGames().map((e) => ["nfl:" + e.id, e.date])]
-      .filter(([key]) => selected.includes(key)).map(([, date]) => date);
+    // Drawn at 2x: 640 wide, and its height grows by one 44px row per game (58px for a started one, with its clock
+    // under the score) and 34px per Eastern day.
+    const events = [...cfbGames().map((e) => ["cfb:" + e.id, e]), ...nflGames().map((e) => ["nfl:" + e.id, e])].filter(([key]) => selected.includes(key));
+    const dates = events.map(([, e]) => e.date);
+    const started = events.filter(([, e]) => e.status.type.state !== "pre").length;
     expect(dates).toHaveLength(selected.length);
     const days = new Set(dates.map((d) => new Date(d).toLocaleDateString("en-CA", { timeZone: "America/New_York" }))).size;
     expect(png.readUInt32BE(16)).toBe(1280);
-    expect(png.readUInt32BE(20)).toBe(2 * (24 + days * 34 + selected.length * 44 + 34 + 12));
+    expect(png.readUInt32BE(20)).toBe(2 * (24 + days * 34 + selected.length * 44 + started * 14 + 34 + 12));
   });
 
   test("a team with no dark-mode logo doesn't break the image", async ({ page }) => {
@@ -615,6 +617,34 @@ test.describe("notifications", () => {
       serverGame("cfb:78", serverTeam("194", "OSU", "24"), serverTeam("2294", "IOWA", "6"))] },
     alerts: since == null ? [] : alerts.map((a, i) => ({ id: i + 1, at: 0, ...a })).filter((a) => a.id > Number(since)) });
 
+  test("an admin chooses which kinds of notification this device gets, sent with its subscription and on each change; others can't", async ({ page }) => {
+    await fakeNotifications(page, "granted", "granted");
+    await fakePush(page);
+    const state = await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:2"] } });
+    await page.click("#settings");
+    await page.click("#notify-settings-item");
+    const box = (label) => page.locator("#notify-settings label.kind", { hasText: label }).locator("input");
+    await expect(box("Touchdown")).toBeChecked();  // the defaults
+    await expect(box("Lead change")).not.toBeChecked();
+    await box("Interception or lost fumble").check();
+    await box("Kickoff").uncheck();
+    await page.click('#notify-settings button[value="ok"]');
+    const kinds = await page.evaluate(() => JSON.parse(localStorage.getItem("notifyKinds")));
+    expect(kinds).toContain("turnover");
+    expect(kinds).not.toContain("kickoff");
+    expect(state.pushPosts).toEqual([]);  // not subscribed yet: nothing to tell the server
+    await card(page, "cfb:2").hover();
+    await card(page, "cfb:2").locator(".bell").click();
+    await expect.poll(() => state.pushPosts[0]?.body.kinds).toEqual(kinds);
+    await page.click("#settings");
+    await page.click("#notify-settings-item");
+    await box("Final").uncheck();
+    await expect.poll(() => state.pushPosts.at(-1)).toEqual({ path: "kinds", body: { endpoint: "https://web.push.apple.com/phone", kinds: kinds.filter((k) => k !== "final") } });
+    await page.goto("/");
+    await page.click("#settings");
+    await expect(page.locator("#notify-settings-item")).toHaveCount(0);  // admin mode only
+  });
+
   test("beside the paper plane, a chooser picks which kind of notification it sends; the choice is remembered", async ({ page }) => {
     await page.clock.install({ time: new Date("2026-10-03T20:00:00Z") });
     await fakeNotifications(page, "granted", "granted");
@@ -623,8 +653,8 @@ test.describe("notifications", () => {
     await card(page, "cfb:77").hover();
     const chooser = card(page, "cfb:77").locator(".test-kind");
     await expect(chooser).toHaveCSS("opacity", "1");
-    expect(await chooser.locator("option").allTextContents()).toEqual(["Test", "Touchdown", "Missed PAT", "2-pt conversion", "Failed 2-pt", "Field goal", "Two-minute warning",
-      "Kickoff", "Start of quarter", "End of quarter", "Halftime", "Final"]);
+    expect(await chooser.locator("option").allTextContents()).toEqual(["Test", "Touchdown", "Missed PAT", "2-pt conversion", "Failed 2-pt", "Field goal", "Lead change",
+      "Interception", "Turnover on downs", "Missed field goal", "Two-minute warning", "Kickoff", "Start of quarter", "End of quarter", "Halftime", "Final"]);
     await chooser.selectOption("halftime");
     await card(page, "cfb:77").hover();
     await card(page, "cfb:77").locator(".test-alert").click();

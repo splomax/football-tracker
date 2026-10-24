@@ -4,13 +4,17 @@
 // - On each card (on a computer), a paper-plane button that sends that game a test notification through the program on
 //   Cloudflare, to the admins' devices whose bell for that game is lit (everyone's bells are in js/notify.js), and
 //   beside it a chooser for which kind: a plain test, or a sample touchdown, field goal, halftime... for styling them.
+// - "Notification settings" in the gear menu: which kinds of notification this device gets (a touchdown, a lead
+//   change, a turnover, the two-minute warning...), saved here and on the server (worker/phones.js). Everyone else's
+//   devices get the defaults (js/alerts.js DEFAULT_KINDS).
 // - "Scores from:" atop the gear menu: whether this page's last update came from the program on Cloudflare
 //   (worker/scorekeeper.js), which the admin's pages use, or from ESPN directly because the program couldn't be reached.
 // - The visit counter's weekly, monthly and total counts atop the gear menu, fetched each time it opens.
 // - In the game list, the bulk buttons atop each section (Select all, Remove all) always, not only while Top 25 or a
 //   conference narrows the list (js/picker.js).
 
-let app;  // { renderBoard, renderList, state, saveSelected, visits, store, lastSource, testAlert, sampleKinds } from js/admin.js
+let app;  // { renderBoard, renderList, state, saveSelected, visits, store, lastSource, testAlert, sampleKinds, notifyKinds,
+          //   defaultKinds, sendKinds } from js/admin.js
 
 /** Returns the hooks for js/board.js's setAdmin. */
 export function install(appApi) {
@@ -26,6 +30,7 @@ export function install(appApi) {
   app.store.set("notify", null);  // the old Enable notifications switch, since removed
   addVisits();
   addScoreSource();
+  addNotifySettings();
   return {
     bulkAlways: true,
     // Left of the bell and styled like it: the test button and its chooser.
@@ -51,6 +56,37 @@ function addScoreSource() {
   refresh();
   const gear = document.getElementById("settings");
   gear.addEventListener("click", () => { if (gear.getAttribute("aria-expanded") === "true") refresh(); });
+}
+
+// Gear menu: "Notification settings", a dialog of switches, one per kind of notification, grouped. Each change is saved
+// right away (and sent to the server once this device has notifications on).
+function addNotifySettings() {
+  if (document.getElementById("notify-settings-item")) return;
+  const item = document.createElement("button");
+  item.id = "notify-settings-item";
+  item.innerHTML = `<span class="check"></span>Notification settings`;
+  item.addEventListener("click", openNotifySettings);
+  document.getElementById("save-board").before(item);
+}
+
+function openNotifySettings() {
+  const chosen = new Set(app.store.get("notifyKinds") ?? app.defaultKinds);
+  const dialog = document.createElement("dialog");
+  dialog.id = "notify-settings";
+  dialog.innerHTML = `<form method="dialog">
+    <label>Notification settings</label>
+    <p class="note">What this device gets for the games you ring.</p>
+    ${app.notifyKinds.map(([group, kinds]) => `<fieldset><legend>${group}</legend>${Object.entries(kinds).map(([kind, label]) =>
+      `<label class="kind"><input type="checkbox" value="${kind}" ${chosen.has(kind) ? "checked" : ""}>${label}</label>`).join("")}</fieldset>`).join("")}
+    <div class="buttons"><button value="ok">Done</button></div>
+  </form>`;
+  dialog.addEventListener("change", () => {
+    app.sendKinds([...dialog.querySelectorAll("input:checked")].map((i) => i.value));
+  });
+  document.body.append(dialog);
+  dialog.addEventListener("close", () => dialog.remove());
+  dialog.showModal();
+  dialog.scrollTop = 0;  // on a short screen it scrolls; open at the top, not at whatever got focus
 }
 
 // Gear menu: the visit counts, refreshed whenever the menu opens. The gear's click opens the menu before this runs.

@@ -45,6 +45,8 @@ const STATES = {
   "admin-game-list": { query: "?admin", storage: { selected: PICKS, view: "grid", pickerOpen: true, ...ADMIN } },
   "admin-gear-menu": { query: "?admin", storage: { selected: PICKS, view: "grid", pickerOpen: false, ...ADMIN },
     run: async (page) => { await page.click("#settings"); await settle(page, 300); } },
+  "admin-notify-settings": { query: "?admin", storage: { selected: PICKS, view: "grid", pickerOpen: false, ...ADMIN }, screenOnly: true,
+    run: async (page) => { await page.click("#settings"); await page.click("#notify-settings-item"); await settle(page, 300); } },
   // iPhone only (Safari, not the Home Screen app): the walkthrough a bell opens there, first and last steps.
   "iphone-install-help": { storage: { selected: PICKS, view: "grid", pickerOpen: false }, screenOnly: true,
     run: async (page) => { await page.click('.card[data-key="cfb:1"] [data-bell]'); await settle(page, 300); } },

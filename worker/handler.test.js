@@ -124,6 +124,16 @@ test("a token gets the games and notifications from the program, passing on sinc
   assert.equal(SCORES.asked.length, 2);
 });
 
+test("only an admin's device can choose its kinds of notification", async () => {
+  const PUSH = fakeKv(), withPush = { ...env, PUSH, SCORES: fakeScores() };
+  const subscription = { endpoint: "https://web.push.apple.com/x", keys: { p256dh: "B", auth: "a" } };
+  await api("POST", "/api/push/subscribe", null, JSON.stringify({ subscription, bells: [] }), withPush);
+  const body = JSON.stringify({ endpoint: subscription.endpoint, kinds: ["turnover"] });
+  assert.equal((await api("POST", "/api/push/kinds", null, body, withPush)).status, 401);
+  assert.equal((await api("POST", "/api/push/kinds", await tokenFor(), body, withPush)).status, 200);
+  assert.deepEqual(JSON.parse([...PUSH.data.values()][0]).kinds, ["turnover"]);
+});
+
 test("anyone can wake the program (after a deploy)", async () => {
   const SCORES = fakeScores();
   const res = await api("POST", "/api/wake", null, undefined, { ...env, SCORES });

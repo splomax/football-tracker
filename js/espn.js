@@ -48,8 +48,12 @@ export async function fetchSummary(g) {
   const d = await (await fetch(LEAGUES[league].replace(/scoreboard.*$/, `summary?event=${id}`))).json();
   const scoringPlays = (d.scoringPlays ?? []).map((p) => ({ id: String(p.id), kind: p.scoringType?.name, teamId: String(p.team?.id), text: p.text,
     awayScore: Number(p.awayScore), homeScore: Number(p.homeScore) }));
-  const latest = [...(d.drives?.previous ?? []), ...(d.drives?.current ? [d.drives.current] : [])].flatMap((x) => x.plays ?? []).at(-1) ?? null;
-  return { scoringPlays, latest };
+  const all = [...(d.drives?.previous ?? []), ...(d.drives?.current ? [d.drives.current] : [])];
+  const latest = all.flatMap((x) => x.plays ?? []).at(-1) ?? null;
+  // How each finished drive ended ("INT", "FUMBLE", "DOWNS", "MISSED FG", "TD", "PUNT"...). The current drive is also
+  // the last of the previous ones, under the same id, and gets its result as soon as it ends.
+  const drives = [...new Map(all.filter((x) => x.result).map((x) => [String(x.id), { id: String(x.id), result: x.result, teamId: String(x.team?.id) }])).values()];
+  return { scoringPlays, latest, drives };
 }
 
 /** The game's scoring plays only (fetchSummary). */

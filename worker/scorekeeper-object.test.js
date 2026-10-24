@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ScoreKeeper } from "./scorekeeper-object.js";
-import { savePhone } from "./phones.js";
+import { savePhone, setKinds } from "./phones.js";
 import { fakeKv } from "./phones.test.js";
 
 const live = (key, over = {}) => ({
@@ -79,6 +79,19 @@ test("a phone's bell on a live game keeps it fetching, and each notification goe
   s.tick(10_000);
   await s.fire();
   assert.deepEqual(s.pushed, []);  // nothing new, nothing sent
+});
+
+test("each device gets only the kinds of notification it chose", async (t) => {
+  const s = await setUp(t, { phones: { defaults: ["nfl:1"], picky: ["nfl:1"] } });
+  await setKinds(s.kv, "https://web.push.apple.com/picky", ["turnover"]);
+  s.espn.nfl = [live("nfl:1")];
+  await s.req("/wake");
+  await s.fire();
+  s.espn.nfl = [live("nfl:1", { home: { id: "2", abbr: "NE", score: "3" } })];
+  s.plays["nfl:1"] = [{ id: "b", kind: "field-goal", teamId: "2", text: "x", awayScore: 0, homeScore: 3 }];
+  s.tick(10_000);
+  await s.fire();
+  assert.deepEqual(s.pushed, ["defaults"]);
 });
 
 test("the test button reaches only admins' phones whose bells include the game; a phone Apple says is gone is dropped", async (t) => {

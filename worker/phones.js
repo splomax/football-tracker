@@ -1,6 +1,7 @@
 // The devices that turned on notifications (phones and computers), kept in Workers KV (the PUSH namespace,
 // wrangler.toml) so they survive deploys: each under "phone:" + a hash of its push address, as { subscription, bells,
-// public, at }. bells are that device's lit games (each device has its own). public marks a device no admin turned on;
+// public, kinds?, at }. bells are that device's lit games (each device has its own). kinds are the kinds of
+// notification an admin chose for that device (js/alerts.js NOTIFY_KINDS); without them, the defaults. public marks a device no admin turned on;
 // test notifications skip those (devices saved before there was a public sign-in have no mark, and were all admins').
 // sendToPhones sends a notification (worker/webpush.js) and forgets a device its push service says is gone.
 
@@ -15,13 +16,30 @@ async function keyFor(endpoint) {
 
 const validSubscription = (s) => typeof s?.endpoint === "string" && s.endpoint.startsWith("https://")
   && typeof s.keys?.p256dh === "string" && typeof s.keys?.auth === "string";
+const validKinds = (k) => Array.isArray(k) && k.length <= 50 && k.every((x) => typeof x === "string" && x.length < 30);
 const validBells = (b) => Array.isArray(b) && b.length <= 500 && b.every((k) => typeof k === "string" && k.length < 40);
 
-/** Save a phone (or update it). False if what was sent isn't a subscription and list of bells. */
-export async function savePhone(kv, subscription, bells, now = Date.now(), admin = false) {
+/**
+ * Save a phone (or update it). An admin's device keeps the kinds it chose (sent along, or saved before). False if what
+ * was sent isn't a subscription and list of bells.
+ */
+export async function savePhone(kv, subscription, bells, now = Date.now(), admin = false, kinds = undefined) {
   if (!validSubscription(subscription) || !validBells(bells)) return false;
   const { endpoint, keys } = subscription;
-  await kv.put(await keyFor(endpoint), JSON.stringify({ subscription: { endpoint, keys: { p256dh: keys.p256dh, auth: keys.auth } }, bells, public: !admin, at: now }));
+  const key = await keyFor(endpoint);
+  const chosen = admin ? (validKinds(kinds) ? kinds : (await kv.get(key, "json"))?.kinds) : undefined;
+  await kv.put(key, JSON.stringify({ subscription: { endpoint, keys: { p256dh: keys.p256dh, auth: keys.auth } }, bells, public: !admin,
+    ...(chosen && { kinds: chosen }), at: now }));
+  return true;
+}
+
+/** An admin's device choosing which kinds of notification it gets. False if the phone isn't saved (or bad kinds). */
+export async function setKinds(kv, endpoint, kinds, now = Date.now()) {
+  if (typeof endpoint !== "string" || !validKinds(kinds)) return false;
+  const key = await keyFor(endpoint);
+  const phone = await kv.get(key, "json");
+  if (!phone) return false;
+  await kv.put(key, JSON.stringify({ ...phone, kinds, public: false, at: now }));
   return true;
 }
 
@@ -39,7 +57,7 @@ export async function removePhone(kv, endpoint) {
   if (typeof endpoint === "string") await kv.delete(await keyFor(endpoint));
 }
 
-/** Every saved phone: [{ subscription, bells, public, at }]. */
+/** Every saved phone: [{ subscription, bells, public, kinds?, at }]. */
 export async function listPhones(kv) {
   const phones = [];
   let cursor;
