@@ -9,26 +9,24 @@
    on Cloudflare (worker/scorekeeper.js), the one place it would need swapping in.
 3. **Are NFL timeouts trackable?** College timeouts were dropped because ESPN's counts don't reset at halftime
    (scripts/check-timeouts.js). Check whether ESPN's NFL timeout counts are reliable enough to show.
-4. **Bell click makes the card's buttons blink.** Clicking the hover bell on a card flickers the buttons around it.
-
-5. **Notification settings.** Let people choose which events notify them (scores, red zone, two-minute warning,
+4. **Notification settings.** Let people choose which events notify them (scores, red zone, two-minute warning,
     quarters, halftime, final).
-6. **Drop "Enable notifications" when notifications go live for everyone (Saturday, Oct 24).** Everyone gets the feature. The gear-menu item is the admin's switch;
+5. **Drop "Enable notifications" when notifications go live for everyone (Saturday, Oct 24).** Everyone gets the feature. The gear-menu item is the admin's switch;
     once everyone has notifications, it goes (the bells would be how people subscribe). The iPhone walkthrough
     (worker/admin.js explainInstall) opens from it in Safari; move that to tapping a bell, and fix its step 3 wording.
-7. **Score alignment in the game list.** Scores don't line up from card to card (a Final card's sit further left
+6. **Score alignment in the game list.** Scores don't line up from card to card (a Final card's sit further left
     than the live ones').
-8. **Remove "List view" and "Light mode" from the gear menu.**
-9. **Recap link in list view.** It looks great on grid cards but out of place in list rows.
-10. **Bigger team logos, and check their alignment.** Grid view looks bad on desktop and mobile; list view is fine on
+7. **Remove "List view" and "Light mode" from the gear menu.**
+8. **Recap link in list view.** It looks great on grid cards but out of place in list rows.
+9. **Bigger team logos, and check their alignment.** Grid view looks bad on desktop and mobile; list view is fine on
     both.
-11. **Line-by-line code walkthrough.** Go through the code reviewing how readable it is to a person and whether its
+10. **Line-by-line code walkthrough.** Go through the code reviewing how readable it is to a person and whether its
     organization is intuitive.
-12. **Upcoming games in list view on desktop.** Their rows look out of place.
-13. **Blocked notifications.** If someone taps "Don't Allow", the browser never asks again. Detect it (the page can
+11. **Upcoming games in list view on desktop.** Their rows look out of place.
+12. **Blocked notifications.** If someone taps "Don't Allow", the browser never asks again. Detect it (the page can
     tell allowed, blocked and not asked yet) and, when they light a bell, tell them notifications are blocked with
     the steps for their device (iPhone: Settings → Notifications → Game Tracker; desktop Chrome: the icon left of the
     address → Notifications). Check again whenever the app opens, in case they changed it in Settings. Not tied to the
-    gear menu's Enable notifications, which is going away (#6).
-14. **Stats mode's arrow button.** It works but still feels clunky; find a better way to open a live game's detailed
+    gear menu's Enable notifications, which is going away (#5).
+13. **Stats mode's arrow button.** It works but still feels clunky; find a better way to open a live game's detailed
     stats.

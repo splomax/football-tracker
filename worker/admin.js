@@ -48,8 +48,9 @@ export function install(appApi) {
         }
         app.state.selected.add(bellKey);
         app.saveSelected();
-        if (!belled().has(bellKey)) toggleBell(bellKey);  // lights it (and redraws)
-        else { app.renderList(); app.renderBoard(); }
+        if (!belled().has(bellKey)) toggleBell(bellKey);  // lights it
+        app.renderList();
+        app.renderBoard();
         return true;
       }
       const button = e.target.closest("[data-bulk]");
@@ -174,15 +175,22 @@ function bellButton(g, kind = "bell") {
   return `<button type="button" class="${kind} ${on ? "on" : ""}" data-bell="${g.key}" aria-pressed="${on}" aria-label="${label}" title="${label}">${BELL_ICON}</button>`;
 }
 
-// Only picked games keep a bell, so one that's been removed from the board doesn't linger in the list.
+// Only picked games keep a bell, so one that's been removed from the board doesn't linger in the list. The game's bells
+// (its card's and its row's) change in place: redrawing the board would replace the card under the mouse, and its
+// hover buttons would blink out until the mouse moved again.
 function toggleBell(key) {
   const keys = belled();
   keys.has(key) ? keys.delete(key) : keys.add(key);
   const lit = [...keys].filter((k) => app.state.selected.has(k));
   app.store.set("notifyGames", lit);
   if (app.push.applies()) app.push.sendBells(lit);  // the server pushes this phone's notifications
-  app.renderBoard();
-  app.renderList();
+  const on = keys.has(key), label = on ? "Stop notifications for this game" : "Notify me about this game";
+  for (const b of document.querySelectorAll(`[data-bell="${key}"]`)) {
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-pressed", on);
+    b.setAttribute("aria-label", label);
+    b.title = label;
+  }
 }
 
 // Deselecting a game (its card's ✕, the game list, Remove all) turns its bell off too, on a phone at the server as well.
