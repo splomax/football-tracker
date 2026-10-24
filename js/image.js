@@ -1,5 +1,5 @@
 // "Save board as image" in the gear menu: every game on the board as a list made for posting on a forum, grouped
-// by day, one row per game (kickoff time, away @ home with logos, ranks and records, network), by kickoff. Live and
+// by day, one row per game (kickoff time until it starts, away @ home with logos, ranks and records, network), by kickoff. Live and
 // final games are listed by their kickoff too, with their score beside each logo and, centered under the scores like a
 // TV scorebug, the clock and quarter (or Half, or Final). The image is in the current theme, gives kickoff times in Eastern time
 // whatever the viewer's own time zone, and carries a small, muted Game Tracker Live logo in the bottom-right corner.
@@ -126,7 +126,7 @@ function drawRow(ctx, g, mid, logos, color, gap) {
   ctx.textAlign = "left";
   ctx.fillStyle = color("--text");
   ctx.font = `600 13px ${FONT}`;
-  ctx.fillText(g.date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", timeZone: IMAGE_ZONE }), PAD, mid);
+  if (g.state === "pre") ctx.fillText(g.date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", timeZone: IMAGE_ZONE }), PAD, mid);
 
   if (g.network) {
     ctx.textAlign = "right";
@@ -146,7 +146,7 @@ function drawRow(ctx, g, mid, logos, color, gap) {
   ctx.fillStyle = color("--muted");
   ctx.font = `14px ${FONT}`;
   // A started game's scores sit a little high, with the clock and quarter centered under them.
-  const scoreMid = g.state === "pre" ? mid : mid - 6;
+  const scoreMid = g.state === "pre" ? mid : mid - 8;
   ctx.fillText("@", at, scoreMid);
   if (g.state !== "pre") {
     ctx.fillStyle = color(g.state === "in" ? "--red" : "--muted");
