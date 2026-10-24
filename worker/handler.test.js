@@ -157,15 +157,17 @@ test("a phone's change tells the program to reload its list of phones", async ()
   assert.deepEqual(SCORES.asked.map((a) => a.url), ["https://scorekeeper/phones"]);
 });
 
-test("a token lets a phone turn notifications on, change its bells and turn them off; nobody else", async () => {
+test("any device can turn notifications on, change its bells and turn them off; an admin's are marked as such", async () => {
   const PUSH = fakeKv(), withPush = { ...env, PUSH };
   const token = await tokenFor();
   const subscription = { endpoint: "https://web.push.apple.com/abc", keys: { p256dh: "BPhone", auth: "auth" } };
-  const post = (path, body, auth = token) => api("POST", path, auth, JSON.stringify(body), withPush);
-  assert.equal((await post("/api/push/subscribe", { subscription, bells: ["cfb:1"] }, null)).status, 401);
+  const post = (path, body, auth = null) => api("POST", path, auth, JSON.stringify(body), withPush);
   assert.equal((await post("/api/push/subscribe", { subscription, bells: ["cfb:1"] })).status, 200);
+  assert.equal((await listPhones(PUSH))[0].public, true);
   assert.equal((await post("/api/push/bells", { endpoint: subscription.endpoint, bells: ["nfl:9"] })).status, 200);
   assert.deepEqual((await listPhones(PUSH)).map((p) => p.bells), [["nfl:9"]]);
+  assert.equal((await post("/api/push/subscribe", { subscription, bells: ["cfb:1"] }, token)).status, 200);
+  assert.equal((await listPhones(PUSH))[0].public, false);  // an admin's: gets test notifications
   assert.equal((await post("/api/push/subscribe", { subscription: { endpoint: "nope" }, bells: [] })).status, 400);
   assert.equal((await post("/api/push/unsubscribe", { endpoint: subscription.endpoint })).status, 200);
   assert.deepEqual(await listPhones(PUSH), []);

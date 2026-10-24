@@ -61,7 +61,9 @@ async function open(page, opts = {}) {
       if (state.scores === "down") return route.fulfill({ status: 500, body: "Down", headers });
       return route.fulfill({ json: typeof state.scores === "function" ? state.scores(since) : state.scores, headers });
     }
-    if (req.url().includes("/push/") && req.method() === "POST" && auth === `Bearer ${ADMIN_TOKEN}`) {
+    // Devices signing up for notifications, from anyone (an admin's carry the login: state.pushAdmin).
+    if (req.url().includes("/push/") && req.method() === "POST") {
+      state.pushAdmin = auth === `Bearer ${ADMIN_TOKEN}`;
       state.pushPosts.push({ path: new URL(req.url()).pathname.replace(/.*\/push\//, ""), body: JSON.parse(req.postData()) });
       return route.fulfill({ json: { ok: true }, headers });
     }
@@ -486,16 +488,24 @@ test.describe("installing on a phone", () => {
     await expect(page.locator("#splash")).toBeHidden();
   });
 
-  test("admin pages register the service worker that will receive phone notifications; other pages don't", async ({ page }) => {
+  test("every page registers the service worker that receives notifications", async ({ page }) => {
     await open(page, { storage: { selected: ["cfb:1"] } });
-    await expect(card(page, "cfb:1")).toBeAttached();
-    expect(await page.evaluate(() => navigator.serviceWorker.getRegistration())).toBeUndefined();
-    await page.evaluate((token) => localStorage.setItem("adminToken", JSON.stringify(token)), ADMIN_TOKEN);
-    await page.goto("/index.html?admin");
     await expect.poll(() => page.evaluate(async () => (await navigator.serviceWorker.getRegistration())?.active?.scriptURL ?? null))
       .toBe("http://localhost:4173/sw.js");
   });
 });
+
+// A stand-in for the browser's push service: subscribing hands back a made-up subscription, and the service worker's
+// notifications land in window.shown.
+async function fakePush(page) {
+  await page.addInitScript(() => {
+    const sub = { endpoint: "https://web.push.apple.com/phone", toJSON() { return { endpoint: this.endpoint, keys: { p256dh: "BPhone", auth: "auth" } }; } };
+    let current = null;
+    PushManager.prototype.getSubscription = async () => current;
+    PushManager.prototype.subscribe = async (options) => { window.subscribedWith = options; current = sub; return sub; };
+    ServiceWorkerRegistration.prototype.showNotification = async (title, options) => { (window.shown ??= []).push({ title, body: options.body }); };
+  });
+}
 
 test.describe("iPhone notifications", () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
@@ -508,48 +518,37 @@ test.describe("iPhone notifications", () => {
     await expect(card(page, "cfb:1").locator(".test-kind")).toBeHidden();
   });
 
-  test("in Safari on an iPhone, Enable notifications explains how to add the app first, and stays off", async ({ page }) => {
+  test("in Safari on an iPhone, a bell explains how to add the app first, and stays off", async ({ page }) => {
     await page.addInitScript(() => Object.defineProperty(Navigator.prototype, "userAgent", { get: () => "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari/604.1" }));
-    await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:1"], pickerOpen: false } });
-    await page.locator("#settings").tap();
-    await page.locator("#notify").tap();
+    await open(page, { storage: { selected: ["cfb:1"], pickerOpen: false } });
+    await card(page, "cfb:1").locator(".bell").tap();
     await expect(page.locator("#install-help")).toBeVisible();
+    await expect(page.locator("#install-help")).toContainText("Step 1 of 3");
+    await page.locator('#install-help [data-step="1"]').tap();
     await expect(page.locator("#install-help")).toContainText("Add to Home Screen");
-    await page.locator('#install-help [value="ok"]').tap();
+    await page.keyboard.press("Escape");
     await expect(page.locator("#install-help")).toHaveCount(0);
-    await expect(page.locator("#notify")).toHaveAttribute("aria-pressed", "false");
+    await expect(card(page, "cfb:1").locator(".bell")).toHaveAttribute("aria-pressed", "false");
+    await page.locator("#settings").tap();
+    await page.locator("#install-help-item").tap();  // also in the gear menu
+    await expect(page.locator("#install-help")).toBeVisible();
   });
 
-  test("in the Home Screen app, turning notifications on subscribes the phone with its bells; bells and turning off reach the server", async ({ page, context }) => {
+  test("in the Home Screen app, the first bell subscribes the phone with its bells; later bells and deselecting reach the server", async ({ page, context }) => {
     await context.grantPermissions(["notifications"]);
-    // Stand-ins for iOS: an installed app, and a push subscription that doesn't need Apple.
-    await page.addInitScript(() => {
-      Object.defineProperty(Navigator.prototype, "standalone", { get: () => true });
-      const sub = { endpoint: "https://web.push.apple.com/phone", toJSON() { return { endpoint: this.endpoint, keys: { p256dh: "BPhone", auth: "auth" } }; },
-        unsubscribe: async () => { window.unsubscribed = true; return true; } };
-      let current = null;
-      PushManager.prototype.getSubscription = async () => current;
-      PushManager.prototype.subscribe = async (options) => { window.subscribedWith = options; current = sub; return sub; };
-      ServiceWorkerRegistration.prototype.showNotification = async (title, options) => { (window.shown ??= []).push({ title, body: options.body }); };
-    });
-    const state = await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:1", "cfb:2"], notifyGames: ["cfb:2"], pickerOpen: false } });
-    await expect(card(page, "cfb:1")).toBeAttached();
-    await page.locator("#settings").tap();
-    await page.locator("#notify").tap();
-    await expect(page.locator("#notify")).toHaveAttribute("aria-pressed", "true");
+    await page.addInitScript(() => Object.defineProperty(Navigator.prototype, "standalone", { get: () => true }));
+    await fakePush(page);
+    const state = await open(page, { storage: { selected: ["cfb:1", "cfb:2"], pickerOpen: false } });
+    await card(page, "cfb:2").locator(".bell").tap();
+    await expect(card(page, "cfb:2").locator(".bell")).toHaveAttribute("aria-pressed", "true");
     await expect.poll(() => state.pushPosts.map((p) => p.path)).toEqual(["subscribe"]);
     expect(state.pushPosts[0].body).toEqual({ subscription: { endpoint: "https://web.push.apple.com/phone", keys: { p256dh: "BPhone", auth: "auth" } }, bells: ["cfb:2"] });
     expect(await page.evaluate(() => window.subscribedWith)).toMatchObject({ userVisibleOnly: true });
-    await expect.poll(() => page.evaluate(() => window.shown)).toEqual([{ title: "Notifications are on", body: expect.any(String) }]);  // shown the iPhone way
-    await page.keyboard.press("Escape");
+    await expect.poll(() => page.evaluate(() => window.shown)).toEqual([{ title: "Notifications are on", body: expect.any(String) }]);
     await card(page, "cfb:1").locator(".bell").tap();
     await expect.poll(() => state.pushPosts.at(-1)).toEqual({ path: "bells", body: { endpoint: "https://web.push.apple.com/phone", bells: ["cfb:2", "cfb:1"] } });
     await card(page, "cfb:2").locator(".remove").tap();  // deselecting reaches the server too
     await expect.poll(() => state.pushPosts.at(-1)).toEqual({ path: "bells", body: { endpoint: "https://web.push.apple.com/phone", bells: ["cfb:1"] } });
-    await page.locator("#settings").tap();
-    await page.locator("#notify").tap();
-    await expect.poll(() => state.pushPosts.at(-1)).toEqual({ path: "unsubscribe", body: { endpoint: "https://web.push.apple.com/phone" } });
-    await expect.poll(() => page.evaluate(() => window.unsubscribed)).toBe(true);
   });
 });
 
@@ -596,25 +595,18 @@ test.describe("notifications", () => {
     };
   }, [answer, permission]);
   const sent = (page) => page.evaluate(() => window.sent.map(({ title, body }) => ({ title, body })));
-  test("only the admin gets Enable notifications; turning it on sends a test notification and puts a bell on every card", async ({ page }) => {
-    await fakeNotifications(page);
-    await open(page, { storage: { ...admin, selected: ["cfb:2", "cfb:5"] } });  // logged in, but no ?admin
-    await page.locator("#settings").click();
-    await expect(page.locator("#google-me")).toBeVisible();
-    await expect(page.locator("#notify")).toHaveCount(0);
-    await page.goto("/index.html?admin");
-    await expect(card(page, "cfb:5")).toBeAttached();
-    await page.locator("#settings").click();
-    const toggle = page.locator("#notify");
-    await expect(toggle).toHaveText("✓Enable notifications");
-    await expect(page.locator("#board .bell")).toHaveCount(0);
-    await toggle.click();
-    await expect(toggle).toHaveAttribute("aria-pressed", "true");
-    expect((await sent(page))[0].title).toBe("Notifications are on");
+  test("everyone gets a bell on every card; lighting the first asks permission, signs the device up and confirms it", async ({ page }) => {
+    await fakeNotifications(page, "default", "granted");
+    await fakePush(page);
+    const state = await open(page, { storage: { selected: ["cfb:2", "cfb:5"] } });  // a regular visitor
     await expect(page.locator("#board .bell")).toHaveCount(2);  // live and upcoming alike
-    await expect(page.locator("#board .bell.on")).toHaveCount(0);
-    await toggle.click();
-    await expect(page.locator("#board .bell")).toHaveCount(0);
+    await expect(page.locator("#notify")).toHaveCount(0);  // no Enable notifications switch any more
+    await card(page, "cfb:2").hover();
+    await card(page, "cfb:2").locator(".bell").click();
+    await expect(card(page, "cfb:2").locator(".bell")).toHaveAttribute("aria-pressed", "true");
+    await expect.poll(() => state.pushPosts.map((p) => p.path)).toEqual(["subscribe"]);
+    await expect.poll(() => page.evaluate(() => window.shown?.[0]?.title)).toBe("Notifications are on");
+    expect(await page.evaluate(() => (window.adminTests = document.querySelectorAll(".test-alert").length))).toBe(0);  // test button: admins only
   });
 
   // The program's answer, handing out `alerts` (numbered from 1) to pages that have seen fewer, none to a page just opening.
@@ -639,27 +631,6 @@ test.describe("notifications", () => {
     await expect.poll(() => state.testKinds).toEqual(["halftime"]);
     await page.reload();
     await expect(card(page, "cfb:77").locator(".test-kind")).toHaveValue("halftime");
-  });
-
-  test("the program's notifications show for a lit bell's game, not an unlit one's, test notifications included", async ({ page }) => {
-    await page.clock.install({ time: new Date("2026-10-03T20:00:00Z") });
-    await fakeNotifications(page, "granted", "granted");
-    const alerts = [];
-    const state = await open(page, { query: "?admin", scores: withAlerts(alerts), storage: { ...admin, selected: ["cfb:77", "cfb:78"], notify: true, notifyGames: ["cfb:77"] } });
-    await expect(card(page, "cfb:77")).toBeAttached();
-    expect(state.sinces[0]).toBe(null);  // a page just opening asks for no old notifications
-    alerts.push({ key: "cfb:77", title: "MICH touchdown", body: "ILL 17, MICH 21 · 6:06 - 3rd\nPass for 30 yards" },
-      { key: "cfb:78", title: "OSU field goal", body: "OSU 27, IOWA 6 · 6:06 - 3rd" },  // unlit bell
-      { key: "cfb:78", title: "Test notification", body: "OSU 24, IOWA 6 · 6:06 - 3rd\nSent through the Game Tracker server", test: true },  // unlit too
-      { key: "cfb:77", title: "Test notification", body: "ILL 17, MICH 14 · 6:06 - 3rd\nSent through the Game Tracker server", test: true });
-    await page.clock.runFor(10_000);
-    await expect.poll(() => sent(page)).toEqual([
-      { title: "MICH touchdown", body: "ILL 17, MICH 21 · 6:06 - 3rd\nPass for 30 yards" },
-      { title: "Test notification", body: "ILL 17, MICH 14 · 6:06 - 3rd\nSent through the Game Tracker server" },
-    ]);
-    await page.clock.runFor(10_000);
-    await expect.poll(() => state.sinces.at(-1)).toBe("4");  // it then asks only for newer ones
-    expect(await sent(page)).toHaveLength(2);
   });
 
   test("each card's paper plane sends that game a test notification through the program, and updates right away", async ({ page }) => {
@@ -730,15 +701,26 @@ test.describe("notifications", () => {
     await expect(card(page, "cfb:2").locator(".bell")).toHaveAttribute("aria-pressed", "false");
   });
 
-  test("a refused permission says so and stays off", async ({ page }) => {
+  test("a refused permission says so and the bell stays off", async ({ page }) => {
     await fakeNotifications(page, "denied");
-    await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:2"] } });
-    await page.locator("#settings").click();
-    await page.locator("#notify").click();
-    await expect(page.locator("#notify")).toHaveText("✓Notifications blocked");
-    await expect(page.locator("#notify")).toHaveAttribute("aria-pressed", "false");
-    await expect(page.locator("#board .bell")).toHaveCount(0);
-    expect(await sent(page)).toEqual([]);
+    const state = await open(page, { storage: { selected: ["cfb:2"] } });
+    await card(page, "cfb:2").hover();
+    await card(page, "cfb:2").locator(".bell").click();
+    await expect(page.locator("#install-help")).toContainText("Notifications are blocked");
+    await expect(card(page, "cfb:2").locator(".bell")).toHaveAttribute("aria-pressed", "false");
+    expect(state.pushPosts).toEqual([]);
+  });
+
+  test("notifications blocked after they were on: the bells show off and a note says how to unblock; allowed again, they're back", async ({ page }) => {
+    await fakeNotifications(page, "denied");
+    await fakePush(page);
+    const state = await open(page, { storage: { selected: ["cfb:2"], notifyGames: ["cfb:2"], pushOn: true } });
+    await expect(page.locator("#install-help")).toContainText("Your bells are kept");
+    await expect(card(page, "cfb:2").locator(".bell")).toHaveAttribute("aria-pressed", "false");
+    await page.keyboard.press("Escape");
+    await page.evaluate(() => { Notification.permission = "granted"; document.dispatchEvent(new Event("visibilitychange")); });
+    await expect(card(page, "cfb:2").locator(".bell")).toHaveAttribute("aria-pressed", "true");
+    await expect.poll(() => state.pushPosts.map((p) => p.path)).toEqual(["subscribe"]);
   });
 });
 
@@ -882,7 +864,7 @@ test.describe("admin login", () => {
     const sources = await page.evaluate(async () => Promise.all(performance.getEntriesByType("resource")
       .filter((r) => r.name.endsWith(".js")).map(async (r) => (await fetch(r.name)).text())));
     expect(sources.length).toBeGreaterThan(5);
-    for (const src of sources) expect(src).not.toMatch(/data-bell|data-bulk/);
+    for (const src of sources) expect(src).not.toMatch(/data-test-alert|data-bulk/);
   });
 });
 
@@ -1576,6 +1558,49 @@ test.describe("counter, and a game that kicks off", () => {
   });
 });
 
+test.describe("stats mode", () => {
+  test("the old ?stats-mode-beta address moves to ?stats, and the gear menu's Stats turns it on and off, in the address too", async ({ page }) => {
+    await open(page, { query: "?stats-mode-beta", storage: { selected: ["cfb:1", "cfb:7"] } });
+    await expect.poll(() => new URL(page.url()).search).toBe("?stats");
+    await expect(card(page, "cfb:1").locator(".stats")).toBeVisible();  // live games get the bar
+    await expect(card(page, "cfb:7").locator(".stats-link")).toHaveText("Stats");  // finished ones a link
+    await page.locator("#settings").click();
+    await expect(page.locator("#menu-stats")).toHaveAttribute("aria-pressed", "true");
+    await page.locator("#menu-stats").click();
+    await expect(page.locator("#board .stats, #board .stats-link")).toHaveCount(0);
+    expect(new URL(page.url()).search).toBe("");
+    await page.locator("#menu-stats").click();
+    await expect(card(page, "cfb:1").locator(".stats")).toBeVisible();
+    expect(new URL(page.url()).search).toBe("?stats");
+  });
+
+  test("opening a game's stats shows its table and moves it to the front of its section; its link then reads Hide stats", async ({ page }) => {
+    await open(page, { query: "?stats", storage: { selected: ["cfb:1", "cfb:2", "cfb:7"] } });
+    const live = page.locator('.board-group[data-section="in"] .card');
+    await expect(live.first()).toHaveAttribute("data-key", "cfb:1");
+    await card(page, "cfb:2").hover();
+    await card(page, "cfb:2").locator("[data-stats]").click();
+    await expect(card(page, "cfb:2").locator(".stats-detail")).toBeVisible();
+    await expect(live.first()).toHaveAttribute("data-key", "cfb:2");
+    await card(page, "cfb:7").locator(".stats-link").click();
+    await expect(card(page, "cfb:7").locator(".stats-link")).toHaveText("Hide stats");
+    await expect(card(page, "cfb:7").locator(".stats-detail")).toBeVisible();
+  });
+});
+
+test.describe("hover buttons", () => {
+  test("a card's hover buttons stay shown through a board redraw, until the mouse leaves it", async ({ page }) => {
+    await page.clock.install({ time: new Date("2026-10-03T20:00:00Z") });
+    await open(page, { storage: { selected: ["cfb:1", "cfb:2"] } });
+    await card(page, "cfb:1").hover();
+    await expect(card(page, "cfb:1").locator(".remove")).toHaveCSS("opacity", "1");
+    await page.clock.runFor(10_000);  // the next update redraws the board
+    await expect(card(page, "cfb:1").locator(".remove")).toHaveCSS("opacity", "1");
+    await card(page, "cfb:2").hover();
+    await expect(card(page, "cfb:1").locator(".remove")).toHaveCSS("opacity", "0");
+  });
+});
+
 test.describe("settings gear and google me", () => {
   test("gear menu animates open with Save board as image, google me and MDS, and closes on Escape or outside click", async ({ page }) => {
     await open(page);
@@ -1584,7 +1609,7 @@ test.describe("settings gear and google me", () => {
     await page.locator("#settings").click();
     await expect(menu).toBeVisible();
     expect(await menu.evaluate((m) => m.getAnimations().length)).toBeGreaterThan(0);
-    await expect(menu.locator("button:visible")).toHaveText(["Save board as image", "✓google me", "✓MDS"]);  // the view and theme copies are for phones
+    await expect(menu.locator("button:visible")).toHaveText(["✓Stats", "Save board as image", "✓google me", "✓MDS"]);  // the view and theme copies are for phones
     await page.keyboard.press("Escape");
     await expect(menu).toBeHidden();
     await page.locator("#settings").click();
@@ -1722,7 +1747,8 @@ test.describe("animations ignore the OS reduced-motion setting", () => {
     expect(await style(card(page, "cfb:1"), "animationName")).toBe("redzone-glow");
     await page.locator("#settings").click();
     await page.locator("#google-me").click();
-    expect(await page.locator("#coach").evaluate((c) => c.getAnimations().length)).toBeGreaterThan(0);
+    // The coach grows in once its photo has loaded (js/settings.js), a moment after the click.
+    await expect.poll(() => page.locator("#coach").evaluate((c) => c.getAnimations().length)).toBeGreaterThan(0);
   });
 });
 

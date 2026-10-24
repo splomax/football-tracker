@@ -161,10 +161,12 @@ function scoringAlerts(g, memo, sent, now, add, styled) {
         add(`${nameOf(t)} ${SCORE_NAMES[p.kind] ?? "score"}`, p.text, { tag: `${g.key}:score:${p.id}`, icon: t.logo }, at);
       }
     } else if (tries[p.id] !== undefined && (tried || now - tries[p.id] > TRY_GIVE_UP_MS)) {
-      // A made extra point is expected, so it's skipped; a missed one, or a 2-point try either way, is news.
+      // A made extra point is expected, so it's skipped; a missed one, or a 2-point try either way, is news, unless
+      // it took ESPN so long to say that it's old news.
+      const late = now - tries[p.id] > TRY_GIVE_UP_MS;
       delete tries[p.id];
       sent.add(`try:${p.id}`);
-      if (TRY_RESULTS[tried]) styled(`${TRY_RESULTS[tried]} ${nameOf(t)}`, t, at, `${g.key}:try:${p.id}`);
+      if (TRY_RESULTS[tried] && !late) styled(`${TRY_RESULTS[tried]} ${nameOf(t)}`, t, at, `${g.key}:try:${p.id}`);
     }
   }
   if (Object.keys(tries).length) memo.tries = tries;

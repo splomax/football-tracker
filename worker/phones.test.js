@@ -19,9 +19,15 @@ const sub = (n) => ({ endpoint: `https://web.push.apple.com/phone-${n}`, keys: {
 test("a phone is saved with its bells, can change them, and can be removed; junk is refused", async () => {
   const kv = fakeKv();
   assert.equal(await savePhone(kv, sub(1), ["cfb:1"], 5), true);
-  assert.deepEqual(await listPhones(kv), [{ subscription: { endpoint: sub(1).endpoint, keys: sub(1).keys }, bells: ["cfb:1"], at: 5 }]);
+  assert.deepEqual(await listPhones(kv), [{ subscription: { endpoint: sub(1).endpoint, keys: sub(1).keys }, bells: ["cfb:1"], public: true, at: 5 }]);
   assert.equal(await setBells(kv, sub(1).endpoint, ["cfb:1", "nfl:2"], 6), true);
   assert.deepEqual((await listPhones(kv))[0].bells, ["cfb:1", "nfl:2"]);
+  // An admin's device: saved by a logged-in admin, or a public one whose admin logs in and changes its bells.
+  await savePhone(kv, sub(4), [], 7, true);
+  assert.equal((await listPhones(kv)).find((p) => p.subscription.endpoint === sub(4).endpoint).public, false);
+  await setBells(kv, sub(1).endpoint, ["cfb:1"], 8, true);
+  assert.equal((await listPhones(kv)).find((p) => p.subscription.endpoint === sub(1).endpoint).public, false);
+  await removePhone(kv, sub(4).endpoint);
   assert.equal(await setBells(kv, sub(2).endpoint, ["cfb:1"]), false);  // not saved
   assert.equal(await savePhone(kv, { endpoint: "http://insecure" }, []), false);
   assert.equal(await savePhone(kv, sub(3), "cfb:1"), false);
