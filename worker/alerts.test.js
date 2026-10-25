@@ -64,6 +64,49 @@ test("a touchdown and its try in the same update come as one", () => {
   assert.deepEqual(first("6", "D.Maye 12 Yd pass to H.Henry (A.Borregales PAT failed)"), ["TD NE · Missed PAT"]);
 });
 
+test("a score waits until it's confirmed: its try is in, another play follows it, or the game is over", () => {
+  const titles = (memo, prev, g, now) => gameAlerts(prev, g, memo, now).map((a) => a.title);
+  const at = (p, over = {}) => game({ home: { score: String(p.homeScore) }, scoringPlays: [p], ...over });
+  const start = () => { const memo = {}; gameAlerts(undefined, game(), memo, 0); return memo; };
+  // A touchdown: nothing until the try is in, or the kickoff follows.
+  let memo = start();
+  assert.deepEqual(titles(memo, game(), at({ ...td("t", "2", 0, 6), followed: false }), 10_000), []);
+  assert.ok(needsScoringPlays(at(td("t", "2", 0, 6)), memo));  // keeps watching
+  assert.deepEqual(titles(memo, game(), at({ ...td("t", "2", 0, 7, "x (A.B Kick)"), followed: false }), 20_000), ["TD NE"]);
+  memo = start();
+  assert.deepEqual(titles(memo, game(), at({ ...td("t", "2", 0, 6), followed: false }), 10_000), []);
+  assert.deepEqual(titles(memo, game(), at({ ...td("t", "2", 0, 6), followed: true }), 20_000), ["TD NE"]);
+  // A field goal: until the kickoff follows, or the game ends.
+  memo = start();
+  const fg = play("f", "field-goal", "2", 0, 3, "x 40 yd FG GOOD");
+  assert.deepEqual(titles(memo, game(), at({ ...fg, followed: false }), 10_000), []);
+  assert.deepEqual(titles(memo, game(), at({ ...fg, followed: false }, { state: "post", detail: "Final" }), 20_000), ["NE field goal", "Final"]);
+});
+
+test("a score waiting more than 2 minutes is under review; one that then disappears was called back", () => {
+  const memo = {};
+  gameAlerts(undefined, game(), memo, 0);
+  const waiting = game({ home: { score: "6" }, scoringPlays: [{ ...td("t", "2", 0, 6), followed: false }] });
+  const titles = (g, now) => gameAlerts(game(), g, memo, now).map((a) => a.title);
+  assert.deepEqual(titles(waiting, 10_000), []);
+  assert.deepEqual(titles(waiting, 60_000), []);
+  assert.deepEqual(titles(waiting, 140_000), ["TD NE · Under review"]);
+  assert.deepEqual(titles(waiting, 150_000), []);
+  // Overturned (seen live: an Oklahoma State touchdown wiped out by holding, listed for a while, then gone).
+  assert.deepEqual(titles(game({ scoringPlays: [] }), 160_000), ["No TD NE · Called back"]);
+  assert.ok(!needsScoringPlays(game(), memo));
+  // Upheld instead: the touchdown comes as usual. Called back before it was said to be under review: nothing.
+  const upheld = {};
+  gameAlerts(undefined, game(), upheld, 0);
+  gameAlerts(game(), waiting, upheld, 10_000);
+  gameAlerts(game(), waiting, upheld, 140_000);
+  assert.deepEqual(gameAlerts(game(), { ...waiting, scoringPlays: [td("t", "2", 0, 7, "x (A.B Kick)")] }, upheld, 150_000).map((a) => a.title), ["TD NE"]);
+  const quick = {};
+  gameAlerts(undefined, game(), quick, 0);
+  gameAlerts(game(), waiting, quick, 10_000);
+  assert.deepEqual(gameAlerts(game(), game({ scoringPlays: [] }), quick, 20_000), []);
+});
+
 test("a missed extra point or failed 2-point try, seen in the touchdown's play a few updates later, is news", () => {
   for (const [text, title] of [["(A.Borregales PAT blocked)", "Missed PAT NE"], ["(Two-Point Run Conversion Failed)", "Failed 2-pt NE"]]) {
     const at = (t) => game({ home: { score: "6" }, scoringPlays: [td("t", "2", 0, 6, t)] });

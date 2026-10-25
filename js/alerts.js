@@ -3,7 +3,7 @@
 // warnings, and the start and end of each quarter. Every one carries the score. No browser APIs here: it
 // runs in the program on Cloudflare (worker/scorekeeper.js), and the tests (worker/alerts.test.js) drive it directly.
 //
-// Each event has a fixed name: "score:<ESPN's id for the scoring play>", "try:<id>", "start-3", "end-2", "two-minute-4",
+// Each event has a fixed name: "score:<ESPN's id for the scoring play>", "review:<id>", "try:<id>", "start-3", "end-2", "two-minute-4",
 // "drive:<id>", "final". The game's memo lists the names already sent, and the program saves the memo, so after a restart nothing
 // is sent twice or lost: whatever hasn't been sent yet still goes out.
 
@@ -11,6 +11,7 @@ const TRY_GIVE_UP_MS = 4 * 60_000;  // after a touchdown, how long to watch for 
 const TRY_RESULTS = { "missed-pat": "Missed PAT", "two-point": "2-pt conversion", "failed-two-point": "Failed 2-pt" };
 const SCORE_NAMES = { "field-goal": "field goal", safety: "safety" };
 const DRIVES_STALE_MS = 60_000;  // drives last seen longer ago than this are caught up silently, not sent
+const REVIEW_MS = 2 * 60_000;  // a score not confirmed after this long is said to be under review
 
 /**
  * Every kind of notification, in the order the admin's Notification settings list them, grouped. Each notification
@@ -143,10 +144,15 @@ function firstLook(g, memo, sent) {
 /** Whether the program should fetch g's scoring plays for gameAlerts: the score is ahead of them, or a try is pending. */
 export function needsScoringPlays(g, memo) {
   if (!memo.sent) return false;  // the first look sends nothing
-  return Number(g.away.score) + Number(g.home.score) !== memo.seenTotal || Object.keys(memo.tries ?? {}).length > 0;
+  return Number(g.away.score) + Number(g.home.score) !== memo.seenTotal || Object.keys(memo.tries ?? {}).length > 0
+    || Object.keys(memo.unconfirmed ?? {}).length > 0;
 }
 
-// Each scoring play not sent yet; then each touchdown still waiting on its try, which shows up in the touchdown's text.
+// Each scoring play not sent yet, once it's confirmed; then each touchdown still waiting on its try, which shows up in the
+// touchdown's text. Every score is reviewed, and ESPN lists one as soon as it's called, so one called back (seen live: an
+// Oklahoma State touchdown wiped out by holding) was listed for a while. So a score waits until it's confirmed: its try
+// is in, or the game has moved on to another play (p.followed, js/espn.js fetchSummary), or it's over. One waiting longer
+// than REVIEW_MS is said to be under review; if it then disappears, it was called back.
 function scoringAlerts(g, memo, sent, now, add, styled) {
   const plays = g.scoringPlays;
   if (!memo.playsSeen) {
@@ -158,15 +164,31 @@ function scoringAlerts(g, memo, sent, now, add, styled) {
     memo.playsSeen = true;
   }
   if (plays.length) memo.seenTotal = total(plays.at(-1));
-  const tries = { ...memo.tries };
+  const tries = { ...memo.tries }, unconfirmed = { ...memo.unconfirmed };
+  const listed = new Set(plays.map((p) => p.id));
+  for (const [id, u] of Object.entries(unconfirmed)) {
+    if (listed.has(id)) continue;
+    delete unconfirmed[id];
+    if (!plays.length) memo.seenTotal = 0;  // the only score, called back
+    const t = g[u.side];
+    if (sent.has(`review:${id}`)) styled(u.kind, `No ${u.kind === "touchdown" ? "TD" : SCORE_NAMES[u.kind] ?? "score"} ${nameOf(t)} · Called back`, t, g, `${g.key}:review:${id}`);
+  }
   const leader = (p) => (!p || p.awayScore === p.homeScore ? null : p.awayScore > p.homeScore ? "away" : "home");
   for (const [i, p] of plays.entries()) {
     const t = p.teamId === g.home.id ? g.home : g.away;
     // The score this play left (ESPN's scoreboard can be a moment ahead or behind).
     const at = { ...g, away: { ...g.away, score: String(p.awayScore) }, home: { ...g.home, score: String(p.homeScore) } };
     const tried = classifyTry(p.text);
-    if (!sent.has(`score:${p.id}`)) {
+    const confirmed = p.followed !== false || (p.kind === "touchdown" && tried) || g.state === "post";
+    if (!sent.has(`score:${p.id}`) && !confirmed) {
+      const u = (unconfirmed[p.id] ??= { at: now, kind: p.kind, side: t === g.home ? "home" : "away" });
+      if (now - u.at > REVIEW_MS && !sent.has(`review:${p.id}`)) {
+        sent.add(`review:${p.id}`);
+        styled(p.kind, `${p.kind === "touchdown" ? `TD ${nameOf(t)}` : `${nameOf(t)} ${SCORE_NAMES[p.kind] ?? "score"}`} · Under review`, t, at, `${g.key}:review:${p.id}`);
+      }
+    } else if (!sent.has(`score:${p.id}`)) {
       sent.add(`score:${p.id}`);
+      delete unconfirmed[p.id];
       // The trailing team going ahead (from a tie doesn't count): for devices that want lead changes, the title says so.
       const before = leader(plays[i - 1]), after = leader(p);
       const lead = (title) => (before && after && before !== after ? { leadChange: true, leadTitle: `${title} · Lead change` } : {});
@@ -192,6 +214,8 @@ function scoringAlerts(g, memo, sent, now, add, styled) {
   }
   if (Object.keys(tries).length) memo.tries = tries;
   else delete memo.tries;
+  if (Object.keys(unconfirmed).length) memo.unconfirmed = unconfirmed;
+  else delete memo.unconfirmed;
 }
 
 // How each drive ended (js/espn.js fetchSummary): an interception or lost fumble, a turnover on downs, or a missed field
