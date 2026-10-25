@@ -66,10 +66,11 @@ export class ScoreKeeper {
         const started = g.state === "in" || (g.state === "pre" && new Date(g.date) <= now);
         if ((needsScoringPlays(g, memo) || (started && this.bells.has(g.key))) && playFetches++ < MAX_PLAY_FETCHES) {
           try {
-            const { scoringPlays, latest, drives } = await this.fetchSummary(g);
+            const { scoringPlays, latest, drives, plays } = await this.fetchSummary(g);
             freshen(g, latest);
             g.scoringPlays = scoringPlays;
             g.drives = drives;
+            g.plays = plays;
           } catch (err) {
             console.error("game detail", g.key, err);
           }
@@ -77,6 +78,7 @@ export class ScoreKeeper {
         const news = gameAlerts(this.last.get(g.key), g, memo, now);
         delete g.scoringPlays;  // pages don't need them
         delete g.drives;
+        delete g.plays;
         this.last.set(g.key, g);
         if (JSON.stringify(memo) !== before) await this.saveMemo(g.key, memo);
         // One notification per game per update; its parts too, for devices choosing which kinds they get (forDevice).

@@ -275,26 +275,65 @@ test("notifications call the teams by ESPN's short name", () => {
 
 const drive = (id, teamId, result) => ({ id, teamId, result });
 
-test("turnovers, turnovers on downs and missed field goals, once per drive, credited to the right team", () => {
+test("turnovers on downs and missed field goals, once per drive, credited to the right team", () => {
   const alerts = feed(game(),
     game({ drives: [drive("d1", "1", "PUNT")] }),                      // the first drives seen: caught up silently
-    game({ drives: [drive("d1", "1", "PUNT"), drive("d2", "2", "INT")] }),
-    game({ drives: [drive("d2", "2", "INT"), drive("d3", "1", "FUMBLE RETURN TD"), drive("d4", "2", "DOWNS"), drive("d5", "1", "MISSED FG")] }),
-    game({ drives: [drive("d5", "1", "MISSED FG")] }),
+    game({ drives: [drive("d1", "1", "PUNT"), drive("d2", "2", "DOWNS")] }),
+    game({ drives: [drive("d2", "2", "DOWNS"), drive("d3", "1", "INT"), drive("d4", "1", "MISSED FG")] }),  // turnovers come from the plays
+    game({ drives: [drive("d4", "1", "MISSED FG")] }),
   );
   assert.deepEqual(alerts.map((a) => a.map((x) => [x.kind, x.title, x.icon])), [[],
-    [["turnover", "Interception · BUF ball", "buf.png"]],
-    [["turnover", "Fumble · NE ball", "ne.png"], ["downs", "Turnover on downs · BUF ball", "buf.png"], ["missed-fg", "Missed FG BUF", "buf.png"]],
+    [["downs", "Turnover on downs · BUF ball", "buf.png"]],
+    [["missed-fg", "Missed FG BUF", "buf.png"]],
     []]);
 });
 
-test("drives after a gap with none seen are caught up silently: a bell lit later brings up no old turnovers", () => {
+test("drives after a gap with none seen are caught up silently: a bell lit later brings up no old ones", () => {
   const memo = {};
   gameAlerts(undefined, game(), memo, 0);
   assert.deepEqual(gameAlerts(game(), game({ drives: [] }), memo, 10_000), []);
   assert.deepEqual(gameAlerts(game(), game(), memo, 20_000), []);  // no drives fetched for a while
-  assert.deepEqual(gameAlerts(game(), game({ drives: [drive("d1", "2", "INT")] }), memo, 200_000), []);
-  assert.equal(gameAlerts(game(), game({ drives: [drive("d1", "2", "INT"), drive("d2", "1", "INT")] }), memo, 210_000).length, 1);
+  assert.deepEqual(gameAlerts(game(), game({ drives: [drive("d1", "2", "DOWNS")] }), memo, 200_000), []);
+  assert.equal(gameAlerts(game(), game({ drives: [drive("d1", "2", "DOWNS"), drive("d2", "1", "DOWNS")] }), memo, 210_000).length, 1);
+});
+
+// ESPN's play-by-play (js/espn.js fetchSummary plays): id, type, and the team that started the play with the ball.
+const pbp = (id, type, teamId = "1") => ({ id, type, teamId });
+
+test("turnovers come from the play types, once each, as soon as they're logged, credited to the team that gets the ball", () => {
+  const plays = [pbp("p1", "Rush"), pbp("p2", "Pass Interception Return", "2")];
+  const alerts = feed(game(),
+    game({ plays: [pbp("p0", "Pass Interception Return")] }),  // the first plays seen: caught up silently
+    game({ plays: [pbp("p0", "Pass Interception Return"), ...plays] }),
+    game({ plays: [...plays, pbp("p3", "Fumble Recovery (Opponent)"), pbp("p4", "Fumble Recovery (Own)"), pbp("p5", "Penalty")] }),
+    game({ plays: [...plays, pbp("p3", "Fumble Recovery (Opponent)"), pbp("p6", "Sack Opp Fumble Recovery", "2")] }),
+    game({ plays: [...plays, pbp("p3", "Fumble Recovery (Opponent)"), pbp("p6", "Sack Opp Fumble Recovery", "2"), pbp("p7", "Interception Return Touchdown", "2")] }));
+  assert.deepEqual(alerts.map((a) => a.map((x) => [x.kind, x.title, x.icon])), [[],
+    [["turnover", "Interception · BUF ball", "buf.png"]],
+    [["turnover", "Fumble · NE ball", "ne.png"]],  // not one recovered by its own team, nor one wiped out by a penalty
+    [["turnover", "Fumble · BUF ball", "buf.png"]],
+    [["turnover", "Interception", "buf.png"]]]);  // returned for a touchdown: the touchdown's notification says the rest
+});
+
+test("a turnover goes to the team with the ball after the play: a muffed punt goes back to the punting team", () => {
+  const [[alert]] = feed(game(), game({ plays: [pbp("p1", "Rush")] }),
+    game({ plays: [pbp("p1", "Rush"), { ...pbp("p2", "Fumble Recovery (Opponent)", "2"), endTeamId: "2" }] })).slice(1);
+  assert.equal(alert.title, "Fumble · NE ball");
+  const [, [pick6]] = feed(game(), game({ plays: [pbp("p1", "Rush")] }),
+    game({ plays: [pbp("p1", "Rush"), { ...pbp("p2", "Pass Interception Return", "1"), endTeamId: "2", scoring: true }] }));
+  assert.equal(pick6.title, "Interception");
+});
+
+test("a turnover overturned on review (its play turns into another) or gone gets a notification saying it was called back", () => {
+  const memo = {};
+  gameAlerts(undefined, game(), memo, 0);
+  const titles = (plays, now) => gameAlerts(game(), game({ plays }), memo, now).map((a) => a.title);
+  titles([pbp("p1", "Rush")], 10_000);
+  assert.deepEqual(titles([pbp("p1", "Rush"), pbp("p2", "Sack Opp Fumble Recovery")], 20_000), ["Fumble · NE ball"]);
+  assert.deepEqual(titles([pbp("p1", "Rush"), pbp("p2", "Sack")], 30_000), ["Fumble called back · BUF ball"]);  // seen live: Steelers @ Saints
+  assert.deepEqual(titles([pbp("p1", "Rush"), pbp("p2", "Sack")], 40_000), []);
+  assert.deepEqual(titles([pbp("p1", "Rush"), pbp("p3", "Pass Interception Return", "2")], 50_000), ["Interception · BUF ball"]);
+  assert.deepEqual(titles([pbp("p1", "Rush")], 60_000), ["Interception called back · NE ball"]);
 });
 
 test("a lead change: only when the trailing team goes ahead, and only for devices that want it", () => {
@@ -308,11 +347,11 @@ test("a lead change: only when the trailing team goes ahead, and only for device
   assert.equal(forDevice(alerts[2], ["lead-change"]), undefined);
 });
 
-test("a device gets only the kinds it chose, merged; the defaults are everything but the newer kinds", () => {
+test("a device gets only the kinds it chose, merged; the defaults are everything but lead changes, turnovers on downs and missed field goals", () => {
   const parts = [{ kind: "touchdown", title: "TD BUF", body: "BUF @ NE\nBUF 7, NE 0", tag: "t", styled: true }, { kind: "two-minute", title: "Two-minute warning", body: "x" }];
   assert.equal(forDevice(parts).title, "TD BUF · Two-minute warning");
   assert.equal(forDevice(parts, ["two-minute"]).title, "Two-minute warning");
   assert.equal(forDevice(parts, []), undefined);
   const all = NOTIFY_KINDS.flatMap(([, kinds]) => Object.keys(kinds));
-  assert.deepEqual(all.filter((k) => !DEFAULT_KINDS.includes(k)), ["lead-change", "turnover", "downs", "missed-fg"]);
+  assert.deepEqual(all.filter((k) => !DEFAULT_KINDS.includes(k)), ["lead-change", "downs", "missed-fg"]);
 });

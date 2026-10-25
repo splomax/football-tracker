@@ -1,17 +1,18 @@
 // What happened in a game, as notifications: scores (and how each touchdown's try went, and whether a score changed
-// the lead), turnovers, turnovers on downs and missed field goals (from how ESPN says each drive ended), two-minute
+// the lead), turnovers (from ESPN's play-by-play), turnovers on downs and missed field goals (from how ESPN says each
+// drive ended), two-minute
 // warnings, and the start and end of each quarter. Every one carries the score. No browser APIs here: it
 // runs in the program on Cloudflare (worker/scorekeeper.js), and the tests (worker/alerts.test.js) drive it directly.
 //
 // Each event has a fixed name: "score:<ESPN's id for the scoring play>", "try:<id>", "start-3", "end-2", "two-minute-4",
-// "drive:<id>", "final". The game's memo lists the names already sent, and the program saves the memo, so after a restart nothing
+// "drive:<id>", "turnover:<play id>", "final". The game's memo lists the names already sent, and the program saves the memo, so after a restart nothing
 // is sent twice or lost: whatever hasn't been sent yet still goes out.
 
 const TRY_GIVE_UP_MS = 4 * 60_000;  // after a touchdown, how long to watch for how its try went
 const TRY_RESULTS = { "missed-pat": "Missed PAT", "two-point": "2-pt conversion", "failed-two-point": "Failed 2-pt" };
 const SCORE_NAMES = { "field-goal": "field goal", safety: "safety" };
 const DRIVES_STALE_MS = 60_000;  // drives last seen longer ago than this are caught up silently, not sent
-const CALLED_BACK_MS = 10 * 60_000;  // how long after a score to watch for it being called back
+const CALLED_BACK_MS = 10 * 60_000;  // how long after a score or turnover to watch for it being called back
 
 /**
  * Every kind of notification, in the order Notification settings (js/notify-settings.js) list them, grouped. Each notification
@@ -26,8 +27,8 @@ export const NOTIFY_KINDS = [
     "two-minute": "Two-minute warning", final: "Final" }],
 ];
 
-/** What every device gets until an admin chooses otherwise: everything but the newer kinds. */
-export const DEFAULT_KINDS = ["touchdown", "field-goal", "safety", "missed-pat", "two-point", "failed-two-point",
+/** What every device gets until it chooses otherwise (js/notify-settings.js). */
+export const DEFAULT_KINDS = ["touchdown", "field-goal", "safety", "missed-pat", "two-point", "failed-two-point", "turnover",
   "kickoff", "quarter-start", "quarter-end", "halftime", "two-minute", "final"];
 
 /**
@@ -110,6 +111,7 @@ export function gameAlerts(prev, g, memo, now = Date.now()) {
   }
 
   if (g.scoringPlays) scoringAlerts(g, memo, sent, now, add, styled);
+  if (g.plays?.length) turnoverAlerts(g, memo, sent, now, styled);
   if (g.drives) driveAlerts(g, memo, sent, now, styled);
 
   // The 2nd and 4th quarters' clock running past 2:00 (the NFL's two-minute warning, and college's two-minute timeout).
@@ -212,12 +214,47 @@ function scoringAlerts(g, memo, sent, now, add, styled) {
   else delete memo.scored;
 }
 
-// How each drive ended (js/espn.js fetchSummary): an interception or lost fumble, a turnover on downs, or a missed field
-// goal. The first drives seen, and drives after a gap with none seen (the program fetches them only for belled games,
+// Turnovers, from ESPN's play types (js/espn.js fetchSummary plays): an interception or a lost fumble (a returner's on
+// a punt or kickoff too), returned for a touchdown or not, as soon as the play is logged. One wiped out by a penalty is logged as a "Penalty" play, and one
+// overturned on review turns into the play it really was ("Sack", "Rush"), so neither counts; one sent and then turned
+// into something else (or gone) within CALLED_BACK_MS gets a notification saying it was called back. The first plays
+// seen, and plays after a gap with none seen, are caught up silently, as drives are (driveAlerts).
+const TURNOVER = /interception|fumble recovery \(opponent\)|opp fumble recovery|fumble return/i;
+const isTurnover = (p) => TURNOVER.test(p.type ?? "");
+
+function turnoverAlerts(g, memo, sent, now, styled) {
+  const fresh = memo.playsAt !== undefined && now - memo.playsAt <= DRIVES_STALE_MS;
+  memo.playsAt = now;
+  const byId = new Map(g.plays.map((p) => [p.id, p]));
+  const watching = { ...memo.turnovers };  // sent turnovers that could still be called back: id -> { at, side, what }
+  for (const [id, w] of Object.entries(watching)) {
+    if (now - w.at > CALLED_BACK_MS) { delete watching[id]; continue; }
+    if (byId.has(id) && isTurnover(byId.get(id))) continue;
+    delete watching[id];
+    const t = g[w.side];  // the team that lost it gets it back
+    styled("turnover", `${w.what} called back · ${nameOf(t)} ball`, t, g, `${g.key}:turnover-back:${id}`);
+  }
+  for (const p of g.plays) {
+    if (!isTurnover(p) || sent.has(`turnover:${p.id}`)) continue;
+    sent.add(`turnover:${p.id}`);
+    if (!fresh) continue;
+    // Who has it now: the team with the ball after the play (on a punt or kickoff that's the kicking team, which also
+    // started it), else the other side.
+    const [lost, got] = [g.home, g.away].some((t) => t.id === p.endTeamId)
+      ? (p.endTeamId === g.home.id ? [g.away, g.home] : [g.home, g.away])
+      : (p.teamId === g.home.id ? [g.home, g.away] : [g.away, g.home]);
+    const what = /interception/i.test(p.type) ? "Interception" : "Fumble";
+    // Returned for a touchdown: the touchdown's own notification comes with it ("Interception · TD Falcons").
+    styled("turnover", p.scoring || /touchdown/i.test(p.type) ? what : `${what} · ${nameOf(got)} ball`, got, g, `${g.key}:turnover:${p.id}`);
+    watching[p.id] = { at: now, side: lost === g.home ? "home" : "away", what };
+  }
+  if (Object.keys(watching).length) memo.turnovers = watching;
+  else delete memo.turnovers;
+}
+
+// How each drive ended (js/espn.js fetchSummary): a turnover on downs, or a missed field goal. The first drives seen, and drives after a gap with none seen (the program fetches them only for belled games,
 // so a bell lit later mustn't bring up old ones), are caught up silently.
 const DRIVE_RESULTS = [
-  [/^INT/, "turnover", (o, d) => `Interception · ${nameOf(d)} ball`],
-  [/^FUMBLE/, "turnover", (o, d) => `Fumble · ${nameOf(d)} ball`],
   [/^DOWNS$/, "downs", (o, d) => `Turnover on downs · ${nameOf(d)} ball`],
   [/^(MISSED|BLOCKED) FG/, "missed-fg", (o) => `Missed FG ${nameOf(o)}`],
 ];
@@ -318,10 +355,13 @@ export function sampleAlert(g, kind) {
       break;
     }
     case "turnover":
+      memo.playsAt = Date.now();
+      now = { ...base, plays: [{ id: "sample", type: "Pass Interception Return", teamId: g.home.id }] };
+      break;
     case "downs":
     case "missed-fg":
       memo.drivesAt = Date.now();
-      now = { ...base, drives: [{ id: "sample", teamId: g.home.id, result: { turnover: "INT", downs: "DOWNS", "missed-fg": "MISSED FG" }[kind] }] };
+      now = { ...base, drives: [{ id: "sample", teamId: g.home.id, result: { downs: "DOWNS", "missed-fg": "MISSED FG" }[kind] }] };
       break;
     case "field-goal":
       now = { ...base, scoringPlays: play("field-goal", 3, `${who} 42 Yd Field Goal (sample)`) };

@@ -41,7 +41,7 @@ function yardsToGoal(s, possession, home, away) {
  * ESPN's game detail for g: its scoring plays so far, oldest first ([{ id, kind ("touchdown", "field-goal", "safety"...),
  * teamId, text, awayScore, homeScore }], each with the score it left; a touchdown's text grows the try's result, "(Cam
  * Little Kick)" or "(... PAT failed)", once it's in), for notifications (js/alerts.js, worker/scorekeeper.js); and its
- * latest play, for freshen().
+ * latest play, for freshen(); and every play's type, for turnovers.
  */
 export async function fetchSummary(g) {
   const [league, id] = g.key.split(":");
@@ -49,12 +49,17 @@ export async function fetchSummary(g) {
   const all = [...(d.drives?.previous ?? []), ...(d.drives?.current ? [d.drives.current] : [])];
   const plays = all.flatMap((x) => x.plays ?? []);
   const latest = plays.at(-1) ?? null;
+  // Every play once (the current drive repeats the last of the previous ones), for turnovers (js/alerts.js
+  // turnoverAlerts): its id, ESPN's type ("Rush", "Pass Interception Return"...), the teams with the ball before and
+  // after it, and whether it scored.
+  const playList = [...new Map(plays.map((p) => [String(p.id), { id: String(p.id), type: p.type?.text, teamId: String(p.start?.team?.id ?? ""),
+    endTeamId: String(p.end?.team?.id ?? ""), scoring: !!p.scoringPlay }])).values()];
   const scoringPlays = (d.scoringPlays ?? []).map((p) => ({ id: String(p.id), kind: p.scoringType?.name, teamId: String(p.team?.id), text: p.text,
     awayScore: Number(p.awayScore), homeScore: Number(p.homeScore) }));
   // How each finished drive ended ("INT", "FUMBLE", "DOWNS", "MISSED FG", "TD", "PUNT"...). The current drive is also
   // the last of the previous ones, under the same id, and gets its result as soon as it ends.
   const drives = [...new Map(all.filter((x) => x.result).map((x) => [String(x.id), { id: String(x.id), result: x.result, teamId: String(x.team?.id) }])).values()];
-  return { scoringPlays, latest, drives };
+  return { scoringPlays, latest, drives, plays: playList };
 }
 
 /** The game's scoring plays only (fetchSummary). */
