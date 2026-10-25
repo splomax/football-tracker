@@ -29,8 +29,8 @@ export class ScoreKeeper {
     if (wanted && running && wanted !== running) this.ctx.abort("newer code deployed");  // throws; handler.js retries
     const url = new URL(request.url);
     if (request.method === "POST" && url.pathname === "/test") {
-      const { key, kind } = await request.json();
-      return this.test(key, kind);
+      const { key, kind, text } = await request.json();
+      return this.test(key, kind, text);
     }
     if (url.pathname === "/phones") {
       await this.loadPhones();
@@ -105,8 +105,8 @@ export class ScoreKeeper {
     if (gone.length) this.phones = this.phones.filter((p) => !gone.includes(p.subscription.endpoint));
   }
 
-  test(key, kind) {
-    const alert = this.keeper.test(key, kind);
+  test(key, kind, text) {
+    const alert = this.keeper.test(key, kind, text);
     if (!alert) return Response.json({ ok: false }, { status: 404 });
     // Pages pick it up with their next update (only admins' pages ask the program); admins' phones (and testers', set by
     // hand: worker/phones.js) whose bells include the game get it pushed, a little later. A test follows the bells like a real notification, so it shows exactly

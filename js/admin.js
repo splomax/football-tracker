@@ -98,10 +98,10 @@ async function scoresFromServer() {
   return body;
 }
 
-// The admin's test button: a notification for this game through the program (a plain test, or a sample of one kind,
-// js/alerts.js SAMPLE_KINDS), then an update right away to get it.
-async function testAlert(key, kind) {
-  const ok = await workerText(`${ADMIN_URL}/test-alert`, { method: "POST", headers: { Authorization: `Bearer ${store.get("adminToken")}`, "Content-Type": "application/json" }, body: JSON.stringify({ key, kind }) });
+// The admin's test button: a notification for this game through the program (a plain test, a sample of one kind,
+// js/alerts.js SAMPLE_KINDS, or custom text), then an update right away to get it.
+async function testAlert(key, kind, text) {
+  const ok = await workerText(`${ADMIN_URL}/test-alert`, { method: "POST", headers: { Authorization: `Bearer ${store.get("adminToken")}`, "Content-Type": "application/json" }, body: JSON.stringify({ key, kind, text }) });
   if (typeof ok === "string") pollNow();
 }
 

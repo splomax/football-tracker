@@ -149,8 +149,10 @@ test("a token sends a game a test notification through the program", async () =>
   assert.equal((await api("POST", "/api/test-alert", token, JSON.stringify({ key: "cfb:1", kind: "halftime" }), withScores)).status, 200);
   assert.equal(SCORES.asked[1].body, JSON.stringify({ key: "cfb:1", kind: "halftime" }));
   assert.equal((await api("POST", "/api/test-alert", token, JSON.stringify({ key: "cfb:1", kind: "bogus" }), withScores)).status, 400);
+  assert.equal((await api("POST", "/api/test-alert", token, JSON.stringify({ key: "cfb:1", kind: "custom", text: "Hi" }), withScores)).status, 200);
+  assert.equal((await api("POST", "/api/test-alert", token, JSON.stringify({ key: "cfb:1", kind: "custom", text: " " }), withScores)).status, 400);
   assert.equal((await api("POST", "/api/test-alert", null, JSON.stringify({ key: "cfb:1" }), withScores)).status, 401);
-  assert.equal(SCORES.asked.length, 2);
+  assert.equal(SCORES.asked.length, 3);
 });
 
 test("every request to the program carries the deployed version, and one an outdated program refuses is tried again", async () => {

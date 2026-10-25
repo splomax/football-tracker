@@ -19,7 +19,7 @@ async function open(page, opts = {}) {
   const state = { cfb: opts.cfb ?? cfbGames(), nfl: opts.nfl ?? nflGames(), hits: 0, espnRequests: 0, adminRequests: 0, gate: opts.gate,
     visits: { weekly: 12, monthly: 345, total: 6789 }, visitsRequests: 0,
     recaps: new Set(opts.recaps ?? ["7", "8"]), summaryRequests: {}, failScoreboards: opts.failScoreboards ?? 0,
-    scores: opts.scores, scoresAsks: 0, sinces: [], testAlerts: [], testKinds: [], pushPosts: [] };
+    scores: opts.scores, scoresAsks: 0, sinces: [], testAlerts: [], testKinds: [], testTexts: [], pushPosts: [] };
   await page.route("https://site.api.espn.com/**", async (route) => {
     const id = route.request().url().match(/summary\?event=(\w+)/)?.[1];
     if (id) {
@@ -68,9 +68,10 @@ async function open(page, opts = {}) {
       return route.fulfill({ json: { ok: true }, headers });
     }
     if (req.url().endsWith("/test-alert") && req.method() === "POST" && auth === `Bearer ${ADMIN_TOKEN}`) {
-      const { key, kind } = JSON.parse(req.postData());
+      const { key, kind, text } = JSON.parse(req.postData());
       state.testAlerts.push(key);
       state.testKinds.push(kind ?? null);
+      if (text) state.testTexts.push(text);
       return route.fulfill({ json: { ok: true }, headers });
     }
     return route.fulfill({ status: 401, body: "Nope", headers });
@@ -655,13 +656,30 @@ test.describe("notifications", () => {
     const chooser = card(page, "cfb:77").locator(".test-kind");
     await expect(chooser).toHaveCSS("opacity", "1");
     expect(await chooser.locator("option").allTextContents()).toEqual(["Test", "Touchdown", "Missed PAT", "2-pt conversion", "Failed 2-pt", "Field goal", "Lead change",
-      "Interception", "Turnover on downs", "Missed field goal", "Two-minute warning", "Kickoff", "Start of quarter", "End of quarter", "Halftime", "Final"]);
+      "Interception", "Turnover on downs", "Missed field goal", "Two-minute warning", "Kickoff", "Start of quarter", "End of quarter", "Halftime", "Final", "Custom text…"]);
     await chooser.selectOption("halftime");
     await card(page, "cfb:77").hover();
     await card(page, "cfb:77").locator(".test-alert").click();
     await expect.poll(() => state.testKinds).toEqual(["halftime"]);
     await page.reload();
     await expect(card(page, "cfb:77").locator(".test-kind")).toHaveValue("halftime");
+  });
+
+  test("Custom text… asks for the notification's text, starting from the last one sent; cancelling sends nothing", async ({ page }) => {
+    await fakeNotifications(page, "granted", "granted");
+    const state = await open(page, { query: "?admin", scores: withAlerts([]), storage: { ...admin, selected: ["cfb:77"], testKind: "custom" } });
+    await expect(card(page, "cfb:77")).toBeAttached();
+    const answers = ["Go Illini", null];
+    const defaults = [];
+    page.on("dialog", (d) => { defaults.push(d.defaultValue()); const a = answers.shift(); a ? d.accept(a) : d.dismiss(); });
+    for (let i = 0; i < 2; i++) {
+      await card(page, "cfb:77").hover();
+      await card(page, "cfb:77").locator(".test-alert").click();
+      await expect.poll(() => defaults.length).toBe(i + 1);
+    }
+    expect(defaults).toEqual(["", "Go Illini"]);
+    expect(state.testTexts).toEqual(["Go Illini"]);
+    expect(state.testKinds).toEqual(["custom"]);
   });
 
   test("each card's paper plane sends that game a test notification through the program, and updates right away", async ({ page }) => {

@@ -126,13 +126,14 @@ export class ScoreKeeper {
 
   /**
    * The admin's test button: a notification for this game, sent the same way as real ones (to lit bells only): a sample of
-   * `kind` (js/alerts.js SAMPLE_KINDS, for styling them) or, by default, a plain test. Returns it (the Durable Object
+   * `kind` (js/alerts.js SAMPLE_KINDS, for styling them), kind "custom" with `text` as its title, or, by default, a plain test. Returns it (the Durable Object
    * also pushes it to phones, worker/scorekeeper-object.js), or null for a game it doesn't know.
    */
-  test(key, kind = "test") {
+  test(key, kind = "test", text = "") {
     const g = [...this.games.cfb, ...this.games.nfl].find((x) => x.key === key);
     if (!g) return null;
-    const sample = sampleAlert(g, kind) ?? { title: "Test notification", body: `${scoreLine(g)}\nSent through the Game Tracker server` };
+    const sample = kind === "custom" ? { title: text, body: scoreLine(g) }
+      : sampleAlert(g, kind) ?? { title: "Test notification", body: `${scoreLine(g)}\nSent through the Game Tracker server` };
     this.add({ key, ...sample, test: true });
     return this.alerts.at(-1);
   }

@@ -32,7 +32,7 @@ export function install(appApi) {
     cardExtras: (g) => testButton(g) + kindChooser(g),
     onBoardClick(e) {
       const testKey = e.target.closest("[data-test-alert]")?.dataset.testAlert;
-      if (testKey) { app.testAlert(testKey, app.store.get("testKind", "test")); return true; }
+      if (testKey) { sendTest(testKey); return true; }
       return false;
     },
   };
@@ -75,11 +75,22 @@ const PLANE = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" strok
   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg>`;
 
 // Which kind the test button sends, remembered; a native dropdown drawn as a chevron. Choosing lets go of it, so the
-// board's redraws (which wait while it's open, js/board.js) carry on.
+// board's redraws (which wait while it's open, js/board.js) carry on. Last, "Custom text…": the plane asks for the text.
+const CHOICES = () => ({ ...app.sampleKinds, custom: "Custom text…" });
 function kindChooser(g) {
   const chosen = app.store.get("testKind", "test");
-  const options = Object.entries(app.sampleKinds).map(([kind, label]) => `<option value="${kind}" ${kind === chosen ? "selected" : ""}>${label}</option>`).join("");
-  return `<select class="test-kind" data-game="${g.key}" aria-label="Kind of test notification" title="Kind of test notification: ${app.sampleKinds[chosen]}">${options}</select>`;
+  const options = Object.entries(CHOICES()).map(([kind, label]) => `<option value="${kind}" ${kind === chosen ? "selected" : ""}>${label}</option>`).join("");
+  return `<select class="test-kind" data-game="${g.key}" aria-label="Kind of test notification" title="Kind of test notification: ${CHOICES()[chosen]}">${options}</select>`;
+}
+
+// The paper plane: the chosen kind, or custom text (asked for each time, starting from the last one sent).
+function sendTest(key) {
+  const kind = app.store.get("testKind", "test");
+  if (kind !== "custom") return app.testAlert(key, kind);
+  const text = prompt("Notification text", app.store.get("testText", ""))?.trim();
+  if (!text) return;
+  app.store.set("testText", text);
+  app.testAlert(key, kind, text);
 }
 
 function testButton(g) {
