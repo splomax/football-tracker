@@ -13,3 +13,9 @@
     both.
 5. **Line-by-line code walkthrough.** Go through the code reviewing how readable it is to a person and whether its
     organization is intuitive.
+6. **Don't hold touchdowns for the PAT.** A touchdown's notification now waits until it's confirmed: the try's
+   result is in its text, or another play follows it (js/alerts.js scoringAlerts, p.followed), so in practice it
+   waits for the extra point. Send touchdowns right away instead, and still handle one that's called back.
+7. **Compact view: one column before anything gets cut off.** The 2-column breakpoint (css/board.css, the
+   `.line-grid .live .cards` container queries at 458px) is too narrow: switch to one column whenever two would
+   shorten team names or the down & distance.
