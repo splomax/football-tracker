@@ -22,7 +22,7 @@ const validKinds = (byGame) => !!byGame && typeof byGame === "object" && !Array.
 const validBells = (b) => Array.isArray(b) && b.length <= 500 && b.every((k) => typeof k === "string" && k.length < 40);
 
 /**
- * Save a phone (or update it). An admin's device keeps the kinds it chose (sent along, or saved before); a tester keeps
+ * Save a phone (or update it). It keeps the kinds it chose for each game (sent along, or saved before); a tester keeps
  * being one (set by hand in KV: "tester": true, so the admin's test notifications reach it too). False if what was sent
  * isn't a subscription and list of bells.
  */
@@ -31,19 +31,19 @@ export async function savePhone(kv, subscription, bells, now = Date.now(), admin
   const { endpoint, keys } = subscription;
   const key = await keyFor(endpoint);
   const old = await kv.get(key, "json");
-  const chosen = admin ? (validKinds(kinds) ? kinds : old?.kinds) : undefined;
+  const chosen = validKinds(kinds) ? kinds : old?.kinds;
   await kv.put(key, JSON.stringify({ subscription: { endpoint, keys: { p256dh: keys.p256dh, auth: keys.auth } }, bells, public: !admin,
     ...(chosen && { kinds: chosen }), ...(old?.tester && { tester: true }), at: now }));
   return true;
 }
 
-/** An admin's device choosing which kinds of notification it gets for each game ({ key: kinds }). False if the phone isn't saved (or bad kinds). */
+/** A device choosing which kinds of notification it gets for each game ({ key: kinds }). False if the phone isn't saved (or bad kinds). */
 export async function setKinds(kv, endpoint, kinds, now = Date.now()) {
   if (typeof endpoint !== "string" || !validKinds(kinds)) return false;
   const key = await keyFor(endpoint);
   const phone = await kv.get(key, "json");
   if (!phone) return false;
-  await kv.put(key, JSON.stringify({ ...phone, kinds, public: false, at: now }));
+  await kv.put(key, JSON.stringify({ ...phone, kinds, at: now }));
   return true;
 }
 

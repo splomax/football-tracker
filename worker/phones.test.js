@@ -46,7 +46,7 @@ test("a phone is saved with its bells, can change them, and can be removed; junk
   assert.deepEqual(await listPhones(kv), []);
 });
 
-test("an admin's device keeps the kinds it chose for each game; everyone else's never have any", async () => {
+test("a device keeps the kinds it chose for each game, admin or not, and stays public or not", async () => {
   const kv = fakeKv();
   await savePhone(kv, sub(1), ["cfb:1"], 1, true, { "cfb:1": ["touchdown"] });
   assert.deepEqual((await listPhones(kv))[0].kinds, { "cfb:1": ["touchdown"] });
@@ -55,7 +55,9 @@ test("an admin's device keeps the kinds it chose for each game; everyone else's 
   await savePhone(kv, sub(1), ["cfb:2"], 3, true);  // subscribing again without kinds keeps them
   assert.deepEqual((await listPhones(kv))[0].kinds, { "cfb:2": ["turnover", "final"] });
   await savePhone(kv, sub(2), [], 4, false, { "cfb:1": ["touchdown"] });
-  assert.equal((await listPhones(kv)).find((p) => p.subscription.endpoint === sub(2).endpoint).kinds, undefined);
+  await setKinds(kv, sub(2).endpoint, { "cfb:1": ["final"] });
+  const visitor = (await listPhones(kv)).find((p) => p.subscription.endpoint === sub(2).endpoint);
+  assert.deepEqual([visitor.kinds, visitor.public], [{ "cfb:1": ["final"] }, true]);  // still not an admin's (no tests)
   assert.equal(await setKinds(kv, sub(3).endpoint, { "cfb:1": ["final"] }), false);  // not saved
   assert.equal(await setKinds(kv, sub(1).endpoint, ["final"]), false);  // by game, not one list
   assert.equal(await setKinds(kv, sub(1).endpoint, { "cfb:1": "final" }), false);

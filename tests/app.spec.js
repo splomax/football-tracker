@@ -616,10 +616,10 @@ test.describe("notifications", () => {
       serverGame("cfb:78", serverTeam("194", "OSU", "24"), serverTeam("2294", "IOWA", "6"))] },
     alerts: since == null ? [] : alerts.map((a, i) => ({ id: i + 1, at: 0, ...a })).filter((a) => a.id > Number(since)) });
 
-  test("an admin chooses each rung game's kinds of notification from its card, sent with the subscription and on each change; others can't", async ({ page }) => {
+  test("with ?notification-settings (or as an admin), each rung game's kinds of notification are chosen from its card, sent on each change", async ({ page }) => {
     await fakeNotifications(page, "granted", "granted");
     await fakePush(page);
-    const state = await open(page, { query: "?admin", storage: { ...admin, selected: ["cfb:2", "cfb:5"] } });
+    const state = await open(page, { query: "?notification-settings", storage: { selected: ["cfb:2", "cfb:5"] } });
     await expect(card(page, "cfb:2").locator(".notify-kinds")).toBeHidden();  // only while the bell is on
     await card(page, "cfb:2").hover();
     await card(page, "cfb:2").locator(".bell").click();
@@ -637,9 +637,13 @@ test.describe("notifications", () => {
     expect(kinds["cfb:2"]).toContain("turnover");
     expect(kinds["cfb:2"]).not.toContain("kickoff");
     await expect.poll(() => state.pushPosts.at(-1)).toEqual({ path: "kinds", body: { endpoint: "https://web.push.apple.com/phone", kinds } });
-    await page.goto("/");  // without ?admin
+    await page.goto("/");  // without it
     await card(page, "cfb:2").hover();
     await expect(page.locator(".notify-kinds")).toHaveCount(0);
+    await page.evaluate((token) => localStorage.setItem("adminToken", JSON.stringify(token)), admin.adminToken);
+    await page.goto("/?admin");  // admins always get them
+    await card(page, "cfb:2").hover();
+    await expect(card(page, "cfb:2").locator(".notify-kinds")).toBeAttached();
   });
 
   test("beside the paper plane, a chooser picks which kind of notification it sends; the choice is remembered", async ({ page }) => {

@@ -85,11 +85,11 @@ export class ScoreKeeper {
     if (!this.phones) await this.loadPhones();
     for (const a of fresh) {
       if (a.test) continue;  // the test button sends those itself (test())
-      // Each device gets the kinds it chose for this game (admins only; everyone else the defaults), so devices choosing alike get
+      // Each device gets the kinds it chose for this game (js/notify-settings.js; otherwise the defaults), so devices choosing alike get
       // the same notification together.
       const byKinds = new Map();
       for (const p of this.phones.filter((x) => x.bells.includes(a.key))) {
-        const kinds = p.kinds && !Array.isArray(p.kinds) ? p.kinds[a.key] : undefined;  // chosen for this game, by an admin
+        const kinds = p.kinds && !Array.isArray(p.kinds) ? p.kinds[a.key] : undefined;  // chosen for this game
         const id = JSON.stringify(kinds ?? null);
         byKinds.set(id, [...(byKinds.get(id) ?? []), p]);
       }

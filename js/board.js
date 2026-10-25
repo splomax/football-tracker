@@ -8,6 +8,7 @@ import { recapUrl } from "./recap.js";
 import { isListView } from "./view.js";
 import { statsOn, statsFor, short } from "./stats.js";
 import { bellButton, onBoardBell } from "./notify.js";
+import { kindsButton, onBoardKinds } from "./notify-settings.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -166,7 +167,7 @@ function card(g) {
           ? `<div class="last">${statsLink(g)}${recap ? `<a class="recap" href="${escapeAttr(recap)}" target="_blank" rel="noopener">Recap ↗</a>` : ""}</div>`
           : `<div class="last">&nbsp;</div>`}
       ${g.network ? `<span class="net" title="Broadcast on ${escapeAttr(g.network)}">${g.network}</span>` : ""}
-      ${admin.cardExtras(g)}${bellButton(g)}
+      ${admin.cardExtras(g)}${kindsButton(g)}${bellButton(g)}
       <button class="remove" data-remove="${g.key}" aria-label="Remove game" title="Remove game">✕</button>
     </div>
     ${live && g.lastPlay && openPlay === g.key ? `<div class="last-full" data-play="${g.key}">${g.lastPlay}</div>` : ""}
@@ -183,7 +184,7 @@ function lineCard(g) {
     <div class="clock">${statusLines(g).replace("<br>", " ")}${recap || statsLink(g) ? `<span class="line-links">${statsLink(g)}${recap
       ? `<a class="recap" href="${escapeAttr(recap)}" target="_blank" rel="noopener">Recap ↗</a>` : ""}</span>` : ""}</div>
     <span class="net" ${g.network ? `title="Broadcast on ${escapeAttr(g.network)}"` : ""}>${g.network}</span>
-    <span class="line-tools">${admin.cardExtras(g)}${bellButton(g)}<button class="remove" data-remove="${g.key}" aria-label="Remove game" title="Remove game">✕</button></span>
+    <span class="line-tools">${admin.cardExtras(g)}${kindsButton(g)}${bellButton(g)}<button class="remove" data-remove="${g.key}" aria-label="Remove game" title="Remove game">✕</button></span>
     <div class="dd">${g.state === "in" && g.ddText ? g.ddText : ""}</div>
     ${statsBar(g)}
   </div>`;
@@ -257,7 +258,7 @@ export function initBoard({ onSelectionChanged }) {
   $("board").addEventListener("mouseover", (e) => hover(e.target.closest(".card")?.dataset.key ?? null));
   $("board").addEventListener("mouseleave", () => hover(null));
   $("board").addEventListener("click", (e) => {
-    if (onBoardBell(e) || admin.onBoardClick(e)) return;
+    if (onBoardBell(e) || onBoardKinds(e) || admin.onBoardClick(e)) return;
     const stats = e.target.closest("[data-stats]")?.dataset.stats;
     if (stats) {
       openStats.has(stats) ? openStats.delete(stats) : openStats.add(stats);

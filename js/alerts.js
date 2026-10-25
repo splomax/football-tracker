@@ -14,7 +14,7 @@ const DRIVES_STALE_MS = 60_000;  // drives last seen longer ago than this are ca
 const REVIEW_MS = 2 * 60_000;  // a score not confirmed after this long is said to be under review
 
 /**
- * Every kind of notification, in the order the admin's Notification settings list them, grouped. Each notification
+ * Every kind of notification, in the order Notification settings (js/notify-settings.js) list them, grouped. Each notification
  * names its kind; a device gets the kinds it chose (worker/phones.js), or DEFAULT_KINDS. A lead change rides on the
  * score that made it ("TD Cardinals · Lead change") and also lets that score through on its own.
  */

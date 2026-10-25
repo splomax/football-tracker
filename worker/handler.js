@@ -12,8 +12,8 @@
 //   POST /api/push/subscribe    Authorization: Bearer <token>, { subscription, bells }  ->  a phone turning on notifications
 //   POST /api/push/bells        Authorization: Bearer <token>, { endpoint, bells }      ->  a phone's lit bells changed
 //   POST /api/push/unsubscribe  Authorization: Bearer <token>, { endpoint }             ->  a phone turning them off
-//   POST /api/push/kinds        Authorization: Bearer <token>, { endpoint, kinds }      ->  an admin's device choosing
-//                               which kinds of notification it gets (admins only; the others get the defaults)
+//   POST /api/push/kinds        { endpoint, kinds }  ->  a device choosing which kinds of notification it gets for each
+//                               game (js/notify-settings.js; a game never set gets the defaults)
 //   POST /api/wake  ->  starts the program on freshly deployed code (scripts/deploy.sh), as the every-minute nudge
 //                       would; open to anyone, since it only restarts a schedule that's already due
 //   anything else       the site's files; www. redirects to the bare domain
@@ -92,7 +92,6 @@ export async function handle(request, env, code, now = Date.now()) {
   if (route.startsWith("POST /api/push/")) {
     const admin = !!given && (await validToken(given, env.ADMIN_PASSWORD, now));
     const body = await request.json().catch(() => ({}));
-    if (route === "POST /api/push/kinds" && !admin) return reply("Unauthorized", 401);
     const ok = route === "POST /api/push/subscribe" ? await savePhone(env.PUSH, body.subscription, body.bells, now, admin, body.kinds)
       : route === "POST /api/push/kinds" ? await setKinds(env.PUSH, body.endpoint, body.kinds, now)
       : route === "POST /api/push/bells" ? await setBells(env.PUSH, body.endpoint, body.bells, now, admin)
