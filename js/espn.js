@@ -78,6 +78,16 @@ const NTH = ["1st", "2nd", "3rd", "4th"];
 export function freshen(g, latest) {
   if (!latest?.clock || g.state === "post") return g;
   const period = latest.period?.number, clock = latest.clock.displayValue;
+  // The scoreboard can sit at "End of 4th" long after the final whistle (seen live: USC @ Wisconsin, still in progress 6
+  // minutes after the play-by-play's "End of Game"). Only a tie can go on: to overtime, except an NFL overtime ending tied.
+  const tied = latest.awayScore === latest.homeScore;
+  if (/^end of game$/i.test(latest.type?.text ?? "") && (!tied || (g.key.startsWith("nfl:") && period > 4))) {
+    Object.assign(g, { state: "post", period, clock: "0:00", detail: period > 5 ? `Final/${period - 4}OT` : period === 5 ? "Final/OT" : "Final",
+      possession: undefined, yardLine: undefined, distance: undefined, ddText: undefined, redZone: false, lastPlay: latest.text ?? g.lastPlay });
+    g.away = { ...g.away, score: String(latest.awayScore ?? g.away.score) };
+    g.home = { ...g.home, score: String(latest.homeScore ?? g.home.score) };
+    return g;
+  }
   const ahead = progress(period, clock) - (g.state === "in" ? progress(g.period, g.clock) : -Infinity);
   const morePoints = (latest.awayScore ?? 0) + (latest.homeScore ?? 0) - (Number(g.away.score) || 0) - (Number(g.home.score) || 0);
   if (ahead < 0 || morePoints < 0 || (ahead === 0 && morePoints === 0)) return g;  // the scoreboard is as far along

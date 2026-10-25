@@ -40,6 +40,18 @@ test("a tie keeps the scoreboard's: college overtime has no clock, and a stale p
   assert.equal(freshen(game({ period: 5, clock: "0:00", detail: "OT" }), play(5, "0:00", 6, 0)).away.score, "6");
 });
 
+test("the play-by-play's End of Game makes a game final while the scoreboard still says End of 4th", () => {
+  const end = (period, away, home) => play(period, "0:00", away, home, { type: { text: "End of Game" }, text: "End of 4th quarter.", end: {} });
+  // Seen live: USC @ Wisconsin, 7-24, in progress on the scoreboard 6 minutes after the final whistle.
+  const g = freshen(game({ period: 4, clock: "0:00", detail: "End of 4th Quarter" }), end(4, 7, 24));
+  assert.deepEqual([g.state, g.detail, g.away.score, g.home.score, g.possession], ["post", "Final", "7", "24", undefined]);
+  assert.equal(freshen(game({ period: 5, clock: "0:00", detail: "OT" }), end(5, 13, 6)).detail, "Final/OT");
+  assert.equal(freshen(game({ period: 7, clock: "0:00", detail: "3OT" }), end(7, 21, 19)).detail, "Final/3OT");
+  // Tied: overtime is next, except after an NFL overtime.
+  assert.equal(freshen(game({ period: 4, clock: "0:00" }), end(4, 17, 17)).state, "in");
+  assert.equal(freshen(game({ key: "nfl:1", period: 5, clock: "0:00" }), end(5, 20, 20)).state, "post");
+});
+
 test("a finished game, or no play-by-play yet, keeps the scoreboard's", () => {
   assert.equal(freshen(game({ state: "post", detail: "Final" }), play(4, "0:00", 30, 20)).away.score, "0");
   assert.equal(freshen(game(), null).clock, "13:11");
