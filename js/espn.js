@@ -39,8 +39,8 @@ function yardsToGoal(s, possession, home, away) {
 
 /**
  * ESPN's game detail for g: its scoring plays so far, oldest first ([{ id, kind ("touchdown", "field-goal", "safety"...),
- * teamId, text, awayScore, homeScore, followed }], each with the score it left and whether another play has followed it
- * yet; a touchdown's text grows the try's result, "(Cam Little Kick)" or "(... PAT failed)", once it's in), for notifications (js/alerts.js, worker/scorekeeper.js); and its
+ * teamId, text, awayScore, homeScore }], each with the score it left; a touchdown's text grows the try's result, "(Cam
+ * Little Kick)" or "(... PAT failed)", once it's in), for notifications (js/alerts.js, worker/scorekeeper.js); and its
  * latest play, for freshen().
  */
 export async function fetchSummary(g) {
@@ -49,12 +49,8 @@ export async function fetchSummary(g) {
   const all = [...(d.drives?.previous ?? []), ...(d.drives?.current ? [d.drives.current] : [])];
   const plays = all.flatMap((x) => x.plays ?? []);
   const latest = plays.at(-1) ?? null;
-  // Each play once, in order (the current drive repeats the last of the previous ones), for whether the game has moved on
-  // past a scoring play: once another play follows it (the kickoff, the end of the quarter), it's confirmed.
-  const order = [...new Set(plays.map((p) => String(p.id)))];
-  const followed = (id) => order.includes(id) && order.indexOf(id) < order.length - 1;
   const scoringPlays = (d.scoringPlays ?? []).map((p) => ({ id: String(p.id), kind: p.scoringType?.name, teamId: String(p.team?.id), text: p.text,
-    awayScore: Number(p.awayScore), homeScore: Number(p.homeScore), followed: followed(String(p.id)) }));
+    awayScore: Number(p.awayScore), homeScore: Number(p.homeScore) }));
   // How each finished drive ended ("INT", "FUMBLE", "DOWNS", "MISSED FG", "TD", "PUNT"...). The current drive is also
   // the last of the previous ones, under the same id, and gets its result as soon as it ends.
   const drives = [...new Map(all.filter((x) => x.result).map((x) => [String(x.id), { id: String(x.id), result: x.result, teamId: String(x.team?.id) }])).values()];
