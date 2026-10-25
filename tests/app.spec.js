@@ -269,34 +269,33 @@ test.describe("Safari keeps the scroll position through refreshes @webkit", () =
   });
 });
 
-test.describe("grid and list views", () => {
-  test("the header button switches everyone's board to one row per game and back, and remembers the choice", async ({ page }) => {
-    // (Desktop starts in grid; phones start in list, in the mobile tests.)
+test.describe("grid and compact views", () => {
+  test("the header button switches everyone's board to compact cards and back, and remembers the choice", async ({ page }) => {
+    // (Desktop starts in grid; phones start in compact, in the mobile tests.)
     await open(page, { storage: { selected: ["cfb:1", "cfb:2", "cfb:7", "cfb:5"] } });
     const toggle = page.locator("#view-toggle");
-    await expect(toggle).toHaveAttribute("aria-label", "Switch to list view");
+    await expect(toggle).toHaveAttribute("aria-label", "Switch to compact view");
     await expect(page.locator("#board .card.line")).toHaveCount(0);
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-label", "Switch to grid view");
     await expect(page.locator("#board .card.line")).toHaveCount(4);
-    // One column, every row the same width (only as wide as needed, not the board's), sections kept.
-    const boxes = await page.locator("#board .card").evaluateAll((cs) => cs.map((c) => c.getBoundingClientRect()).map(({ left, width }) => ({ left, width })));
-    expect(new Set(boxes.map((b) => b.left)).size).toBe(1);
-    expect(new Set(boxes.map((b) => Math.round(b.width))).size).toBe(1);
     await expect(page.locator("#board .board-section")).toHaveText(["Live", "Final", "Upcoming"]);
+    // A wide board fits more than one column: the two live games side by side, the same width.
+    const [a, b] = await Promise.all([card(page, "cfb:1").boundingBox(), card(page, "cfb:2").boundingBox()]);
+    expect(b.x).toBeGreaterThan(a.x + a.width);
+    expect(Math.abs(b.y - a.y)).toBeLessThan(1);
+    expect(Math.abs(b.width - a.width)).toBeLessThan(1);
     const live = card(page, "cfb:1");
     await expect(live).toHaveClass(/redzone/);
     await expect(live.locator(".dd")).toHaveText("3rd & 6 at IOWA 12");
     await expect(page.locator("#board .last")).toHaveCount(0);  // no last play
-    expect(boxes[0].width).toBeLessThan(await page.locator("#board").evaluate((b) => b.clientWidth - 32));
-    // The down & distance is centered under the scores (the "@").
-    const center = (el) => el.evaluate((e) => { const r = e.getBoundingClientRect(); return r.left + r.width / 2; });
-    expect(Math.abs(await center(live.locator(".dd")) - await center(live.locator(".at")))).toBeLessThan(2);
+    // Away over home; the network on the bottom line, at the right.
+    const [away, home] = await Promise.all([live.locator(".team.away").boundingBox(), live.locator(".team.home").boundingBox()]);
+    expect(home.y).toBeGreaterThan(away.y + away.height - 2);
     await expect(card(page, "cfb:7").locator(".net")).toContainText("CBS / Paramount+");
-    // The network sits on the second line, at the left under the away team.
-    const [net, away] = await Promise.all([card(page, "cfb:7").locator(".net").boundingBox(), card(page, "cfb:7").locator(".team.away").boundingBox()]);
-    expect(net.y).toBeGreaterThan(away.y + away.height - 2);
-    expect(Math.abs(net.x - away.x)).toBeLessThan(2);  // same left edge (both pad 12px in from the row's edge)
+    const [net, away7] = await Promise.all([card(page, "cfb:7").locator(".net").boundingBox(), card(page, "cfb:7").locator(".team.home").boundingBox()]);
+    expect(net.y).toBeGreaterThan(away7.y + away7.height - 2);
+    expect(net.x).toBeGreaterThan(away7.x + 50);
     await expect(card(page, "cfb:7").locator(".recap")).toBeAttached();
     await page.reload();
     await expect(page.locator("#board .card.line")).toHaveCount(4);
@@ -305,7 +304,7 @@ test.describe("grid and list views", () => {
     await expect(page.locator("#board .field")).toHaveCount(2);
   });
 
-  test("a list row's ✕ removes the game", async ({ page }) => {
+  test("a compact card's ✕ removes the game", async ({ page }) => {
     await open(page, { storage: { selected: ["cfb:1", "cfb:2"], view: "list" } });
     await card(page, "cfb:2").hover();
     await card(page, "cfb:2").locator(".remove").click();
@@ -1859,7 +1858,7 @@ test.describe("mobile", () => {
     await open(page, { storage: { selected: ["cfb:1", "cfb:2"], pickerOpen: false } });
     await expect(page.locator("#picker-toggle")).toBeVisible();  // the Games bar, not the side panel
     await expect(page.locator("aside")).toHaveClass(/collapsed/);
-    await expect(card(page, "cfb:1")).toHaveClass(/line/);  // phones start in list view
+    await expect(card(page, "cfb:1")).toHaveClass(/line/);  // phones start in compact view
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
 
@@ -1881,7 +1880,7 @@ test.describe("mobile", () => {
     await expect(page.locator("#board .empty .desktop-only")).toBeHidden();
   });
 
-  test("phones start in list view until the viewer picks grid", async ({ page }) => {
+  test("phones start in compact view until the viewer picks grid", async ({ page }) => {
     await open(page, { storage: { selected: ["cfb:1"], pickerOpen: false } });
     await expect(card(page, "cfb:1")).toHaveClass(/line/);
     await page.locator("#view-toggle").click();
@@ -1890,12 +1889,13 @@ test.describe("mobile", () => {
     await expect(card(page, "cfb:1")).not.toHaveClass(/line/);  // the choice sticks
   });
 
-  test("list view has no horizontal scrolling, and stacks away over home", async ({ page }) => {
+  test("compact view is one column with no horizontal scrolling, and stacks away over home", async ({ page }) => {
     await open(page, { storage: { selected: ALL_CFB, pickerOpen: false, view: "list" } });
     await expect(page.locator("#board .card.line").first()).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     const [away, home] = await card(page, "cfb:1").locator(".team").evaluateAll((ts) => ts.map((t) => t.getBoundingClientRect().top));
     expect(home).toBeGreaterThan(away);
+    expect(new Set(await page.locator("#board .card.line").evaluateAll((cs) => cs.map((c) => c.getBoundingClientRect().left))).size).toBe(1);
   });
 
   test("no horizontal scrolling and team names fit on cards", async ({ page }) => {

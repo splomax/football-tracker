@@ -1,6 +1,6 @@
-// Grid or list view for the board, switched by the header button and remembered in this browser. Grid is the cards;
-// list is one row per game (js/board.js lineCard, css/board.css .card.line). Until the viewer picks, phones get list
-// and everything else grid. Phones also get a "List view" switch in the gear menu, which stays in reach.
+// Grid or compact view for the board, switched by the header button and remembered in this browser. Grid is the cards;
+// compact is a small card per game, as many columns as fit (js/board.js lineCard, css/board.css .card.line). Until the
+// viewer picks, phones get compact and everything else grid. Saved as "list", its old name, so choices made then stick.
 
 import { store } from "./store.js";
 import { MOBILE_QUERY } from "./config.js";
@@ -8,7 +8,7 @@ import { MOBILE_QUERY } from "./config.js";
 const $ = (id) => document.getElementById(id);
 const ICONS = {  // each shows the view the button switches to
   grid: `<path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/>`,
-  list: `<path d="M4 6h16M4 12h16M4 18h16"/>`,
+  list: `<path d="M4 6h6M14 6h6M4 12h6M14 12h6M4 18h6M14 18h6"/>`,  // compact: short rows, side by side
 };
 
 export const isListView = () => document.body.classList.contains("list-view");
@@ -19,8 +19,9 @@ function apply(view) {
   const button = $("view-toggle");
   button.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"
     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[next]}</svg>`;
-  button.setAttribute("aria-label", `Switch to ${next} view`);
-  button.title = `Switch to ${next} view`;
+  const label = `Switch to ${next === "list" ? "compact" : "grid"} view`;
+  button.setAttribute("aria-label", label);
+  button.title = label;
 }
 
 /** @param {{ onChange: () => void }} hooks  redraw the board in the new view */

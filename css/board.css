@@ -129,67 +129,36 @@ svg.field { width: 100%; display: block; border-radius: 4px; }
   .test-kind { right: 118px; }
   :is(.card:hover, .card.hovered) :is(.bell, .test-alert, .test-kind, .notify-kinds), :is(.bell, .test-alert, .test-kind, .notify-kinds):focus-visible { opacity: 1; }
 }
-/* List view (the header's grid/list button, js/view.js): one row per game. Every section shares one grid
-   (.line-grid, js/board.js), only as wide as the widest row, so all rows are the same width and their columns line up:
-   away, "@", home (the two team columns equal, so the down & distance on the second line centers under the scores),
-   clock, buttons. The network sits at the second line's left, under the away team. Narrow boards (phones) stack away
-   over home instead. */
-.list-view #board { container: board / inline-size; }
-.line-grid { display: grid; width: max-content; max-width: 100%; grid-template-columns: 1fr auto 1fr auto auto; column-gap: 12px; }
-.line-grid .board-group, .line-grid .cards { display: contents; }
-.line-grid .board-section { grid-column: 1 / -1; }
-.line-grid .board-group + .board-group .board-section { margin-top: 18px; }
-.card.line { container-type: normal; grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; margin-bottom: 6px; padding: 6px 12px 6px 0; }
-/* The row's left padding sits inside the away column, so the away and home columns stay exactly equal and the down &
-   distance centers under the "@". */
-.card.line .team.away { grid-column: 1; padding-left: 12px; }
-.card.line .at { grid-column: 2; color: var(--muted); font-size: 12px; }
-.card.line .team.home { grid-column: 3; }
-.card.line .clock { grid-column: 4; height: auto; }
-.card.line .net { grid-row: 2; grid-column: 1; justify-self: start; max-width: 8rem; padding-left: 12px; font-size: 10px; line-height: 16px; }
+/* Compact view (the header's grid/compact button, js/view.js): a small card per game, away stacked over home with the
+   clock and buttons beside them, then the down & distance and the network, in the same columns as the grid. */
+.card.line { container-type: normal; display: grid; grid-template-columns: minmax(0, 1fr) 4.5rem auto; align-items: center;
+  grid-template-areas: "away clock tools" "home clock tools" "foot foot foot" "stats stats stats" "detail detail detail";
+  row-gap: 4px; margin: 0; padding: 6px 12px; }
+.card.line .team.away { grid-area: away; }
+.card.line .team.home { grid-area: home; flex-direction: row-reverse; }  /* its markup is mirrored (score, name, logo) */
+.card.line .team.home .name { text-align: left; }
+.card.line .team.home .top { justify-content: flex-start; }
+.card.line .team.home .pts { margin-left: auto; margin-right: 0; text-align: right; }
+.card.line .at { display: none; }
+.card.line .clock { grid-area: clock; height: auto; white-space: normal; }
+/* The down & distance and the network share the bottom line, left and right; a long one trails off. */
+.card.line .net { grid-area: foot; justify-self: end; max-width: 40%; text-align: right; font-size: 10px; line-height: 16px; }
 .card.line .net:empty { display: none; }
 /* A finished game's Recap (and Stats, in stats mode) under its "Final", styled like the cards' footer link. */
 .card.line .line-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 8px; font-size: 12px; line-height: 16px; }
 .card.line .line-links .stats-link { margin: 0; }
-.card.line .line-tools { grid-column: 5; display: flex; gap: 4px; }
-.card.line .dd { grid-row: 2; grid-column: 1 / 4; height: auto; margin: 0; font-size: 12px; line-height: 16px; }
+.card.line .line-tools { grid-area: tools; align-self: start; display: flex; gap: 4px; }
+.card.line .dd { grid-area: foot; justify-self: start; max-width: 58%; height: auto; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  text-align: left; font-size: 12px; line-height: 16px; }
 .card.line .dd:empty { display: none; }
 .card.line .team img { width: 22px; height: 22px; }
-.card.line .stats { grid-row: 3; grid-column: 1 / -1; padding-left: 12px; }
-.card.line .stats-detail { grid-row: 4; grid-column: 1 / -1; width: calc(100% - 12px); margin-left: 12px; }
+.card.line .stats { grid-area: stats; padding: 0; }
+.card.line .stats-detail { grid-area: detail; width: 100%; margin-left: 0; }
 .card.line .team .pts { font-size: 18px; line-height: 24px; }
 .card.line .team .sub { display: none; }
-/* With a mouse the buttons float in the row's top-right corner on hover, like the cards' corner ✕. */
+/* With a mouse the buttons float in the card's top-right corner on hover, like the cards' corner ✕. */
 @media (hover: hover) {
   .card.line { padding-right: 40px; }  /* room for the floating ✕ */
-}
-@container board (max-width: 640px) {
-  .line-grid { display: block; width: auto; }
-  .line-grid .board-group { display: block; }
-  .line-grid .board-group + .board-group { margin-top: 24px; }
-  .line-grid .board-group + .board-group .board-section { margin-top: 0; }
-  .line-grid .cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
-  .card.line { grid-template-columns: minmax(0, 1fr) 4.5rem auto; grid-template-areas: "away clock tools" "home clock tools" "dd net net";
-    row-gap: 4px; margin: 0; padding: 6px 12px; }
-  .card.line .team.away { grid-area: away; padding-left: 0; }
-  .card.line .team.home { grid-area: home; flex-direction: row-reverse; }  /* its markup is mirrored (score, name, logo) */
-  .card.line .team.home .name { text-align: left; }
-  .card.line .team.home .top { justify-content: flex-start; }
-  .card.line .team.home .pts { margin-left: auto; margin-right: 0; text-align: right; }
-  .card.line .at { display: none; }
-  .card.line .clock { grid-area: clock; white-space: normal; }
-  /* Contained, so a long network line (Prime Video, Stats, Recap) doesn't widen the right-hand columns and push this
-     row's scores out of line with the others'; it trails off instead. */
-  .card.line .net { grid-area: net; justify-self: stretch; max-width: none; padding-left: 0; text-align: right; contain: inline-size; }
-  .card.line .line-tools { grid-area: tools; align-self: start; }
-  .card.line .dd { grid-area: dd; text-align: left; }
-  .card.line { grid-template-areas: "away clock tools" "home clock tools" "dd net net" "stats stats stats" "detail detail detail"; }
-  .card.line .stats { grid-area: stats; padding: 0; }
-  .card.line .stats-detail { grid-area: detail; width: 100%; margin-left: 0; }
-}
-/* A narrow board with a mouse (a small window): leave room for the floating ✕, as on wide boards. */
-@media (hover: hover) {
-  @container board (max-width: 640px) { .card.line { padding-right: 40px; } }
 }
 
 /* Stats mode (?stats, js/board.js): each team's leading offensive player, away left and home right, then

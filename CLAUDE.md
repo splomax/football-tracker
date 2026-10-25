@@ -2,7 +2,7 @@
 
 Open work is in `TODO.md`.
 
-**Every UI change is checked in four layouts: mobile grid, mobile list, desktop grid, desktop list**, each with live,
+**Every UI change is checked in four layouts: mobile grid, mobile compact, desktop grid, desktop compact**, each with live,
 upcoming and finished games. Share as many styles as possible across them; desktop may differ more on purpose. Check
 all four with `node scripts/screenshot-matrix.js board-grid board-list` before shipping.
 
@@ -18,7 +18,8 @@ Scripts to use instead of redoing the work by hand (details in each file's heade
   look for misses, record the result in the script's "Track record" and fix what it got wrong. Drop the IN PROGRESS
   mark (here and in the script) once a few runs in a row need no corrections.
 - `scripts/screenshot-matrix.js [state …]`: every feature state on desktop Chrome and iPhone WebKit, side by side in
-  `previews/matrix/index.html` (needs `npm start` and `npx playwright install webkit`).
+  `previews/matrix/index.html` (needs `npm start` and `npx playwright install webkit`). `DEVICES=fold` shoots an
+  unfolded foldable phone instead.
 - `scripts/forum-changelog.js commits [--since DATE]`, then `render changelogs/<date>.json`: the BB code changelog for
   the forum. Notes are high-level features written by hand (not commit messages); work still being tested goes under
   "comingSoon". A shot is a screenshot-matrix state (`:phone` for iPhone, always one phone screen, never the whole

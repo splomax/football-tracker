@@ -4,6 +4,8 @@
 //
 // Usage: start the local server (npm start), then run: node scripts/screenshot-matrix.js [state ...]
 // With state names, only those are shot (see STATES below). Needs WebKit once: npx playwright install webkit.
+// DEVICES=fold (or any comma-separated list of DEVICES' names) shoots those instead of desktop and phone; fold is an
+// unfolded foldable phone (about a small tablet's width, touch), for layouts between the two.
 // scripts/forum-changelog.js reuses STATES and shoot() for the changelog's screenshots.
 
 const fs = require("fs");
@@ -22,13 +24,17 @@ const { defaultBrowserType, ...iPhone } = devices["iPhone 13"];
 const DEVICES = {
   desktop: { launch: () => chromium.launch({ channel: "chrome" }), context: { viewport: { width: 1300, height: 900 } } },
   phone: { launch: () => webkit.launch(), context: iPhone },
+  fold: { launch: () => chromium.launch({ channel: "chrome" }),
+    context: { viewport: { width: 840, height: 700 }, deviceScaleFactor: 2.6, isMobile: true, hasTouch: true } },  // Pixel Fold, open
 };
+const SHOT_DEVICES = process.env.DEVICES ? process.env.DEVICES.split(",") : ["desktop", "phone"];
 
 // Each state: what's saved in the browser, the address, and what to do before the shot.
 const settle = (page, ms = 800) => page.waitForTimeout(ms);
 const STATES = {
   "board-grid": { storage: { selected: PICKS, view: "grid", pickerOpen: false } },
   "board-list": { storage: { selected: PICKS, view: "list", pickerOpen: false } },
+  "board-list-panel-hidden": { storage: { selected: PICKS, view: "list", pickerOpen: false, panelCollapsed: true } },
   "game-list-open": { storage: { selected: PICKS, view: "grid", pickerOpen: true } },
   "gear-menu": { storage: { selected: PICKS, view: "grid", pickerOpen: false },
     run: async (page) => { await page.click("#settings"); await settle(page, 300); } },
@@ -121,7 +127,7 @@ async function shoot(device, name, state, file = path.join(OUT, `${name}-${devic
     await page.waitForSelector(state.loggedOut ? "#admin-login" : "#list label.game, #list .empty", { state: "attached" });
     await settle(page, 1500);  // team logos
     if (state.run) await state.run(page);
-    await page.screenshot({ path: file, fullPage: device === "phone" && !state.screenOnly });  // screenOnly: just what's on screen (a dialog)
+    await page.screenshot({ path: file, fullPage: device !== "desktop" && !state.screenOnly });  // screenOnly: just what's on screen (a dialog)
     return true;
   } catch (err) {
     console.error(`${name} (${device}): ${err.message.split("\n")[0]}`);
@@ -138,9 +144,10 @@ if (require.main === module) (async () => {
   const names = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(STATES);
   for (const name of names) {
     if (!STATES[name]) { console.error(`unknown state: ${name}`); continue; }
-    for (const device of Object.keys(DEVICES)) if (await shoot(device, name, STATES[name])) console.log(`${name}-${device}.png`);
+    for (const device of SHOT_DEVICES) if (await shoot(device, name, STATES[name])) console.log(`${name}-${device}.png`);
   }
-  const rows = Object.keys(STATES).map((n) => `<tr><th>${n}</th>${Object.keys(DEVICES).map((d) =>
+  if (process.env.DEVICES) return;  // the index shows desktop and phone
+  const rows = Object.keys(STATES).map((n) => `<tr><th>${n}</th>${["desktop", "phone"].map((d) =>
     `<td><a href="${n}-${d}.png"><img src="${n}-${d}.png" alt="${n} on ${d}" loading="lazy"></a></td>`).join("")}</tr>`).join("\n");
   fs.writeFileSync(path.join(OUT, "index.html"), `<!doctype html><meta charset="utf-8"><title>Desktop vs. phone</title>
 <style>body { margin: 16px; background: #0f1115; color: #e8eaed; font: 14px system-ui; } table { border-collapse: collapse; }

@@ -40,8 +40,8 @@ export function renderBoard() {
     return;
   }
   const before = cardSpots();
-  // Live, then Final, then Upcoming; a section only shows when it has games. List view puts every section in one grid,
-  // so all rows share one width and their columns line up (css/board.css .line-grid).
+  // Live, then Final, then Upcoming; a section only shows when it has games. Compact view wraps them in .line-grid
+  // (css/board.css).
   const list = isListView();
   const sections = SECTIONS.map(([st, label]) => {
     // Games with their stats open go first in their section (stats mode), the rest by start time.
@@ -173,9 +173,9 @@ function card(g) {
   </div>`;
 }
 
-// List view: one row per game. The same parts as a card (so highlighting and the buttons all work),
-// minus the field and last play: away and home around an "@" with the down & distance centered under the scores, then
-// the clock (a finished game's Recap link, and Stats in stats mode, under its "Final"), and the network.
+// Compact view: a small card per game. The same parts as a card (so highlighting and the buttons all work), minus the
+// field and last play: away over home, the clock beside them (a finished game's Recap link, and Stats in stats mode,
+// under its "Final"), then the down & distance and the network.
 function lineCard(g) {
   const recap = g.state === "post" && recapUrl(g.key);
   return `${cardOpen(g, "line")}
