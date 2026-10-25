@@ -95,18 +95,23 @@ test("each device gets only the kinds of notification it chose for that game", a
   assert.deepEqual(s.pushed.sort(), ["defaults", "pickyElsewhere"]);
 });
 
-test("the test button reaches only admins' phones whose bells include the game; a phone Apple says is gone is dropped", async (t) => {
-  const s = await setUp(t, { phones: { a: ["cfb:9"], gone: ["cfb:9"], unbelled: ["cfb:1"] }, publicPhones: { visitor: ["cfb:9"] } });
+test("the test button reaches only admins' (and testers') phones whose bells include the game; a phone Apple says is gone is dropped", async (t) => {
+  const s = await setUp(t, { phones: { a: ["cfb:9"], gone: ["cfb:9"], unbelled: ["cfb:1"] }, publicPhones: { visitor: ["cfb:9"], buddy: ["cfb:9"] } });
+  // A tester: a public device marked by hand in KV.
+  for (const { name } of (await s.kv.list({ prefix: "phone:" })).keys) {
+    const p = await s.kv.get(name, "json");
+    if (p.subscription.endpoint.endsWith("/buddy")) await s.kv.put(name, JSON.stringify({ ...p, tester: true }));
+  }
   s.espn.cfb = [live("cfb:9")];
   await s.req("/");
   assert.equal((await s.req("/test", { method: "POST", body: JSON.stringify({ key: "cfb:9" }) })).status, 200);
   await s.settle();
-  assert.deepEqual(s.pushed.sort(), ["a", "gone"]);  // not "unbelled" (bells), nor "visitor" (not an admin's)
-  assert.equal((await s.kv.list({ prefix: "phone:" })).keys.length, 3);  // "gone" forgotten
+  assert.deepEqual(s.pushed.sort(), ["a", "buddy", "gone"]);  // not "unbelled" (bells), nor "visitor" (not an admin's)
+  assert.equal((await s.kv.list({ prefix: "phone:" })).keys.length, 4);  // "gone" forgotten
   s.pushed.length = 0;
   await s.req("/test", { method: "POST", body: JSON.stringify({ key: "cfb:9" }) });
   await s.settle();
-  assert.deepEqual(s.pushed, ["a"]);
+  assert.deepEqual(s.pushed.sort(), ["a", "buddy"]);
 });
 
 test("a request from newer code makes an outdated program reset itself", async (t) => {

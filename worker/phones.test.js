@@ -16,6 +16,17 @@ export function fakeKv() {
 }
 const sub = (n) => ({ endpoint: `https://web.push.apple.com/phone-${n}`, keys: { p256dh: "BPhone", auth: "auth" }, expirationTime: null });
 
+test("a tester (marked by hand in KV) stays one when its device subscribes again", async () => {
+  const kv = fakeKv();
+  await savePhone(kv, sub(1), ["cfb:1"], 5);
+  const [{ name }] = (await kv.list({ prefix: "phone:" })).keys;
+  await kv.put(name, JSON.stringify({ ...(await kv.get(name, "json")), tester: true }));
+  await savePhone(kv, sub(1), ["cfb:2"], 6);
+  assert.equal((await listPhones(kv))[0].tester, true);
+  await setBells(kv, sub(1).endpoint, ["cfb:3"], 7);
+  assert.equal((await listPhones(kv))[0].tester, true);
+});
+
 test("a phone is saved with its bells, can change them, and can be removed; junk is refused", async () => {
   const kv = fakeKv();
   assert.equal(await savePhone(kv, sub(1), ["cfb:1"], 5), true);

@@ -22,16 +22,18 @@ const validKinds = (byGame) => !!byGame && typeof byGame === "object" && !Array.
 const validBells = (b) => Array.isArray(b) && b.length <= 500 && b.every((k) => typeof k === "string" && k.length < 40);
 
 /**
- * Save a phone (or update it). An admin's device keeps the kinds it chose (sent along, or saved before). False if what
- * was sent isn't a subscription and list of bells.
+ * Save a phone (or update it). An admin's device keeps the kinds it chose (sent along, or saved before); a tester keeps
+ * being one (set by hand in KV: "tester": true, so the admin's test notifications reach it too). False if what was sent
+ * isn't a subscription and list of bells.
  */
 export async function savePhone(kv, subscription, bells, now = Date.now(), admin = false, kinds = undefined) {
   if (!validSubscription(subscription) || !validBells(bells)) return false;
   const { endpoint, keys } = subscription;
   const key = await keyFor(endpoint);
-  const chosen = admin ? (validKinds(kinds) ? kinds : (await kv.get(key, "json"))?.kinds) : undefined;
+  const old = await kv.get(key, "json");
+  const chosen = admin ? (validKinds(kinds) ? kinds : old?.kinds) : undefined;
   await kv.put(key, JSON.stringify({ subscription: { endpoint, keys: { p256dh: keys.p256dh, auth: keys.auth } }, bells, public: !admin,
-    ...(chosen && { kinds: chosen }), at: now }));
+    ...(chosen && { kinds: chosen }), ...(old?.tester && { tester: true }), at: now }));
   return true;
 }
 
@@ -59,7 +61,7 @@ export async function removePhone(kv, endpoint) {
   if (typeof endpoint === "string") await kv.delete(await keyFor(endpoint));
 }
 
-/** Every saved phone: [{ subscription, bells, public, kinds?, at }]. */
+/** Every saved phone: [{ subscription, bells, public, kinds?, tester?, at }]. */
 export async function listPhones(kv) {
   const phones = [];
   let cursor;

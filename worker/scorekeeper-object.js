@@ -108,13 +108,13 @@ export class ScoreKeeper {
   test(key, kind) {
     const alert = this.keeper.test(key, kind);
     if (!alert) return Response.json({ ok: false }, { status: 404 });
-    // Pages pick it up with their next update (only admins' pages ask the program); admins' phones whose bells include
-    // the game get it pushed, a little later. A test follows the bells like a real notification, so it shows exactly
+    // Pages pick it up with their next update (only admins' pages ask the program); admins' phones (and testers', set by
+    // hand: worker/phones.js) whose bells include the game get it pushed, a little later. A test follows the bells like a real notification, so it shows exactly
     // what someone subscribed would get.
     this.ctx.waitUntil((async () => {
       await new Promise((resolve) => setTimeout(resolve, this.testDelay));
       if (!this.phones) await this.loadPhones();
-      const belled = this.phones.filter((p) => !p.public && p.bells.includes(key));
+      const belled = this.phones.filter((p) => (!p.public || p.tester) && p.bells.includes(key));
       if (belled.length) await this.send({ title: alert.title, body: alert.body, key, icon: alert.icon }, belled);
     })());
     return Response.json({ ok: true });
