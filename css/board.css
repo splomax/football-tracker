@@ -17,6 +17,12 @@
 @container section (min-width: 1090px) { .compact .cards { --cols: 4; } }
 @container section (min-width: 1406px) { .compact .cards { --cols: 5; } }
 @container section (min-width: 1722px) { .compact .cards { --cols: 6; } }
+/* Compact view: live games are small cards too, so every section takes Final/Upcoming's columns. */
+@container section (min-width: 458px) { .line-grid .live .cards { --cols: 2; } }
+@container section (min-width: 774px) { .line-grid .live .cards { --cols: 3; } }
+@container section (min-width: 1090px) { .line-grid .live .cards { --cols: 4; } }
+@container section (min-width: 1406px) { .line-grid .live .cards { --cols: 5; } }
+@container section (min-width: 1722px) { .line-grid .live .cards { --cols: 6; } }
 .board-section { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
 .card { position: relative; min-width: 0; background: var(--card); border: 1px solid var(--card-border); border-radius: 10px; padding: 12px; }
 .card.redzone { border-color: var(--red); }
@@ -130,7 +136,7 @@ svg.field { width: 100%; display: block; border-radius: 4px; }
   :is(.card:hover, .card.hovered) :is(.bell, .test-alert, .test-kind, .notify-kinds), :is(.bell, .test-alert, .test-kind, .notify-kinds):focus-visible { opacity: 1; }
 }
 /* Compact view (the header's grid/compact button, js/view.js): a small card per game, away stacked over home with the
-   clock and buttons beside them, then the down & distance and the network, in the same columns as the grid. */
+   clock and buttons beside them, then the down & distance and the network, in the grid's Final/Upcoming columns. */
 .card.line { container-type: normal; display: grid; grid-template-columns: minmax(0, 1fr) 4.5rem auto; align-items: center;
   grid-template-areas: "away clock tools" "home clock tools" "foot foot foot" "stats stats stats" "detail detail detail";
   row-gap: 4px; margin: 0; padding: 6px 12px; }
