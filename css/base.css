@@ -18,8 +18,8 @@
   --bg: #f4f5f7; --panel: #fff; --card: #fff; --card-border: #d7dbe1; --border: #e0e3e8;
   --text: #1c2027; --strong: #000; --muted: #5d6673; --accent: #2f6fe4; --red: #d93636; --poss: #c99a00; --live-badge: #e53935;
   --bell: #ffc61a; --bell-edge: #9a6f00;  /* bright yellow with a darker edge, so it stands out on white */
-  --row-alt: #f3f4f7; --row-hover: #e2e6ec; --section: #d9dee6; --section-border: #c8cfd9; --chip: #fff;
-  --row-picked: none; --row-picked-alt: var(--row-alt);  /* blue tints looked off on white: plain stripes */
+  --row-alt: #eceef2; --row-hover: #e2e6ec; --section: #d9dee6; --section-border: #c8cfd9; --chip: #fff;
+  --row-picked: #fff; --row-picked-alt: #f0f2f5;  /* blue tints looked off on white: white and light grey stripes */
   --live-section: #fbe2e2; --live-border: #efb3b3; --live-text: #8c1d1d;
   --control-hover: #d3d8df; --scrollbar: #c2c7ce; --shadow: rgba(0, 0, 0, .15);
   --remove-bg: #c4c8cc; --remove-hover: #aeb4bb;
