@@ -1,7 +1,8 @@
 // Settings gear in the corner. "google me" toggles a coach photo: Curt Cignetti usually, Bo Pelini one time in ten,
 // and at Halloween a ghost one time in four.
 // "MDS" colors the leading team blue. "Stats" turns on stats mode (js/stats.js). "Save board as image" saves the picked
-// games as a list (js/image.js, loaded when first used).
+// games as a list (js/image.js, loaded when first used). "Donate to Save the Children" links straight to their own
+// donation form (index.html), so every dollar goes to them.
 
 import { store } from "./store.js";
 import { isHalloween } from "./season.js";

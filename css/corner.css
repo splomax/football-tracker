@@ -8,8 +8,8 @@
 /* Opens up and to the left, its right edge on the gear's (24px from the corner's left), so it stays clear of the
    coach photo in the corner. */
 #settings-menu { transform-origin: bottom right; position: absolute; bottom: calc(100% + 4px); right: calc(100% - 24px); min-width: 120px; padding: 4px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 6px 20px rgba(0, 0, 0, .4); }
-#settings-menu button { display: block; width: 100%; padding: 6px 10px; white-space: nowrap; background: none; border: 0; border-radius: 5px; color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
-#settings-menu button:hover { background: var(--border); }
+#settings-menu button, #settings-menu a { display: block; text-decoration: none; width: 100%; padding: 6px 10px; white-space: nowrap; background: none; border: 0; border-radius: 5px; color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+#settings-menu button:hover, #settings-menu a:hover { background: var(--border); }
 #settings-menu .check { display: inline-block; width: 16px; color: var(--accent); visibility: hidden; }
 #settings-menu [aria-pressed="true"] .check { visibility: visible; }
 #visits { display: flex; gap: 12px; padding: 6px 10px 8px; margin-bottom: 4px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 11px; white-space: nowrap; }
