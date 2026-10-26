@@ -50,8 +50,8 @@ label.game { position: relative; display: flex; align-items: center; gap: 10px; 
 /* Alternating row shades; declared before hover/selected so those still win. */
 label.game:nth-child(even) { background: var(--row-alt); }
 @media (hover: hover) { label.game:hover { background: var(--row-hover); } }  /* a touch leaves :hover stuck on the row it started on */
-label.game:has(input:checked) { background: rgba(76, 141, 255, .12); }
-label.game:nth-child(even):has(input:checked) { background: rgba(76, 141, 255, .22); }
+label.game:has(input:checked) { background: var(--row-picked); }
+label.game:nth-child(even):has(input:checked) { background: var(--row-picked-alt); }
 /* The checkbox stays for keyboards and screen readers; the round + / ✓ button is what you see. */
 label.game input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
 .pick { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border: 2px solid var(--muted); border-radius: 50%; color: var(--muted); transition: background .15s, border-color .15s; }
