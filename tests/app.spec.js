@@ -394,12 +394,12 @@ test.describe("board image", () => {
     expect(state.visitsRequests).toBe(fetched + 1);
   });
 
-  test("the gear menu's Donate links to Save the Children's donation form in a new tab", async ({ page }) => {
+  test("the gear menu's Donate links to the Save the Children fundraiser in a new tab", async ({ page }) => {
     await open(page);
     await page.locator("#settings").click();
     const donate = page.locator("#donate");
     await expect(donate).toHaveText("Donate to Save the Children");
-    await expect(donate).toHaveAttribute("href", /^https:\/\/support\.savethechildren\.org\/site\/Donation2\?/);
+    await expect(donate).toHaveAttribute("href", /^https:\/\/support\.savethechildren\.org\/site\/TR\/.*px=8997338/);
     await expect(donate).toHaveAttribute("target", "_blank");
   });
 
