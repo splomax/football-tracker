@@ -73,5 +73,10 @@
   #contact a { display: inline-block; padding: 12px 0; color: var(--text); }
   #settings-menu { position: fixed; right: 16px; bottom: calc(72px + env(safe-area-inset-bottom)); z-index: 6; transform-origin: bottom right; min-width: 180px; }
   #settings-menu button, #settings-menu a { padding: 12px 14px; font-size: 15px; }
+  /* The donation nudge: a toast centered above the floating gear instead of a bubble on it. */
+  #donate-nudge { position: fixed; left: 16px; right: 16px; bottom: calc(80px + env(safe-area-inset-bottom)); z-index: 6; width: fit-content;
+    max-width: 420px; margin: 0 auto; padding: 12px 40px 12px 16px; border-radius: 14px; font-size: 15px; text-align: center; }
+  #donate-nudge::after { display: none; }
+  #donate-nudge button { top: 50%; right: 8px; transform: translateY(-50%); padding: 6px 8px; font-size: 15px; }
   #coach { right: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); width: 130px; }
 }

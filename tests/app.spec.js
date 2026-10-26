@@ -82,7 +82,14 @@ async function open(page, opts = {}) {
   });
   // Off unless a test asks (opts.halloween: true, or null to let the date decide): the real date would otherwise turn it
   // on every October, changing the logo and "google me".
-  await page.addInitScript((on) => localStorage.setItem("halloween", JSON.stringify(on)), "halloween" in opts ? opts.halloween : false);
+  // The donation nudge (js/donate-nudge.js) stays away unless a test asks for it (opts.donateNudge), since it would
+  // sit over the gear. opts.firstVisit saves nothing beforehand, so the page sees a browser that has never been here.
+  if (!opts.firstVisit) {
+    await page.addInitScript(([on, nudge]) => {
+      localStorage.setItem("halloween", JSON.stringify(on));
+      if (!nudge) localStorage.setItem("donateNudgeSeen", "true");
+    }, ["halloween" in opts ? opts.halloween : false, !!opts.donateNudge]);
+  }
   if (opts.storage) {
     // Seed once per test; later reloads must see what the app itself saved.
     await page.addInitScript((seed) => {
@@ -944,6 +951,63 @@ test.describe("admin login", () => {
       .filter((r) => r.name.endsWith(".js")).map(async (r) => (await fetch(r.name)).text())));
     expect(sources.length).toBeGreaterThan(5);
     for (const src of sources) expect(src).not.toMatch(/data-test-alert|addVisits|kindChooser/);
+  });
+});
+
+test.describe("donation nudge", () => {
+  const nudge = (page) => page.locator("#donate-nudge");
+
+  test("not on a first visit; on the next one it shows until closed, then never again", async ({ page }) => {
+    await open(page, { firstVisit: true });
+    await expect(page.locator("#settings")).toBeVisible();
+    await expect(nudge(page)).toHaveCount(0);
+    await page.reload();
+    await expect(nudge(page)).toHaveText(/Enjoying Game Tracker Live\? Consider donating to charity in the ⚙\uFE0E? menu ❤️/);
+    await page.waitForTimeout(1000);
+    await expect(nudge(page)).toBeVisible();  // no fading away by itself
+    await nudge(page).getByRole("button", { name: "Close" }).click();
+    await expect(nudge(page)).toHaveCount(0);
+    await expect(page.locator("#settings-menu")).toBeHidden();
+    await page.reload();
+    await expect(page.locator("#settings")).toBeVisible();
+    await page.waitForTimeout(500);
+    await expect(nudge(page)).toHaveCount(0);
+  });
+
+  test("someone who used the site before it existed gets it; tapping it opens the gear menu and closes it for good", async ({ page }) => {
+    await open(page, { storage: { selected: ["cfb:1"] }, donateNudge: true });
+    await nudge(page).locator("span").click();
+    await expect(page.locator("#settings-menu")).toBeVisible();
+    await expect(page.locator("#donate")).toBeVisible();
+    await expect(nudge(page)).toHaveCount(0);
+    expect(await page.evaluate(() => localStorage.getItem("donateNudgeSeen"))).toBe("true");
+  });
+
+  test("opening the gear closes it", async ({ page }) => {
+    await open(page, { storage: { selected: ["cfb:1"] }, donateNudge: true });
+    await expect(nudge(page)).toBeVisible();
+    await page.locator("#settings").click();
+    await expect(page.locator("#settings-menu")).toBeVisible();
+    await expect(nudge(page)).toHaveCount(0);
+  });
+
+  test("never for an admin", async ({ page }) => {
+    await open(page, { storage: { ...admin }, donateNudge: true });
+    await expect(page.locator("#settings")).toBeVisible();
+    await page.waitForTimeout(500);
+    await expect(nudge(page)).toHaveCount(0);
+  });
+
+  test.describe("on a phone", () => {
+    test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+
+    test("a toast above the floating gear, inside the screen", async ({ page }) => {
+      await open(page, { storage: { selected: ["cfb:1"] }, donateNudge: true });
+      const box = await nudge(page).boundingBox(), gear = await page.locator("#settings").boundingBox();
+      expect(box.y + box.height).toBeLessThanOrEqual(gear.y);
+      expect(box.x).toBeGreaterThanOrEqual(16);
+      expect(box.x + box.width).toBeLessThanOrEqual(390 - 16);
+    });
   });
 });
 

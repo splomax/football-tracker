@@ -1,5 +1,6 @@
 // Entry point: wires the modules together and polls ESPN.
 
+import { initDonateNudge } from "./donate-nudge.js";  // first: it checks for an earlier visit before anything is saved
 import { LINKED_GAMES, LOADING, MOBILE_QUERY, POLL_MS } from "./config.js";
 import { state, allGames } from "./state.js";
 import { fetchGames, freshenGames, confNames } from "./espn.js";
@@ -134,3 +135,4 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) poll
 const isAdmin = await loadAdmin();  // logged in; the features are on only with ?admin
 if (isAdmin && lastUpdated !== null) { renderList(); renderBoard(); }
 if (!LOADING && !isAdmin) countVisit();
+if (!LOADING) initDonateNudge({ isAdmin });

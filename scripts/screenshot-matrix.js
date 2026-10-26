@@ -36,6 +36,8 @@ const STATES = {
   "board-list": { storage: { selected: PICKS, view: "list", pickerOpen: false } },
   "board-list-panel-hidden": { storage: { selected: PICKS, view: "list", pickerOpen: false, panelCollapsed: true } },
   "game-list-open": { storage: { selected: PICKS, view: "grid", pickerOpen: true } },
+  "donate-nudge": { storage: { selected: PICKS, view: "grid", pickerOpen: false }, donateNudge: true, screenOnly: true,
+    run: async (page) => { await page.waitForSelector("#donate-nudge"); await settle(page, 500); } },
   "gear-menu": { storage: { selected: PICKS, view: "grid", pickerOpen: false },
     run: async (page) => { await page.click("#settings"); await settle(page, 300); } },
   "coach": { storage: { selected: PICKS, view: "grid", pickerOpen: false },
@@ -109,7 +111,7 @@ async function shoot(device, name, state, file = path.join(OUT, `${name}-${devic
     await page.addInitScript((seed) => {
       for (const [k, v] of Object.entries(seed)) localStorage.setItem(k, JSON.stringify(v));
       window.Notification = class { static permission = "granted"; static requestPermission = async () => "granted"; close() {} };
-    }, { halloween: false, ...state.storage });
+    }, { halloween: false, donateNudgeSeen: !state.donateNudge, ...state.storage });
     await page.route("https://site.api.espn.com/**", (route) => {
       const url = route.request().url();
       if (url.includes("/summary")) return route.fulfill({ json: sampleSummary(url), headers: CORS });
