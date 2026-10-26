@@ -983,7 +983,8 @@ test.describe("donation nudge", () => {
     await page.waitForTimeout(400);
     const [lifted, menu] = await Promise.all([nudge(page).boundingBox(), page.locator("#settings-menu").boundingBox()]);
     expect(lifted.y + lifted.height).toBeLessThanOrEqual(menu.y);
-    expect(lifted.width).toBeCloseTo(menu.width, 0);  // as wide as the menu, and no tail pointing into it
+    expect([lifted.x, lifted.width]).toEqual([start.x, start.width]);  // straight up: as wide as the menu all along
+    expect(lifted.width).toBeCloseTo(menu.width, 0);  // and no tail pointing into the menu
     expect(await page.evaluate(() => getComputedStyle(document.getElementById("donate-nudge"), "::after").opacity)).toBe("0");
     await page.locator("#settings").click();  // closes the menu
     await expect(page.locator("#settings-menu")).toBeHidden();

@@ -20,13 +20,23 @@ export function initDonateNudge({ isAdmin }) {
   nudge.innerHTML = `<span>Enjoying Game Tracker Live? Consider donating to charity in the ⚙&#xFE0E; menu ❤️</span>`
     + `<button aria-label="Close">✕</button>`;
   const gear = document.getElementById("settings"), menu = document.getElementById("settings-menu");
+  // On a computer it's as wide as the gear menu (--menu-width), so opening the menu moves it straight up: measured
+  // with the menu shown but invisible for a moment, and again whenever it opens.
+  const fitMenu = () => nudge.style.setProperty("--menu-width", `${menu.offsetWidth}px`);
+  if (menu.hidden) {
+    menu.style.visibility = "hidden";
+    menu.hidden = false;
+    fitMenu();
+    menu.hidden = true;
+    menu.style.visibility = "";
+  } else fitMenu();
   // Follow the gear menu (js/settings.js sets aria-expanded, then shows the menu, before this runs): on a computer it
-  // rises by the menu's height (--lift) and takes its width (--menu-width).
+  // rises by the menu's height (--lift).
   const follow = new MutationObserver(() => {
     const open = gear.getAttribute("aria-expanded") === "true";
     if (open) {
       nudge.style.setProperty("--lift", `${menu.offsetHeight + 4}px`);
-      nudge.style.setProperty("--menu-width", `${menu.offsetWidth}px`);
+      fitMenu();
     }
     nudge.classList.toggle("menu-open", open);
   });
