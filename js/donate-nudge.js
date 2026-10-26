@@ -20,11 +20,14 @@ export function initDonateNudge({ isAdmin }) {
   nudge.innerHTML = `<span>Enjoying Game Tracker Live? Consider donating to charity in the ⚙&#xFE0E; menu ❤️</span>`
     + `<button aria-label="Close">✕</button>`;
   const gear = document.getElementById("settings"), menu = document.getElementById("settings-menu");
-  // Follow the gear menu (js/settings.js sets aria-expanded, then shows the menu, before this runs): --lift is how far
-  // up the menu pushes it on a computer.
+  // Follow the gear menu (js/settings.js sets aria-expanded, then shows the menu, before this runs): on a computer it
+  // rises by the menu's height (--lift) and takes its width (--menu-width).
   const follow = new MutationObserver(() => {
     const open = gear.getAttribute("aria-expanded") === "true";
-    if (open) nudge.style.setProperty("--lift", `${menu.offsetHeight + 4}px`);
+    if (open) {
+      nudge.style.setProperty("--lift", `${menu.offsetHeight + 4}px`);
+      nudge.style.setProperty("--menu-width", `${menu.offsetWidth}px`);
+    }
     nudge.classList.toggle("menu-open", open);
   });
   follow.observe(gear, { attributes: true, attributeFilter: ["aria-expanded"] });
