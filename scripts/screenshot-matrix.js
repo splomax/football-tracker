@@ -38,6 +38,8 @@ const STATES = {
   "game-list-open": { storage: { selected: PICKS, view: "grid", pickerOpen: true } },
   "donate-nudge": { storage: { selected: PICKS, view: "grid", pickerOpen: false }, donateNudge: true, screenOnly: true,
     run: async (page) => { await page.waitForSelector("#donate-nudge"); await settle(page, 500); } },
+  "donate-nudge-menu": { storage: { selected: PICKS, view: "grid", pickerOpen: false }, donateNudge: true, screenOnly: true,
+    run: async (page) => { await page.waitForSelector("#donate-nudge"); await settle(page, 500); await page.click("#settings"); await settle(page, 500); } },
   "gear-menu": { storage: { selected: PICKS, view: "grid", pickerOpen: false },
     run: async (page) => { await page.click("#settings"); await settle(page, 300); } },
   "coach": { storage: { selected: PICKS, view: "grid", pickerOpen: false },

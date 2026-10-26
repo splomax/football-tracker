@@ -974,21 +974,31 @@ test.describe("donation nudge", () => {
     await expect(nudge(page)).toHaveCount(0);
   });
 
-  test("someone who used the site before it existed gets it; tapping it opens the gear menu and closes it for good", async ({ page }) => {
+  test("someone who used the site before it existed gets it; tapping it opens the gear menu, and it rises above the menu and back", async ({ page }) => {
     await open(page, { storage: { selected: ["cfb:1"] }, donateNudge: true });
+    await page.waitForTimeout(400);  // fading in
+    const start = await nudge(page).boundingBox();
     await nudge(page).locator("span").click();
-    await expect(page.locator("#settings-menu")).toBeVisible();
     await expect(page.locator("#donate")).toBeVisible();
-    await expect(nudge(page)).toHaveCount(0);
-    expect(await page.evaluate(() => localStorage.getItem("donateNudgeSeen"))).toBe("true");
+    await page.waitForTimeout(400);
+    const [lifted, menu] = await Promise.all([nudge(page).boundingBox(), page.locator("#settings-menu").boundingBox()]);
+    expect(lifted.y + lifted.height).toBeLessThanOrEqual(menu.y);
+    await page.locator("#settings").click();  // closes the menu
+    await expect(page.locator("#settings-menu")).toBeHidden();
+    await page.waitForTimeout(400);
+    expect((await nudge(page).boundingBox()).y).toBeCloseTo(start.y, 0);
+    expect(await page.evaluate(() => localStorage.getItem("donateNudgeSeen"))).toBeNull();
   });
 
-  test("opening the gear closes it", async ({ page }) => {
+  test("only its ✕ closes it", async ({ page }) => {
     await open(page, { storage: { selected: ["cfb:1"] }, donateNudge: true });
-    await expect(nudge(page)).toBeVisible();
     await page.locator("#settings").click();
-    await expect(page.locator("#settings-menu")).toBeVisible();
+    await page.locator("#settings").click();
+    await page.locator("main").click({ position: { x: 5, y: 5 } });
+    await expect(nudge(page)).toBeVisible();
+    await nudge(page).getByRole("button", { name: "Close" }).click();
     await expect(nudge(page)).toHaveCount(0);
+    expect(await page.evaluate(() => localStorage.getItem("donateNudgeSeen"))).toBe("true");
   });
 
   test("never for an admin", async ({ page }) => {
@@ -1020,6 +1030,14 @@ test.describe("donation nudge", () => {
       expect(box.y + box.height).toBeLessThanOrEqual(gear.y);
       expect(box.x).toBeGreaterThanOrEqual(16);
       expect(box.x + box.width).toBeLessThanOrEqual(390 - 16);
+    });
+
+    test("hidden while the gear menu is open, back when it closes", async ({ page }) => {
+      await open(page, { storage: { selected: ["cfb:1"] }, donateNudge: true });
+      await page.locator("#settings").click();
+      await expect(nudge(page)).toBeHidden();
+      await page.locator("#settings").click();
+      await expect(nudge(page)).toBeVisible();
     });
   });
 });
