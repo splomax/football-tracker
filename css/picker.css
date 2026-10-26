@@ -49,7 +49,7 @@ label.game.live .bug-status { color: var(--text); font-weight: 600; }
 label.game { position: relative; display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 8px 12px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 /* Alternating row shades; declared before hover/selected so those still win. */
 label.game:nth-child(even) { background: var(--row-alt); }
-label.game:hover { background: var(--row-hover); }
+@media (hover: hover) { label.game:hover { background: var(--row-hover); } }  /* a touch leaves :hover stuck on the row it started on */
 label.game:has(input:checked) { background: rgba(76, 141, 255, .12); }
 label.game:nth-child(even):has(input:checked) { background: rgba(76, 141, 255, .22); }
 /* The checkbox stays for keyboards and screen readers; the round + / ✓ button is what you see. */

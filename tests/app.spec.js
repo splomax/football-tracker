@@ -1961,6 +1961,15 @@ test.describe("mobile", () => {
     expect(final[1].y).toBeGreaterThan(final[0].y + final[0].height);
   });
 
+  test("touching a game-list row to scroll doesn't grey it: no hover color without a mouse", async ({ page }) => {
+    await open(page, { storage: { selected: [], pickerOpen: true } });
+    test.skip(await page.evaluate(() => matchMedia("(hover: hover)").matches), "emulated device reports hover");
+    const r = row(page, "cfb:2");
+    const before = await style(r, "background-color");
+    await r.hover();
+    expect(await style(r, "background-color")).toBe(before);
+  });
+
   test("a phone on its side (wide but short) gets the phone layout too", async ({ page }) => {
     await page.setViewportSize({ width: 750, height: 342 });
     await open(page, { storage: { selected: ["cfb:1", "cfb:2"], pickerOpen: false } });
