@@ -1,9 +1,10 @@
 // "Enjoying Game Tracker Live?" nudge toward the gear menu's Donate link (index.html): shown once per browser, on the
 // first visit after the first, as the page opens. It stays until closed (✕), tapped (opens the gear menu) or the
 // gear is opened, so a closed one means it was seen; then never again. A bubble over the gear on a computer, a toast
-// above the floating gear on a phone (css/corner.css, css/mobile.css). Never for admins.
+// above the floating gear on a phone (css/corner.css, css/mobile.css). Never for admins. ?donate shows it anyway.
 
 import { store } from "./store.js";
+import { DONATE_NUDGE } from "./config.js";
 
 // Read before anything else writes to storage (main.js imports this first): anything saved means an earlier visit,
 // which also counts everyone who used the site before the nudge existed.
@@ -11,7 +12,7 @@ const returning = store.get("visited", false) || (() => { try { return localStor
 store.set("visited", true);
 
 export function initDonateNudge({ isAdmin }) {
-  if (!returning || isAdmin || store.get("donateNudgeSeen", false)) return;
+  if (!DONATE_NUDGE && (!returning || isAdmin || store.get("donateNudgeSeen", false))) return;
   const nudge = document.createElement("div");
   nudge.id = "donate-nudge";
   nudge.setAttribute("role", "status");

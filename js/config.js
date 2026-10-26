@@ -14,9 +14,11 @@ export const MOBILE_QUERY = "(max-width: 700px), (max-height: 500px)";
 
 const params = new URLSearchParams(location.search);
 
-export const LOADING = params.has("loading");
+export const LOADING = params.has("loading");  // ?loading never fetches games, so the loading spinners stay up
 // ?notification-settings shows each belled game's notification settings (js/notify-settings.js); admins always get them.
-export const NOTIFY_SETTINGS = params.has("notification-settings");  // ?loading never fetches games, so the loading spinners stay up
+export const NOTIFY_SETTINGS = params.has("notification-settings");
+// ?donate shows the donation nudge (js/donate-nudge.js) on every load, whoever it is and whether or not it was closed.
+export const DONATE_NUDGE = params.has("donate");
 // ?admin asks for the admin password and remembers it; ?admin=off forgets it (js/admin.js). null when absent.
 export const ADMIN_PARAM = params.get("admin");
 // The site's own API (worker/handler.js) that logs the admin in and hands out the admin code.

@@ -998,6 +998,19 @@ test.describe("donation nudge", () => {
     await expect(nudge(page)).toHaveCount(0);
   });
 
+  test("?donate shows it anyway: on a first visit, and after it was closed", async ({ page }) => {
+    await open(page, { firstVisit: true, query: "?donate" });
+    await nudge(page).getByRole("button", { name: "Close" }).click();
+    await expect(nudge(page)).toHaveCount(0);
+    await page.reload();
+    await expect(nudge(page)).toBeVisible();
+  });
+
+  test("?donate shows it to an admin", async ({ page }) => {
+    await open(page, { storage: { ...admin }, query: "?donate" });
+    await expect(nudge(page)).toBeVisible();
+  });
+
   test.describe("on a phone", () => {
     test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
