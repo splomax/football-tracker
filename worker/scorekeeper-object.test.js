@@ -1,7 +1,7 @@
 // Run with: npm run test:worker
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ScoreKeeper } from "./scorekeeper-object.js";
+import { ScoreKeeper, PHONES_FRESH_MS } from "./scorekeeper-object.js";
 import { savePhone, setKinds } from "./phones.js";
 import { fakeKv } from "./phones.test.js";
 
@@ -41,11 +41,28 @@ async function setUp(t, { phones = {}, publicPhones = {}, version = "v1" } = {})
     return new Response(null, { status: String(url).endsWith("gone") ? 410 : 201 });
   });
   const obj = new ScoreKeeper(ctx, env, { fetchGames: async (league) => espn[league], fetchSummary: async (g) => ({ scoringPlays: plays[g.key] ?? [], latest: null }), now: () => now, testDelay: 0 });
-  const req = (path, init = {}) => obj.fetch(new Request(`https://scorekeeper${path}`, { ...init, headers: { "X-Version": version, ...init.headers } }));
-  // Firing the alarm, as Cloudflare does: it's cleared first, then the handler runs.
-  const fire = async () => { alarm = null; await obj.alarm(); };
-  return { obj, espn, plays, pushed, kv, req, fire, alarm: () => alarm, tick: (ms) => { now += ms; }, settle: () => Promise.all(pending) };
+  // Firing the alarm (fire), as Cloudflare does: it's cleared first, then the handler runs.
+  // A restart, as Cloudflare does between requests: a new object on the same storage.
+  const restart = () => { s.obj = new ScoreKeeper(ctx, env, { fetchGames: async (league) => espn[league], fetchSummary: async (g) => ({ scoringPlays: plays[g.key] ?? [], latest: null }), now: () => now, testDelay: 0 }); };
+  const s = { obj, espn, plays, pushed, kv, req: (path, init = {}) => s.obj.fetch(new Request(`https://scorekeeper${path}`, { ...init, headers: { "X-Version": version, ...init.headers } })),
+    fire: async () => { alarm = null; await s.obj.alarm(); }, restart, alarm: () => alarm, tick: (ms) => { now += ms; }, settle: () => Promise.all(pending) };
+  return s;
 }
+
+test("a restarted program reads its own copy of the phones, and KV only when a phone changed or the copy is an hour old", async (t) => {
+  const s = await setUp(t, { phones: { a: ["cfb:1"] } });
+  let lists = 0;
+  const list = s.kv.list;
+  s.kv.list = (...args) => { lists++; return list(...args); };
+  await s.req("/wake");
+  assert.equal(lists, 1);  // first start: no copy yet
+  for (let i = 0; i < 5; i++) { s.restart(); s.tick(60_000); await s.req("/wake"); }
+  assert.equal(lists, 1);
+  await s.req("/phones");  // a phone changed
+  assert.equal(lists, 2);
+  s.restart(); s.tick(PHONES_FRESH_MS); await s.req("/wake");
+  assert.equal(lists, 3);
+});
 
 test("a page asking gets the games and keeps it fetching every 10 seconds", async (t) => {
   const s = await setUp(t);

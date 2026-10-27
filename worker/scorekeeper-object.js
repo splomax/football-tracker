@@ -7,6 +7,9 @@ import { listPhones, sendToPhones } from "./phones.js";
 import { forDevice } from "../js/alerts.js";
 
 export const PHONE_TEST_DELAY_MS = 5000;  // a test reaches phones a few seconds late, time to lock the phone
+// How long the program's own copy of the phones (loadPhones) is trusted before it's read from KV again, in case a
+// phone's change (/phones) never reached it.
+export const PHONES_FRESH_MS = 60 * 60_000;
 
 // One instance, so every page and phone sees the same games and notifications. Requests carry the deployed version
 // (handler.js); an instance still on older code resets itself and the request is retried on the new code. It wakes
@@ -20,7 +23,7 @@ export class ScoreKeeper {
     this.env = env;
     this.keeper = new Keeper({ storage: ctx.storage, ...deps });
     this.testDelay = deps.testDelay ?? PHONE_TEST_DELAY_MS;
-    this.phones = null;  // [{ subscription, bells }], loaded from KV on first need, on /phones and on /wake
+    this.phones = null;  // [{ subscription, bells }], loaded on first need and on /phones (loadPhones)
     this.sentThrough = 0;  // the last notification sent to phones
   }
 
@@ -33,12 +36,12 @@ export class ScoreKeeper {
       return this.test(key, kind, text);
     }
     if (url.pathname === "/phones") {
-      await this.loadPhones();
+      await this.loadPhones({ fromKv: true });
       await this.schedule();
       return Response.json({ ok: true, phones: this.phones.length });
     }
     // The every-minute nudge (worker/index.js): restarts the schedule if it was lost (a deploy can drop the alarm),
-    // reading the phones only on a fresh start, since /phones keeps them current otherwise.
+    // loading the phones only on a fresh start, since /phones keeps them current otherwise.
     if (url.pathname === "/wake") {
       if (!this.phones) await this.loadPhones();
       await this.schedule();
@@ -59,8 +62,16 @@ export class ScoreKeeper {
     await this.schedule();
   }
 
-  async loadPhones() {
-    this.phones = this.env.PUSH ? await listPhones(this.env.PUSH) : [];
+  // The phones come from the program's own copy in its storage, and from KV (listPhones) only when a phone changed
+  // (fromKv: /phones) or the copy is over PHONES_FRESH_MS old. Cloudflare restarts the program often (seen: before
+  // nearly every minute's /wake), and reading KV each time ran into the free plan's 1,000 KV lists a day.
+  async loadPhones({ fromKv = false } = {}) {
+    const saved = fromKv ? null : await this.ctx.storage.get("phones");
+    if (saved && this.keeper.now() - saved.at < PHONES_FRESH_MS) this.phones = saved.phones;
+    else {
+      this.phones = this.env.PUSH ? await listPhones(this.env.PUSH) : [];
+      await this.ctx.storage.put("phones", { at: this.keeper.now(), phones: this.phones });
+    }
     this.keeper.bells = new Set(this.phones.flatMap((p) => p.bells));
   }
 
@@ -102,7 +113,10 @@ export class ScoreKeeper {
 
   async send(message, phones) {
     const { gone } = await sendToPhones(this.env, message, phones);
-    if (gone.length) this.phones = this.phones.filter((p) => !gone.includes(p.subscription.endpoint));
+    if (!gone.length) return;
+    this.phones = this.phones.filter((p) => !gone.includes(p.subscription.endpoint));
+    const saved = await this.ctx.storage.get("phones");
+    if (saved) await this.ctx.storage.put("phones", { ...saved, phones: this.phones });
   }
 
   test(key, kind, text) {
