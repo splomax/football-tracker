@@ -48,7 +48,11 @@ export async function fetchSummary(g) {
   const d = await (await fetch(LEAGUES[league].replace(/scoreboard.*$/, `summary?event=${id}`))).json();
   const all = [...(d.drives?.previous ?? []), ...(d.drives?.current ? [d.drives.current] : [])];
   const plays = all.flatMap((x) => x.plays ?? []);
-  const latest = plays.at(-1) ?? null;
+  // The latest by when it was entered: ESPN sometimes lists a play out of order (seen live: Illinois @ Maryland, a rush
+  // at 0:07 of the 1st listed after "End of 1st quarter", though entered before it).
+  const timed = plays.filter((p) => Number.isFinite(Date.parse(p.wallclock)));
+  const latest = (timed.length === plays.length && timed.length
+    ? timed.reduce((a, p) => (Date.parse(p.wallclock) >= Date.parse(a.wallclock) ? p : a)) : plays.at(-1)) ?? null;
   // Every play once (the current drive repeats the last of the previous ones), for turnovers (js/alerts.js
   // turnoverAlerts): its id, ESPN's type ("Rush", "Pass Interception Return"...), the teams with the ball before and
   // after it, and whether it scored.
@@ -74,14 +78,29 @@ const progress = (period, clock) => (period ?? 0) * 10_000 - seconds(clock);
 const NTH = ["1st", "2nd", "3rd", "4th"];
 
 /**
+ * Whether the scoreboard (g) claims more game time since the play-by-play's latest play than has passed in real life:
+ * the game clock never runs faster than a watch, so then the scoreboard's clock is wrong. Seen live: Illinois @
+ * Maryland, the scoreboard at 0:19 in the 2nd (the new quarter's clock never reset) four minutes after the
+ * play-by-play's "End of 1st quarter". Regulation only (15-minute quarters); overtime has other clocks or none.
+ */
+function clockRanAhead(g, latest, now) {
+  const at = Date.parse(latest.wallclock), period = latest.period?.number;
+  if (!Number.isFinite(at) || g.state !== "in" || !period || g.period > 4 || g.period < period) return false;
+  const gameTime = g.period === period ? seconds(latest.clock.displayValue) - seconds(g.clock)
+    : seconds(latest.clock.displayValue) + (g.period - period - 1) * 900 + 900 - seconds(g.clock);
+  return gameTime > (now - at) / 1000 + 60;  // a minute's slack for the watches disagreeing
+}
+
+/**
  * ESPN's scoreboard can lag its own play-by-play by minutes (seen live: stuck at 13:11 in the 1st with no score while
  * the play-by-play had a touchdown), and the other way round too. So the latest play (fetchSummary) wins only when it's
  * plainly further along: no earlier in the game and with no fewer points (points never go down), and ahead on one of
  * them. Then g takes its clock, score, ball spot and last play. A tie keeps the scoreboard's: college overtime has no
  * clock, so a stale play-by-play can look as far along as a fresh scoreboard (seen live: 6-6 in OT against 13-6). A
- * finished game keeps the scoreboard's.
+ * finished game keeps the scoreboard's. A scoreboard clock further along than real time allows (clockRanAhead) loses
+ * to the play-by-play's.
  */
-export function freshen(g, latest) {
+export function freshen(g, latest, now = Date.now()) {
   if (!latest?.clock || g.state === "post") return g;
   const period = latest.period?.number, clock = latest.clock.displayValue;
   // The scoreboard can sit at "End of 4th" long after the final whistle (seen live: USC @ Wisconsin, still in progress 6
@@ -96,11 +115,12 @@ export function freshen(g, latest) {
   }
   const ahead = progress(period, clock) - (g.state === "in" ? progress(g.period, g.clock) : -Infinity);
   const morePoints = (latest.awayScore ?? 0) + (latest.homeScore ?? 0) - (Number(g.away.score) || 0) - (Number(g.home.score) || 0);
-  if (ahead < 0 || morePoints < 0 || (ahead === 0 && morePoints === 0)) return g;  // the scoreboard is as far along
+  const impossible = ahead < 0 && morePoints >= 0 && clockRanAhead(g, latest, now);
+  if (!impossible && (ahead < 0 || morePoints < 0 || (ahead === 0 && morePoints === 0))) return g;  // the scoreboard is as far along
   g.away = { ...g.away, score: String(latest.awayScore ?? g.away.score) };
   g.home = { ...g.home, score: String(latest.homeScore ?? g.home.score) };
   const between = /end period|end of/i.test(latest.type?.text ?? "");
-  if (ahead > 0) {
+  if (ahead > 0 || impossible) {
     g.state = "in";
     g.period = period;
     g.clock = clock;

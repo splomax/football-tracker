@@ -56,3 +56,17 @@ test("a finished game, or no play-by-play yet, keeps the scoreboard's", () => {
   assert.equal(freshen(game({ state: "post", detail: "Final" }), play(4, "0:00", 30, 20)).away.score, "0");
   assert.equal(freshen(game(), null).clock, "13:11");
 });
+
+test("a scoreboard clock further along than real time allows loses to the play-by-play", () => {
+  // Seen live: Illinois @ Maryland, the scoreboard at 0:19 in the 2nd (the clock never reset) four minutes after the
+  // play-by-play's End of 1st quarter.
+  const at = Date.parse("2026-10-31T16:46:12Z");
+  const end = play(1, "0:00", 0, 7, { type: { text: "End Period" }, text: "End of 1st quarter.", end: {}, wallclock: "2026-10-31T16:46:12Z" });
+  const stuck = () => game({ period: 2, clock: "0:19", detail: "0:19 - 2nd", home: { id: "2", abbr: "MD", score: "7" } });
+  const g = freshen(stuck(), end, at + 4 * 60_000);
+  assert.deepEqual([g.period, g.clock, g.detail, g.possession], [1, "0:00", "End of 1st Quarter", undefined]);
+  // Enough real time for the clock to have got there: the scoreboard's.
+  assert.equal(freshen(stuck(), end, at + 20 * 60_000).detail, "0:19 - 2nd");
+  // A new quarter's clock that has only just started running: the scoreboard's.
+  assert.equal(freshen(game({ period: 2, clock: "14:48", detail: "14:48 - 2nd" }), end, at + 4 * 60_000).detail, "14:48 - 2nd");
+});
